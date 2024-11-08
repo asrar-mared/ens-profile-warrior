@@ -83,7 +83,6 @@ const func: DeployFunction = async function (hre) {
 func.tags = ['ethregistrar', 'ETHRegistrarController']
 func.dependencies = [
   'ENSRegistry',
-  'BaseRegistrarImplementation',
   'ExponentialPremiumPriceOracle',
   'ReverseRegistrar',
   'NameWrapper',
