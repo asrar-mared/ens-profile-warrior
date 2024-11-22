@@ -3,6 +3,9 @@ pragma solidity ^0.8.4;
 
 /// @notice Interface for the signature reverse resolver
 interface ISignatureReverseResolver {
+    /// @notice Thrown when the coin type is not found in the provided array
+    error CoinTypeNotFound();
+
     /// @notice Emitted when the name of a reverse record is changed.
     /// @param addr The address of the reverse record
     /// @param node The ENS node hash of the reverse record
@@ -13,12 +16,14 @@ interface ISignatureReverseResolver {
     ///         the addr provided account using a signature.
     /// @param addr The address to set the name for
     /// @param name The name of the reverse record
+    /// @param coinTypes The coin types to set. Must be inclusive of the coin type for the contract
     /// @param signatureExpiry Date when the signature expires
     /// @param signature The signature from the addr
     /// @return The ENS node hash of the reverse record
     function setNameForAddrWithSignature(
         address addr,
         string calldata name,
+        uint256[] calldata coinTypes,
         uint256 signatureExpiry,
         bytes calldata signature
     ) external returns (bytes32);

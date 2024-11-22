@@ -46,9 +46,11 @@ contract SignatureReverseResolver is ISignatureReverseResolver, ERC165 {
     function setNameForAddrWithSignature(
         address addr,
         string calldata name,
+        uint256[] memory coinTypes,
         uint256 signatureExpiry,
         bytes memory signature
     ) public returns (bytes32) {
+        _validateCoinTypes(coinTypes);
         bytes32 node = _getNamehash(addr);
 
         // Follow ERC191 version 0 https://eips.ethereum.org/EIPS/eip-191
@@ -58,8 +60,8 @@ contract SignatureReverseResolver is ISignatureReverseResolver, ERC165 {
                 ISignatureReverseResolver.setNameForAddrWithSignature.selector,
                 name,
                 addr,
-                signatureExpiry,
-                coinType
+                coinTypes,
+                signatureExpiry
             )
         ).toEthSignedMessageHash();
 
@@ -77,6 +79,15 @@ contract SignatureReverseResolver is ISignatureReverseResolver, ERC165 {
     ) internal virtual {
         names[node] = newName;
         emit NameChanged(addr, node, newName);
+    }
+
+    /// @dev Ensures the coin type for the contract is included in the provided array
+    function _validateCoinTypes(uint256[] memory coinTypes) internal view {
+        for (uint256 i = 0; i < coinTypes.length; i++) {
+            if (coinTypes[i] == coinType) return;
+        }
+
+        revert CoinTypeNotFound();
     }
 
     /// @inheritdoc ISignatureReverseResolver

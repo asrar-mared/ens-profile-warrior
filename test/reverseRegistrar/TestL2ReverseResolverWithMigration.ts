@@ -40,7 +40,7 @@ async function fixture() {
 }
 
 describe('L2ReverseResolverWithMigration', () => {
-  it('should migrate names wahoo', async () => {
+  it('should migrate names', async () => {
     const { l2ReverseResolver, oldReverseResolver, accounts } =
       await loadFixture(fixture)
 
@@ -57,5 +57,13 @@ describe('L2ReverseResolverWithMigration', () => {
       ])
       expect(newName).toBe(`name-${i}.eth`)
     }
+  })
+
+  it('should revert if not owner', async () => {
+    const { l2ReverseResolver, accounts } = await loadFixture(fixture)
+
+    await expect(l2ReverseResolver)
+      .write('batchSetName', [[accounts[0].address]], { account: accounts[1] })
+      .toBeRevertedWithString('Ownable: caller is not the owner')
   })
 })

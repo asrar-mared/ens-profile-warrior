@@ -44,27 +44,27 @@ contract L2ReverseResolver is
     }
 
     /// @inheritdoc IL2ReverseResolver
-    function setNameForAddrWithSignatureAndOwnable(
+    function setNameForOwnableWithSignature(
         address contractAddr,
         address owner,
         string calldata name,
+        uint256[] memory coinTypes,
         uint256 signatureExpiry,
         bytes memory signature
     ) public returns (bytes32) {
+        _validateCoinTypes(coinTypes);
         bytes32 node = _getNamehash(contractAddr);
 
         // Follow ERC191 version 0 https://eips.ethereum.org/EIPS/eip-191
         bytes32 message = keccak256(
             abi.encodePacked(
                 address(this),
-                IL2ReverseResolver
-                    .setNameForAddrWithSignatureAndOwnable
-                    .selector,
+                IL2ReverseResolver.setNameForOwnableWithSignature.selector,
                 name,
                 contractAddr,
                 owner,
-                signatureExpiry,
-                coinType
+                coinTypes,
+                signatureExpiry
             )
         ).toEthSignedMessageHash();
 

@@ -25,16 +25,18 @@ interface IL2ReverseResolver {
 
     /// @notice Sets the `name()` record for the reverse ENS record associated with
     ///         the contract provided that is owned with `Ownable`.
-    /// @param contractAddr The address of the contract to set the name for
+    /// @param contractAddr The address of the contract to set the name for (implementing Ownable)
     /// @param owner The owner of the contract (via Ownable)
     /// @param name The name to set
+    /// @param coinTypes The coin types to set. Must be inclusive of the coin type for the contract
     /// @param signatureExpiry The expiry of the signature
     /// @param signature The signature of an address that will return true on isValidSignature for the owner
     /// @return The ENS node hash of the reverse record
-    function setNameForAddrWithSignatureAndOwnable(
+    function setNameForOwnableWithSignature(
         address contractAddr,
         address owner,
         string calldata name,
+        uint256[] memory coinTypes,
         uint256 signatureExpiry,
         bytes calldata signature
     ) external returns (bytes32);
