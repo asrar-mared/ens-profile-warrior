@@ -121,12 +121,7 @@ describe('L2ReverseRegistry', () => {
   shouldSupportInterfaces({
     contract: () =>
       loadFixture(fixture).then(({ l2ReverseRegistry }) => l2ReverseRegistry),
-    interfaces: [
-      'IL2ReverseRegistry',
-      'IERC165',
-      'IMulticallable',
-      'ISignatureReverseRegistry',
-    ],
+    interfaces: ['IL2ReverseRegistry', 'IERC165', 'ISignatureReverseRegistry'],
   })
 
   it('should deploy the contract', async () => {

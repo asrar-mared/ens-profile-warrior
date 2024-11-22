@@ -6,7 +6,6 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
-import {Multicallable} from "../resolvers/Multicallable.sol";
 import {IL2ReverseRegistry} from "./IL2ReverseRegistry.sol";
 import {SignatureReverseRegistry} from "./SignatureReverseRegistry.sol";
 import {SignatureUtils} from "./SignatureUtils.sol";
@@ -15,7 +14,6 @@ import {SignatureUtils} from "./SignatureUtils.sol";
 /// @notice An L2 Reverse Registry. Deployed to each L2 chain.
 contract L2ReverseRegistry is
     ERC165,
-    Multicallable,
     IL2ReverseRegistry,
     SignatureReverseRegistry
 {
@@ -111,12 +109,7 @@ contract L2ReverseRegistry is
     /// @inheritdoc ERC165
     function supportsInterface(
         bytes4 interfaceID
-    )
-        public
-        view
-        override(ERC165, Multicallable, SignatureReverseRegistry)
-        returns (bool)
-    {
+    ) public view override(ERC165, SignatureReverseRegistry) returns (bool) {
         return
             interfaceID == type(IL2ReverseRegistry).interfaceId ||
             super.supportsInterface(interfaceID);
