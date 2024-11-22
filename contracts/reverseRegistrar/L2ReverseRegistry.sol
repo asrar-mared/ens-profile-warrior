@@ -7,17 +7,17 @@ import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 import {Multicallable} from "../resolvers/Multicallable.sol";
-import {IL2ReverseResolver} from "./IL2ReverseResolver.sol";
-import {SignatureReverseResolver} from "./SignatureReverseResolver.sol";
+import {IL2ReverseRegistry} from "./IL2ReverseRegistry.sol";
+import {SignatureReverseRegistry} from "./SignatureReverseRegistry.sol";
 import {SignatureUtils} from "./SignatureUtils.sol";
 
-/// @title L2 Reverse Resolver
-/// @notice An L2 reverse resolver. Deployed to each L2 chain.
-contract L2ReverseResolver is
+/// @title L2 Reverse Registry
+/// @notice An L2 Reverse Registry. Deployed to each L2 chain.
+contract L2ReverseRegistry is
     ERC165,
     Multicallable,
-    IL2ReverseResolver,
-    SignatureReverseResolver
+    IL2ReverseRegistry,
+    SignatureReverseRegistry
 {
     using SignatureUtils for bytes;
     using ECDSA for bytes32;
@@ -32,7 +32,7 @@ contract L2ReverseResolver is
     constructor(
         bytes32 _L2ReverseNode,
         uint256 _coinType
-    ) SignatureReverseResolver(_L2ReverseNode, _coinType) {
+    ) SignatureReverseRegistry(_L2ReverseNode, _coinType) {
         L2ReverseNode = _L2ReverseNode;
     }
 
@@ -43,7 +43,7 @@ contract L2ReverseResolver is
         }
     }
 
-    /// @inheritdoc IL2ReverseResolver
+    /// @inheritdoc IL2ReverseRegistry
     function setNameForOwnableWithSignature(
         address contractAddr,
         address owner,
@@ -59,7 +59,7 @@ contract L2ReverseResolver is
         bytes32 message = keccak256(
             abi.encodePacked(
                 address(this),
-                IL2ReverseResolver.setNameForOwnableWithSignature.selector,
+                IL2ReverseRegistry.setNameForOwnableWithSignature.selector,
                 name,
                 contractAddr,
                 owner,
@@ -78,12 +78,12 @@ contract L2ReverseResolver is
         return node;
     }
 
-    /// @inheritdoc IL2ReverseResolver
+    /// @inheritdoc IL2ReverseRegistry
     function setName(string calldata name) public override returns (bytes32) {
         return setNameForAddr(msg.sender, name);
     }
 
-    /// @inheritdoc IL2ReverseResolver
+    /// @inheritdoc IL2ReverseRegistry
     function setNameForAddr(
         address addr,
         string calldata name
@@ -114,11 +114,11 @@ contract L2ReverseResolver is
     )
         public
         view
-        override(ERC165, Multicallable, SignatureReverseResolver)
+        override(ERC165, Multicallable, SignatureReverseRegistry)
         returns (bool)
     {
         return
-            interfaceID == type(IL2ReverseResolver).interfaceId ||
+            interfaceID == type(IL2ReverseRegistry).interfaceId ||
             super.supportsInterface(interfaceID);
     }
 }

@@ -2,12 +2,12 @@
 
 pragma solidity ^0.8.4;
 
-import {L2ReverseResolver} from "./L2ReverseResolver.sol";
+import {L2ReverseRegistry} from "./L2ReverseRegistry.sol";
 import {INameResolver} from "../resolvers/profiles/INameResolver.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-/// @notice An L2 reverse resolver tha allows migrating from a prior resolver.
-contract L2ReverseResolverWithMigration is L2ReverseResolver, Ownable {
+/// @notice An L2 Revverse Registry that allows migrating from a prior resolver.
+contract L2ReverseRegistryWithMigration is L2ReverseRegistry, Ownable {
     /// @notice The old reverse resolver
     INameResolver immutable oldReverseResolver;
 
@@ -19,7 +19,7 @@ contract L2ReverseResolverWithMigration is L2ReverseResolver, Ownable {
         bytes32 _L2ReverseNode,
         uint256 _coinType,
         INameResolver _oldReverseResolver
-    ) L2ReverseResolver(_L2ReverseNode, _coinType) {
+    ) L2ReverseRegistry(_L2ReverseNode, _coinType) {
         oldReverseResolver = _oldReverseResolver;
     }
 

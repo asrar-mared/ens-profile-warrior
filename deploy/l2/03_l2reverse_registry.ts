@@ -1,6 +1,12 @@
 import { evmChainIdToCoinType } from '@ensdomains/address-encoder/utils'
 import type { DeployFunction } from 'hardhat-deploy/types.js'
 import { namehash } from 'viem'
+import { base, baseSepolia } from 'viem/chains'
+
+const oldReverseResolvers = {
+  [base.id]: '0xC6d566A56A1aFf6508b41f6c90ff131615583BCD',
+  [baseSepolia.id]: '0x6533C94869D28fAA8dF77cc63f9e2b2D6Cf77eBA',
+} as const
 
 const func: DeployFunction = async function (hre) {
   const { viem } = hre
@@ -19,9 +25,20 @@ const func: DeployFunction = async function (hre) {
     `Deploying L2ReverseResolver with REVERSENODE ${REVERSENODE} and coinType ${coinTypeHex}`,
   )
 
-  await viem.deploy('L2ReverseResolver', [REVERSENODE, coinType])
+  const oldReverseResolver =
+    oldReverseResolvers[chainId as keyof typeof oldReverseResolvers] || null
+  if (oldReverseResolver) {
+    console.log('Deploying with migration')
+    await viem.deploy('L2ReverseRegistryWithMigration', [
+      REVERSENODE,
+      coinType,
+      oldReverseResolver,
+    ])
+  } else {
+    await viem.deploy('L2ReverseRegistry', [REVERSENODE, coinType])
+  }
 }
 
-func.tags = ['L2ReverseResolver', 'l2']
+func.tags = ['L2ReverseRegistry', 'l2']
 
 export default func

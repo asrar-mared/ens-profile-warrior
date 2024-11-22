@@ -8,11 +8,11 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {ENS} from "../registry/ENS.sol";
 import {AddressUtils} from "../utils/AddressUtils.sol";
 
-import {ISignatureReverseResolver} from "./ISignatureReverseResolver.sol";
+import {ISignatureReverseRegistry} from "./ISignatureReverseRegistry.sol";
 import {SignatureUtils} from "./SignatureUtils.sol";
 
-/// @notice A reverse resolver that allows setting names with signatures
-contract SignatureReverseResolver is ISignatureReverseResolver, ERC165 {
+/// @notice A Reverse Registry that allows setting names with signatures
+contract SignatureReverseRegistry is ISignatureReverseRegistry, ERC165 {
     using SignatureUtils for bytes;
     using ECDSA for bytes32;
     using AddressUtils for address;
@@ -42,7 +42,7 @@ contract SignatureReverseResolver is ISignatureReverseResolver, ERC165 {
     /// @dev Checks if the caller is authorised
     function isAuthorised(address addr) internal view virtual {}
 
-    /// @inheritdoc ISignatureReverseResolver
+    /// @inheritdoc ISignatureReverseRegistry
     function setNameForAddrWithSignature(
         address addr,
         string calldata name,
@@ -57,7 +57,7 @@ contract SignatureReverseResolver is ISignatureReverseResolver, ERC165 {
         bytes32 message = keccak256(
             abi.encodePacked(
                 address(this),
-                ISignatureReverseResolver.setNameForAddrWithSignature.selector,
+                ISignatureReverseRegistry.setNameForAddrWithSignature.selector,
                 name,
                 addr,
                 coinTypes,
@@ -90,12 +90,12 @@ contract SignatureReverseResolver is ISignatureReverseResolver, ERC165 {
         revert CoinTypeNotFound();
     }
 
-    /// @inheritdoc ISignatureReverseResolver
+    /// @inheritdoc ISignatureReverseRegistry
     function name(bytes32 node) public view returns (string memory) {
         return names[node];
     }
 
-    /// @inheritdoc ISignatureReverseResolver
+    /// @inheritdoc ISignatureReverseRegistry
     function node(address addr) public view returns (bytes32) {
         return _getNamehash(addr);
     }
@@ -110,7 +110,7 @@ contract SignatureReverseResolver is ISignatureReverseResolver, ERC165 {
         bytes4 interfaceID
     ) public view virtual override returns (bool) {
         return
-            interfaceID == type(ISignatureReverseResolver).interfaceId ||
+            interfaceID == type(ISignatureReverseRegistry).interfaceId ||
             super.supportsInterface(interfaceID);
     }
 }

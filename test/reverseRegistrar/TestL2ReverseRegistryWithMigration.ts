@@ -27,24 +27,24 @@ async function fixture() {
     ])
   }
 
-  const l2ReverseResolver = await hre.viem.deployContract(
-    'L2ReverseResolverWithMigration',
+  const l2ReverseRegistry = await hre.viem.deployContract(
+    'L2ReverseRegistryWithMigration',
     [namehash(reverseNamespace), coinType, oldReverseResolver.address],
   )
 
   return {
-    l2ReverseResolver,
+    l2ReverseRegistry,
     oldReverseResolver,
     accounts,
   }
 }
 
-describe('L2ReverseResolverWithMigration', () => {
+describe('L2ReverseRegistryWithMigration', () => {
   it('should migrate names', async () => {
-    const { l2ReverseResolver, oldReverseResolver, accounts } =
+    const { l2ReverseRegistry, oldReverseResolver, accounts } =
       await loadFixture(fixture)
 
-    await l2ReverseResolver.write.batchSetName([accounts.map((a) => a.address)])
+    await l2ReverseRegistry.write.batchSetName([accounts.map((a) => a.address)])
 
     for (let i = 0; i < accounts.length; i++) {
       const account = accounts[i]
@@ -52,7 +52,7 @@ describe('L2ReverseResolverWithMigration', () => {
         getReverseNodeHash(account.address, { chainId: base.id }),
       ])
       expect(name).toBe(`name-${i}.eth`)
-      const newName = await l2ReverseResolver.read.name([
+      const newName = await l2ReverseRegistry.read.name([
         getReverseNodeHash(account.address, { chainId: base.id }),
       ])
       expect(newName).toBe(`name-${i}.eth`)
@@ -60,9 +60,9 @@ describe('L2ReverseResolverWithMigration', () => {
   })
 
   it('should revert if not owner', async () => {
-    const { l2ReverseResolver, accounts } = await loadFixture(fixture)
+    const { l2ReverseRegistry, accounts } = await loadFixture(fixture)
 
-    await expect(l2ReverseResolver)
+    await expect(l2ReverseRegistry)
       .write('batchSetName', [[accounts[0].address]], { account: accounts[1] })
       .toBeRevertedWithString('Ownable: caller is not the owner')
   })
