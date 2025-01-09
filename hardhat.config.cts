@@ -117,6 +117,18 @@ const config = {
   solidity: {
     compilers: [
       {
+        version: '0.8.26',
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 1_000_000,
+          },
+          metadata: {
+            useLiteralContent: true,
+          },
+        },
+      },
+      {
         version: '0.8.17',
         settings: {
           optimizer: {
@@ -136,6 +148,17 @@ const config = {
         },
       },
     ],
+    overrides: {
+      'contracts/wrapper/NameWrapper.sol': {
+        version: '0.8.17',
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 1200,
+          },
+        },
+      },
+    },
   },
   abiExporter: {
     path: './build/contracts',

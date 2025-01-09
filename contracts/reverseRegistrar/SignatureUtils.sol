@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.4;
 
-import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
+import {SignatureChecker} from "@openzeppelin/contracts-v5/utils/cryptography/SignatureChecker.sol";
 
 /// @notice Utility functions for validating signatures with expiry
 library SignatureUtils {

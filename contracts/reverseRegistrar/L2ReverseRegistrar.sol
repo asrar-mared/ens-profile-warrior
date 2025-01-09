@@ -2,23 +2,23 @@
 
 pragma solidity ^0.8.4;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import {Ownable} from "@openzeppelin/contracts-v5/access/Ownable.sol";
+import {MessageHashUtils} from "@openzeppelin/contracts-v5/utils/cryptography/MessageHashUtils.sol";
+import {ERC165} from "@openzeppelin/contracts-v5/utils/introspection/ERC165.sol";
 
-import {IL2ReverseRegistry} from "./IL2ReverseRegistry.sol";
-import {SignatureReverseRegistry} from "./SignatureReverseRegistry.sol";
+import {IL2ReverseRegistrar} from "./IL2ReverseRegistrar.sol";
+import {SignatureReverseRegistrar} from "./SignatureReverseRegistrar.sol";
 import {SignatureUtils} from "./SignatureUtils.sol";
 
-/// @title L2 Reverse Registry
-/// @notice An L2 Reverse Registry. Deployed to each L2 chain.
-contract L2ReverseRegistry is
+/// @title L2 Reverse Registrar
+/// @notice An L2 Reverse Registrar. Deployed to each L2 chain.
+contract L2ReverseRegistrar is
     ERC165,
-    IL2ReverseRegistry,
-    SignatureReverseRegistry
+    IL2ReverseRegistrar,
+    SignatureReverseRegistrar
 {
     using SignatureUtils for bytes;
-    using ECDSA for bytes32;
+    using MessageHashUtils for bytes32;
 
     /// @notice The addr namespace. Equal to the namehash of
     ///         `${coinTypeHex}.reverse`.
@@ -30,7 +30,7 @@ contract L2ReverseRegistry is
     constructor(
         bytes32 _L2ReverseNode,
         uint256 _coinType
-    ) SignatureReverseRegistry(_L2ReverseNode, _coinType) {
+    ) SignatureReverseRegistrar(_L2ReverseNode, _coinType) {
         L2ReverseNode = _L2ReverseNode;
     }
 
@@ -41,7 +41,7 @@ contract L2ReverseRegistry is
         }
     }
 
-    /// @inheritdoc IL2ReverseRegistry
+    /// @inheritdoc IL2ReverseRegistrar
     function setNameForOwnableWithSignature(
         address contractAddr,
         address owner,
@@ -57,7 +57,7 @@ contract L2ReverseRegistry is
         bytes32 message = keccak256(
             abi.encodePacked(
                 address(this),
-                IL2ReverseRegistry.setNameForOwnableWithSignature.selector,
+                IL2ReverseRegistrar.setNameForOwnableWithSignature.selector,
                 name,
                 contractAddr,
                 owner,
@@ -76,12 +76,12 @@ contract L2ReverseRegistry is
         return node;
     }
 
-    /// @inheritdoc IL2ReverseRegistry
+    /// @inheritdoc IL2ReverseRegistrar
     function setName(string calldata name) public override returns (bytes32) {
         return setNameForAddr(msg.sender, name);
     }
 
-    /// @inheritdoc IL2ReverseRegistry
+    /// @inheritdoc IL2ReverseRegistrar
     function setNameForAddr(
         address addr,
         string calldata name
@@ -109,9 +109,9 @@ contract L2ReverseRegistry is
     /// @inheritdoc ERC165
     function supportsInterface(
         bytes4 interfaceID
-    ) public view override(ERC165, SignatureReverseRegistry) returns (bool) {
+    ) public view override(ERC165, SignatureReverseRegistrar) returns (bool) {
         return
-            interfaceID == type(IL2ReverseRegistry).interfaceId ||
+            interfaceID == type(IL2ReverseRegistrar).interfaceId ||
             super.supportsInterface(interfaceID);
     }
 }

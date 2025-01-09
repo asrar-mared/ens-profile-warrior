@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-/// @notice Interface for a signature-based Reverse Registry
-interface ISignatureReverseRegistry {
+/// @notice Interface for a signature-based Reverse Registrar
+interface ISignatureReverseRegistrar {
     /// @notice Thrown when the coin type is not found in the provided array
     error CoinTypeNotFound();
 

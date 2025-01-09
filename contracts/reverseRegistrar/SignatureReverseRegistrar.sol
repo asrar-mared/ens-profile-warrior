@@ -2,19 +2,18 @@
 
 pragma solidity ^0.8.4;
 
-import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import {ERC165} from "@openzeppelin/contracts-v5/utils/introspection/ERC165.sol";
+import {MessageHashUtils} from "@openzeppelin/contracts-v5/utils/cryptography/MessageHashUtils.sol";
 
 import {ENS} from "../registry/ENS.sol";
 import {AddressUtils} from "../utils/AddressUtils.sol";
-
-import {ISignatureReverseRegistry} from "./ISignatureReverseRegistry.sol";
+import {ISignatureReverseRegistrar} from "./ISignatureReverseRegistrar.sol";
 import {SignatureUtils} from "./SignatureUtils.sol";
 
-/// @notice A Reverse Registry that allows setting names with signatures
-contract SignatureReverseRegistry is ISignatureReverseRegistry, ERC165 {
+/// @notice A Reverse Registrar that allows setting names with signatures
+contract SignatureReverseRegistrar is ISignatureReverseRegistrar, ERC165 {
     using SignatureUtils for bytes;
-    using ECDSA for bytes32;
+    using MessageHashUtils for bytes32;
     using AddressUtils for address;
 
     mapping(bytes32 => string) names;
@@ -42,7 +41,7 @@ contract SignatureReverseRegistry is ISignatureReverseRegistry, ERC165 {
     /// @dev Checks if the caller is authorised
     function isAuthorised(address addr) internal view virtual {}
 
-    /// @inheritdoc ISignatureReverseRegistry
+    /// @inheritdoc ISignatureReverseRegistrar
     function setNameForAddrWithSignature(
         address addr,
         string calldata name,
@@ -57,7 +56,7 @@ contract SignatureReverseRegistry is ISignatureReverseRegistry, ERC165 {
         bytes32 message = keccak256(
             abi.encodePacked(
                 address(this),
-                ISignatureReverseRegistry.setNameForAddrWithSignature.selector,
+                ISignatureReverseRegistrar.setNameForAddrWithSignature.selector,
                 name,
                 addr,
                 coinTypes,
@@ -90,12 +89,12 @@ contract SignatureReverseRegistry is ISignatureReverseRegistry, ERC165 {
         revert CoinTypeNotFound();
     }
 
-    /// @inheritdoc ISignatureReverseRegistry
+    /// @inheritdoc ISignatureReverseRegistrar
     function name(bytes32 node) public view returns (string memory) {
         return names[node];
     }
 
-    /// @inheritdoc ISignatureReverseRegistry
+    /// @inheritdoc ISignatureReverseRegistrar
     function node(address addr) public view returns (bytes32) {
         return _getNamehash(addr);
     }
@@ -110,7 +109,7 @@ contract SignatureReverseRegistry is ISignatureReverseRegistry, ERC165 {
         bytes4 interfaceID
     ) public view virtual override returns (bool) {
         return
-            interfaceID == type(ISignatureReverseRegistry).interfaceId ||
+            interfaceID == type(ISignatureReverseRegistrar).interfaceId ||
             super.supportsInterface(interfaceID);
     }
 }

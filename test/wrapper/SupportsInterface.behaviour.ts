@@ -139,9 +139,9 @@ const getSolidityReferenceInterfaceAbi = async (
 
   if (!buildInfo) throw new Error("Couldn't find build info for interface")
 
-  const path = fullyQualifiedInterfaceName.split(':')[0]
+  const [path, parsedInterfaceName] = fullyQualifiedInterfaceName.split(':')
   const buildMetadata = JSON.parse(
-    (buildInfo.output.contracts[path][interfaceName] as any).metadata,
+    (buildInfo.output.contracts[path][parsedInterfaceName] as any).metadata,
   ) as CompilerInput
   const { content } = buildMetadata.sources[path]
 
@@ -150,7 +150,7 @@ const getSolidityReferenceInterfaceAbi = async (
       // Remove comments - single and multi-line
       .replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '')
       // Match only the interface block + nested curly braces
-      .match(`interface ${interfaceName} .*?{(?:\{??[^{]*?})+`)![0]
+      .match(`interface ${parsedInterfaceName} .*?{(?:\{??[^{]*?})+`)![0]
       // Remove the interface keyword and the interface name
       .replace(/.*{/s, '')
       // Remove the closing curly brace

@@ -2,24 +2,27 @@
 
 pragma solidity ^0.8.4;
 
-import {L2ReverseRegistry} from "./L2ReverseRegistry.sol";
-import {INameResolver} from "../resolvers/profiles/INameResolver.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Ownable} from "@openzeppelin/contracts-v5/access/Ownable.sol";
 
-/// @notice An L2 Revverse Registry that allows migrating from a prior resolver.
-contract L2ReverseRegistryWithMigration is L2ReverseRegistry, Ownable {
+import {L2ReverseRegistrar} from "./L2ReverseRegistrar.sol";
+import {INameResolver} from "../resolvers/profiles/INameResolver.sol";
+
+/// @notice An L2 Revverse Registrar that allows migrating from a prior resolver.
+contract L2ReverseRegistrarWithMigration is L2ReverseRegistrar, Ownable {
     /// @notice The old reverse resolver
     INameResolver immutable oldReverseResolver;
 
     /// @notice Sets the namespace, coin type, and old reverse resolver
     /// @param _L2ReverseNode The namespace to set. The converntion is '${coinType}.reverse'
     /// @param _coinType The cointype converted from the chainId of the chain this contract is deployed to.
+    /// @param _owner The initial owner of the contract
     /// @param _oldReverseResolver The old reverse resolver
     constructor(
         bytes32 _L2ReverseNode,
         uint256 _coinType,
+        address _owner,
         INameResolver _oldReverseResolver
-    ) L2ReverseRegistry(_L2ReverseNode, _coinType) {
+    ) L2ReverseRegistrar(_L2ReverseNode, _coinType) Ownable(_owner) {
         oldReverseResolver = _oldReverseResolver;
     }
 

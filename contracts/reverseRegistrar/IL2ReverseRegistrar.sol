@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-/// @notice Interface for the L2 Reverse Registry
-interface IL2ReverseRegistry {
+/// @notice Interface for the L2 Reverse Registrar
+interface IL2ReverseRegistrar {
     /// @notice Thrown when the specified address is not the owner of the contract
     error NotOwnerOfContract();
 

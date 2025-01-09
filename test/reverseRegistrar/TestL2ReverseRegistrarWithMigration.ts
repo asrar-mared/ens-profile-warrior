@@ -2,7 +2,7 @@ import { evmChainIdToCoinType } from '@ensdomains/address-encoder/utils'
 import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
 import { expect } from 'chai'
 import hre from 'hardhat'
-import { namehash } from 'viem'
+import { getAddress, namehash } from 'viem'
 import { base } from 'viem/chains'
 import {
   getReverseNamespace,
@@ -27,24 +27,31 @@ async function fixture() {
     ])
   }
 
-  const l2ReverseRegistry = await hre.viem.deployContract(
-    'L2ReverseRegistryWithMigration',
-    [namehash(reverseNamespace), coinType, oldReverseResolver.address],
+  const l2ReverseRegistrar = await hre.viem.deployContract(
+    'L2ReverseRegistrarWithMigration',
+    [
+      namehash(reverseNamespace),
+      coinType,
+      accounts[0].address,
+      oldReverseResolver.address,
+    ],
   )
 
   return {
-    l2ReverseRegistry,
+    l2ReverseRegistrar,
     oldReverseResolver,
     accounts,
   }
 }
 
-describe('L2ReverseRegistryWithMigration', () => {
+describe('L2ReverseRegistrarWithMigration', () => {
   it('should migrate names', async () => {
-    const { l2ReverseRegistry, oldReverseResolver, accounts } =
+    const { l2ReverseRegistrar, oldReverseResolver, accounts } =
       await loadFixture(fixture)
 
-    await l2ReverseRegistry.write.batchSetName([accounts.map((a) => a.address)])
+    await l2ReverseRegistrar.write.batchSetName([
+      accounts.map((a) => a.address),
+    ])
 
     for (let i = 0; i < accounts.length; i++) {
       const account = accounts[i]
@@ -52,7 +59,7 @@ describe('L2ReverseRegistryWithMigration', () => {
         getReverseNodeHash(account.address, { chainId: base.id }),
       ])
       expect(name).toBe(`name-${i}.eth`)
-      const newName = await l2ReverseRegistry.read.name([
+      const newName = await l2ReverseRegistrar.read.name([
         getReverseNodeHash(account.address, { chainId: base.id }),
       ])
       expect(newName).toBe(`name-${i}.eth`)
@@ -60,10 +67,11 @@ describe('L2ReverseRegistryWithMigration', () => {
   })
 
   it('should revert if not owner', async () => {
-    const { l2ReverseRegistry, accounts } = await loadFixture(fixture)
+    const { l2ReverseRegistrar, accounts } = await loadFixture(fixture)
 
-    await expect(l2ReverseRegistry)
+    await expect(l2ReverseRegistrar)
       .write('batchSetName', [[accounts[0].address]], { account: accounts[1] })
-      .toBeRevertedWithString('Ownable: caller is not the owner')
+      .toBeRevertedWithCustomError('OwnableUnauthorizedAccount')
+      .withArgs(getAddress(accounts[1].address))
   })
 })
