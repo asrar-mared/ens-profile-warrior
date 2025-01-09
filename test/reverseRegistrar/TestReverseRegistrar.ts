@@ -91,7 +91,10 @@ describe('ReverseRegistrar', () => {
   shouldSupportInterfaces({
     contract: () =>
       loadFixture(fixture).then(({ reverseRegistrar }) => reverseRegistrar),
-    interfaces: ['IReverseRegistrar', 'IERC165'],
+    interfaces: [
+      'IReverseRegistrar',
+      '@openzeppelin/contracts/utils/introspection/IERC165.sol:IERC165',
+    ],
   })
 
   it('should calculate node hash correctly', async () => {
