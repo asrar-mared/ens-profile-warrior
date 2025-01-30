@@ -95,7 +95,7 @@ contract ReverseRegistrar is Ownable, Controllable, ERC165, IReverseRegistrar {
         address owner,
         address resolver,
         uint256 signatureExpiry,
-        bytes memory signature
+        bytes calldata signature
     ) public override returns (bytes32) {
         bytes32 labelHash = addr.sha3HexAddress();
         bytes32 reverseNode = keccak256(
@@ -158,7 +158,7 @@ contract ReverseRegistrar is Ownable, Controllable, ERC165, IReverseRegistrar {
         address owner,
         address resolver,
         uint256 signatureExpiry,
-        bytes memory signature,
+        bytes calldata signature,
         string calldata name
     ) public override returns (bytes32) {
         bytes32 node = claimForAddrWithSignature(

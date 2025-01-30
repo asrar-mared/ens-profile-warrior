@@ -47,7 +47,7 @@ contract SignatureReverseRegistrar is ISignatureReverseRegistrar, ERC165 {
         string calldata name,
         uint256[] memory coinTypes,
         uint256 signatureExpiry,
-        bytes memory signature
+        bytes calldata signature
     ) public returns (bytes32) {
         _validateCoinTypes(coinTypes);
         bytes32 node = _getNamehash(addr);
