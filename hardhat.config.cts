@@ -15,7 +15,9 @@ import { HardhatUserConfig } from 'hardhat/config'
 import('@ensdomains/hardhat-chai-matchers-viem')
 
 // hardhat actions
+import './tasks/create_l2_safe.cts'
 import './tasks/esm_fix.cjs'
+import './tasks/etherscan-multichain.cts'
 
 // Load environment variables from .env file. Suppress warnings using silent
 // if this file is missing. dotenv will never modify any environment variables
@@ -48,7 +50,7 @@ const config = {
     },
     sepolia: {
       url: `https://sepolia.infura.io/v3/${process.env.INFURA_API_KEY}`,
-      tags: ['test', 'legacy', 'use_root'],
+      tags: ['test', 'legacy', 'use_root', 'testnet'],
       chainId: 11155111,
       accounts: real_accounts,
     },
@@ -56,7 +58,7 @@ const config = {
       url: 'https://sepolia.optimism.io',
       chainId: 11155420,
       accounts: real_accounts,
-      tags: ['l2'],
+      tags: ['l2', 'testnet'],
     },
     base: {
       url: 'https://mainnet.base.org',
@@ -68,13 +70,13 @@ const config = {
       url: 'https://sepolia.base.org',
       chainId: 84532,
       accounts: real_accounts,
-      tags: ['l2'],
+      tags: ['l2', 'testnet'],
     },
     arbitrumSepolia: {
       url: 'https://sepolia-rollup.arbitrum.io/rpc',
       chainId: 421614,
       accounts: real_accounts,
-      tags: ['l2'],
+      tags: ['l2', 'testnet'],
     },
     scroll: {
       url: 'https://rpc.scroll.io',
@@ -86,7 +88,7 @@ const config = {
       url: 'https://sepolia-rpc.scroll.io',
       chainId: 534351,
       accounts: real_accounts,
-      tags: ['l2'],
+      tags: ['l2', 'testnet'],
     },
     linea: {
       url: 'https://rpc.linea.build',
@@ -98,11 +100,11 @@ const config = {
       url: 'https://rpc.sepolia.linea.build',
       chainId: 59141,
       accounts: real_accounts,
-      tags: ['l2'],
+      tags: ['l2', 'testnet'],
     },
     holesky: {
       url: `https://holesky.infura.io/v3/${process.env.INFURA_API_KEY}`,
-      tags: ['test', 'legacy', 'use_root'],
+      tags: ['test', 'legacy', 'use_root', 'testnet'],
       chainId: 17000,
       accounts: real_accounts,
     },

@@ -12,6 +12,7 @@ import type {
 
 import 'hardhat-deploy/dist/types.js'
 import type { DeployOptions, DeployResult } from 'hardhat-deploy/dist/types.js'
+import type { DeploymentSubmission } from 'hardhat-deploy/types'
 import 'hardhat/types/config.js'
 import 'hardhat/types/runtime.js'
 import {
@@ -282,7 +283,7 @@ const deploy =
       args,
       bytecode: artifact.bytecode,
       deployedBytecode: artifact.deployedBytecode,
-    }
+    } satisfies DeploymentSubmission
 
     await hre.deployments.save(contractName, deployment)
 
