@@ -49,7 +49,6 @@ const func: DeployFunction = async function (hre) {
   console.log(`UniversalSigValidator deployed at ${usvAddress}`)
 }
 
-func.dependencies = ['UniversalSigValidator']
 func.tags = ['UniversalSigValidator', 'utils']
 func.skip = async (hre) => {
   const { viem } = hre
