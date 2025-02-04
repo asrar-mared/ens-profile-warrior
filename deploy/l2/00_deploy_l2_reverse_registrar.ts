@@ -71,6 +71,12 @@ const safeDeploy = async (
     } as const
   })()
 
+  console.log('L2ReverseRegistrar type:', deployConfig.artifactName)
+  console.log(
+    'L2ReverseRegistrar deployment args:',
+    deployConfig.deploymentArgs,
+  )
+
   const confirmAndSave = async ({
     deployment,
     receipt,
@@ -281,16 +287,16 @@ const func: DeployFunction = async function (hre) {
   const REVERSE_NAMESPACE = `${coinTypeHex}.reverse`
   const REVERSENODE = namehash(REVERSE_NAMESPACE)
 
-  console.log(`Deploying L2ReverseRegistrar on ${hre.network.name} with:`)
-  console.log(`reverseNode: ${REVERSENODE}`)
-  console.log(`coinType: ${coinType}`)
-
-  if (process.env.SAFE_PROPOSER_KEY) {
+  if (process.env.SAFE_PROPOSER_KEY && hre.network.saveDeployments) {
     await safeDeploy(hre, {
       reverseNode: REVERSENODE,
       coinType,
     })
   } else {
+    console.log(`Deploying L2ReverseRegistrar on ${hre.network.name} with:`)
+    console.log(`reverseNode: ${REVERSENODE}`)
+    console.log(`coinType: ${coinType}`)
+
     await viem.deploy('L2ReverseRegistrar', [REVERSENODE, coinType])
   }
 }

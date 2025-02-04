@@ -40,9 +40,14 @@ config
   .task('multichain-verify')
   .addPositionalParam('contractName')
   .addPositionalParam('address')
-  .addVariadicPositionalParam('deployArgs')
+  .addOptionalVariadicPositionalParam('deployArgs')
   .setAction(async (args, hre) => {
-    const { contractName: contractName_, address, deployArgs } = args
+    const {
+      contractName: contractName_,
+      address,
+      deployArgs: deployArgs_,
+    } = args
+    const deployArgs = deployArgs_ ?? []
     const { metadata: metadataString, abi } =
       await hre.deployments.getExtendedArtifact(contractName_)
     if (!metadataString) throw new Error('Metadata not found')
