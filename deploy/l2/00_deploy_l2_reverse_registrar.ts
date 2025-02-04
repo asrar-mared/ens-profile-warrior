@@ -301,6 +301,7 @@ const func: DeployFunction = async function (hre) {
   }
 }
 
+func.dependencies = ['UniversalSigValidator']
 func.tags = ['L2ReverseRegistrar', 'l2']
 
 export default func

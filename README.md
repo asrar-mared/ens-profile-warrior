@@ -167,38 +167,17 @@ bun run test
 bun run pub
 ```
 
-## How to deploy l2 contracts
+## L2 contracts
 
-There are a set of l2 contracts currently on the `feature/crosschain-resolver-with-reverse-registrar` branch
+The only contract in this repo deployed on L2s is `L2ReverseRegistrar` (and its dependency `UniversalSigValidator`).
 
-```
-git checkout feature/crosschain-resolver-with-reverse-registrar
-DEPLOYER_KEY=$DEPLOYER_KEY ETHERSCAN_API_KEY=$ETHERSCAN_API_KEY npx hardhat deploy --tags l2 --network optimismSepolia/baseSepolia/arbSepolia
-```
+Anyone can deploy this contract onto any L2, however the contract has functionality which allows using one signature across multiple L2s.
+Given this functionality, and [EIP-191](https://eips.ethereum.org/EIPS/eip-191)'s requirement for the intended validator address in the signature, the contract address needs to stay the same between all networks.
 
-The script will deploy the following three contracts
+To allow for a unified contract address, a Safe and a helper CREATE3 contract are used in the deployment process. The contract can be deployed outside the process, but it means that it will lack the multi-chain signature functionality.
 
-- DelegatableResolver = A template resolver contract
-- DelegatableResolverFactory = A factory contract that creates a resolver for each user. A user can add delegates which can update record on behalf of the contract owner. The potential use case is to give subname under the resolver contract and grant a permission to update the subname.
-- L2ReverseResolver = A Reverse resolver contract, following the [Evm reverse resolution draft ENSIP](https://github.com/ensdomains/docs/pull/157)
-
-NOTE: Each name owner will be deploying a dedicated resolver for the name and their subnames.
-You can predict the resolver address by calling the predictAddress
-
-```
-DelegatableResolverFactory.predictAddress(ownerAddress)
-```
-
-The function is an external function and you cannot call read function from etherscan.
-To work around, you may want to define the abi function as view function
-
-```
-const abi = [
-  "function predictAddress(address) view returns (address)"
-]
-const l2Factory = new ethers.Contract(L2_RESOLVER_FACTORY_ADDRESS, abi, l2provider);
-const l2resolverAddress = await l2Factory.predictAddress(ETH_ADDRESS)
-```
+Testnet Safe address: `0x343431e9CEb7C19cC8d3eA0EE231bfF82B584910`
+Mainnet Safe address: `0x353530FE74098903728Ddb66Ecdb70f52e568eC1`
 
 ## Release flow
 
