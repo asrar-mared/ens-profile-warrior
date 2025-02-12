@@ -8,12 +8,14 @@ import type {
 import type { HardhatRuntimeEnvironment } from 'hardhat/types/runtime.js'
 import path from 'path'
 import {
+  concatHex,
   encodeDeployData,
   encodeFunctionData,
   keccak256,
   namehash,
   parseAbi,
   stringToHex,
+  zeroHash,
   type Hash,
   type Hex,
   type TransactionReceipt,
@@ -23,11 +25,14 @@ import { base, baseSepolia } from 'viem/chains'
 const safeConfig = {
   testnet: {
     safeAddress: '0x343431e9CEb7C19cC8d3eA0EE231bfF82B584910',
-    expectedDeploymentAddress: '0xAe91c512BC1da8B00cd33dd9D9C734069e6E0fcd',
+    baseDeploymentSalt:
+      '0xb42292a18122332f920fcf3af8efe05e2c97a83802dfe4dd01dee7dec47f66ae',
+    expectedDeploymentAddress: '0x00000BeEF055f7934784D6d81b6BC86665630dbA',
   },
   mainnet: {
     safeAddress: '0x353530FE74098903728Ddb66Ecdb70f52e568eC1',
-    expectedDeploymentAddress: '0xa4a5CaA360A81461158C96f2Dbad8944411CF3fd',
+    baseDeploymentSalt: zeroHash,
+    expectedDeploymentAddress: '0xF59bB3fD1047Be68736D1744c3b9D56eBF64b039',
   },
 } as const
 
@@ -50,7 +55,8 @@ const safeDeploy = async (
   },
 ) => {
   const networkType = hre.network.tags.testnet ? 'testnet' : 'mainnet'
-  const { safeAddress, expectedDeploymentAddress } = safeConfig[networkType]
+  const { safeAddress, baseDeploymentSalt, expectedDeploymentAddress } =
+    safeConfig[networkType]
   const deployConfig = (() => {
     if (
       hre.network.config.chainId === base.id ||
@@ -59,15 +65,15 @@ const safeDeploy = async (
       return {
         artifactName: 'L2ReverseRegistrarWithMigration',
         deploymentArgs: [
-          reverseNode,
           coinType,
           safeAddress,
+          reverseNode,
           oldReverseResolvers[hre.network.config.chainId],
-        ] as [Hex, bigint, Hex, Hex],
+        ] as [bigint, Hex, Hex, Hex],
       } as const
     return {
       artifactName: 'L2ReverseRegistrar',
-      deploymentArgs: [reverseNode, coinType] as [Hex, bigint],
+      deploymentArgs: [coinType] as [bigint],
     } as const
   })()
 
@@ -203,7 +209,15 @@ const safeDeploy = async (
     abi: parseAbi([
       'function deployDeterministic(bytes initCode, bytes32 salt) returns (address)',
     ]),
-    args: [deployData, keccak256(stringToHex('L2ReverseRegistrar v1.0.0'))],
+    args: [
+      deployData,
+      keccak256(
+        concatHex([
+          baseDeploymentSalt,
+          stringToHex('L2ReverseRegistrar v1.0.0'),
+        ]),
+      ),
+    ],
   })
 
   const safeTransaction = await protocolKit.createTransaction({
@@ -294,10 +308,9 @@ const func: DeployFunction = async function (hre) {
     })
   } else {
     console.log(`Deploying L2ReverseRegistrar on ${hre.network.name} with:`)
-    console.log(`reverseNode: ${REVERSENODE}`)
     console.log(`coinType: ${coinType}`)
 
-    await viem.deploy('L2ReverseRegistrar', [REVERSENODE, coinType])
+    await viem.deploy('L2ReverseRegistrar', [coinType])
   }
 }
 

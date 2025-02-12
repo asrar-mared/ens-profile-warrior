@@ -3,62 +3,32 @@ import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpe
 import { expect } from 'chai'
 import hre from 'hardhat'
 import {
-  concat,
   encodeFunctionData,
   encodePacked,
   getAddress,
   keccak256,
-  namehash,
   toFunctionSelector,
-  zeroHash,
   type AbiFunction,
   type Address,
   type Hex,
 } from 'viem'
 import { optimism } from 'viem/chains'
 import { serializeErc6492Signature } from 'viem/experimental'
-import { getReverseNamespace } from '../fixtures/getReverseNode.js'
+import { deployUniversalSigValidator } from '../fixtures/universalSigValidator.js'
 import { shouldSupportInterfaces } from '../wrapper/SupportsInterface.behaviour.js'
 
 const coinType = evmChainIdToCoinType(optimism.id)
-const reverseNamespace = getReverseNamespace({ chainId: optimism.id })
-const ddpSigner = '0x3fab184622dc19b6109349b94811493bf2a45362'
-const ddpAddress = '0x4e59b44847b379578588920ca78fbf26c0b4956c'
 
 async function fixture() {
   const accounts = await hre.viem
     .getWalletClients()
     .then((clients) => clients.map((c) => c.account))
 
-  const testClient = await hre.viem.getTestClient()
-  const publicClient = await hre.viem.getPublicClient()
-  const [walletClient] = await hre.viem.getWalletClients()
-
-  // deploy deterministic deployer proxy
-  await testClient.setBalance({
-    address: ddpSigner,
-    value: 10n ** 16n,
-  })
-  const deterministicDeployerDeployHash = await publicClient.sendRawTransaction(
-    {
-      serializedTransaction:
-        '0xf8a58085174876e800830186a08080b853604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf31ba02222222222222222222222222222222222222222222222222222222222222222a02222222222222222222222222222222222222222222222222222222222222222',
-    },
-  )
-  await hre.viem.waitForTransactionSuccess(deterministicDeployerDeployHash)
-
-  // deploy universal sig validator
-  const usvArtifact = await hre.deployments.getArtifact('UniversalSigValidator')
-  const usvBytecode = usvArtifact.bytecode as Hex
-  const universalSigValidatorDeployHash = await walletClient.sendTransaction({
-    to: ddpAddress,
-    data: concat([zeroHash, usvBytecode]),
-  })
-  await hre.viem.waitForTransactionSuccess(universalSigValidatorDeployHash)
+  await deployUniversalSigValidator()
 
   const l2ReverseRegistrar = await hre.viem.deployContract(
     'L2ReverseRegistrar',
-    [namehash(reverseNamespace), coinType],
+    [coinType],
   )
   const mockSmartContractAccount = await hre.viem.deployContract(
     'MockSmartContractWallet',
@@ -87,28 +57,28 @@ async function fixture() {
 const createMessageHash = ({
   contractAddress,
   functionSelector,
-  name,
   address,
-  coinTypes,
   signatureExpiry,
+  name,
+  coinTypes,
 }: {
   contractAddress: Address
   functionSelector: Hex
-  name: string
   address: Address
-  coinTypes: bigint[]
   signatureExpiry: bigint
+  name: string
+  coinTypes: bigint[]
 }) =>
   keccak256(
     encodePacked(
-      ['address', 'bytes4', 'string', 'address', 'uint256[]', 'uint256'],
+      ['address', 'bytes4', 'address', 'uint256', 'string', 'uint256[]'],
       [
         contractAddress,
         functionSelector,
-        name,
         address,
-        coinTypes,
         signatureExpiry,
+        name,
+        coinTypes,
       ],
     ),
   )
@@ -116,39 +86,39 @@ const createMessageHash = ({
 const createMessageHashForOwnable = ({
   contractAddress,
   functionSelector,
-  name,
   targetOwnableAddress,
   ownerAddress,
-  coinTypes,
   signatureExpiry,
+  name,
+  coinTypes,
 }: {
   contractAddress: Address
   functionSelector: Hex
-  name: string
   targetOwnableAddress: Address
   ownerAddress: Address
-  coinTypes: bigint[]
   signatureExpiry: bigint
+  name: string
+  coinTypes: bigint[]
 }) =>
   keccak256(
     encodePacked(
       [
         'address',
         'bytes4',
-        'string',
         'address',
         'address',
-        'uint256[]',
         'uint256',
+        'string',
+        'uint256[]',
       ],
       [
         contractAddress,
         functionSelector,
-        name,
         targetOwnableAddress,
         ownerAddress,
-        coinTypes,
         signatureExpiry,
+        name,
+        coinTypes,
       ],
     ),
   )
@@ -160,7 +130,7 @@ describe('L2ReverseRegistrar', () => {
     interfaces: [
       'IL2ReverseRegistrar',
       '@openzeppelin/contracts-v5/utils/introspection/IERC165.sol:IERC165',
-      'ISignatureReverseRegistrar',
+      'IStandaloneReverseRegistrar',
     ],
   })
 
@@ -173,37 +143,84 @@ describe('L2ReverseRegistrar', () => {
   describe('setName', () => {
     async function setNameFixture() {
       const initial = await loadFixture(fixture)
-      const { l2ReverseRegistrar, accounts } = initial
 
       const name = 'myname.eth'
-      const node = await l2ReverseRegistrar.read.node([accounts[0].address])
 
       return {
         ...initial,
         name,
-        node,
       }
     }
 
     it('should set the name record for the calling account', async () => {
-      const { l2ReverseRegistrar, name, node } = await loadFixture(
+      const { l2ReverseRegistrar, name, accounts } = await loadFixture(
         setNameFixture,
       )
 
       await l2ReverseRegistrar.write.setName([name])
 
-      await expect(l2ReverseRegistrar.read.name([node])).resolves.toBe(name)
+      await expect(
+        l2ReverseRegistrar.read.nameForAddr([accounts[0].address]),
+      ).resolves.toBe(name)
     })
 
-    it('event NameChanged is emitted', async () => {
-      const { l2ReverseRegistrar, name, node, accounts } = await loadFixture(
+    it('event NameForAddrChanged is emitted', async () => {
+      const { l2ReverseRegistrar, name, accounts } = await loadFixture(
         setNameFixture,
       )
 
       await expect(l2ReverseRegistrar)
         .write('setName', [name])
-        .toEmitEvent('NameChanged')
-        .withArgs(getAddress(accounts[0].address), node, name)
+        .toEmitEvent('NameForAddrChanged')
+        .withArgs(getAddress(accounts[0].address), name)
+    })
+  })
+
+  describe('setNameForAddr', () => {
+    async function setNameForAddrFixture() {
+      const initial = await loadFixture(fixture)
+
+      const name = 'myname.eth'
+
+      return {
+        ...initial,
+        name,
+      }
+    }
+    it('should set the name record for the target address', async () => {
+      const { l2ReverseRegistrar, name, accounts, mockOwnableEoa } =
+        await loadFixture(setNameForAddrFixture)
+
+      await l2ReverseRegistrar.write.setNameForAddr([
+        mockOwnableEoa.address,
+        name,
+      ])
+
+      await expect(
+        l2ReverseRegistrar.read.nameForAddr([mockOwnableEoa.address]),
+      ).resolves.toBe(name)
+    })
+
+    it('event NameForAddrChanged is emitted', async () => {
+      const { l2ReverseRegistrar, name, mockOwnableEoa } = await loadFixture(
+        setNameForAddrFixture,
+      )
+
+      await expect(l2ReverseRegistrar)
+        .write('setNameForAddr', [mockOwnableEoa.address, name])
+        .toEmitEvent('NameForAddrChanged')
+        .withArgs(getAddress(mockOwnableEoa.address), name)
+    })
+
+    it('reverts if the caller is not the owner of the target address', async () => {
+      const { l2ReverseRegistrar, name, accounts, mockOwnableEoa } =
+        await loadFixture(setNameForAddrFixture)
+
+      await expect(l2ReverseRegistrar)
+        .write('setNameForAddr', [mockOwnableEoa.address, name], {
+          account: accounts[1],
+        })
+        .toBeRevertedWithCustomError('Unauthorised')
     })
   })
 
@@ -213,7 +230,6 @@ describe('L2ReverseRegistrar', () => {
       const { l2ReverseRegistrar, accounts } = initial
 
       const name = 'myname.eth'
-      const node = await l2ReverseRegistrar.read.node([accounts[0].address])
       const functionSelector = toFunctionSelector(
         l2ReverseRegistrar.abi.find(
           (f) =>
@@ -231,10 +247,10 @@ describe('L2ReverseRegistrar', () => {
       const messageHash = createMessageHash({
         contractAddress: l2ReverseRegistrar.address,
         functionSelector,
-        name,
         address: accounts[0].address,
-        coinTypes: [coinType],
         signatureExpiry,
+        name,
+        coinTypes: [coinType],
       })
       const signature = await walletClient.signMessage({
         message: { raw: messageHash },
@@ -243,7 +259,6 @@ describe('L2ReverseRegistrar', () => {
       return {
         ...initial,
         name,
-        node,
         functionSelector,
         signatureExpiry,
         signature,
@@ -252,41 +267,31 @@ describe('L2ReverseRegistrar', () => {
     }
 
     it('allows an account to sign a message to allow a relayer to claim the address', async () => {
-      const {
-        l2ReverseRegistrar,
-        name,
-        node,
-        signatureExpiry,
-        signature,
-        accounts,
-      } = await loadFixture(setNameForAddrWithSignatureFixture)
+      const { l2ReverseRegistrar, name, signatureExpiry, signature, accounts } =
+        await loadFixture(setNameForAddrWithSignatureFixture)
 
       await l2ReverseRegistrar.write.setNameForAddrWithSignature(
-        [accounts[0].address, name, [coinType], signatureExpiry, signature],
+        [accounts[0].address, signatureExpiry, name, [coinType], signature],
         { account: accounts[1] },
       )
 
-      await expect(l2ReverseRegistrar.read.name([node])).resolves.toBe(name)
+      await expect(
+        l2ReverseRegistrar.read.nameForAddr([accounts[0].address]),
+      ).resolves.toBe(name)
     })
 
-    it('event NameChanged is emitted', async () => {
-      const {
-        l2ReverseRegistrar,
-        name,
-        node,
-        signatureExpiry,
-        signature,
-        accounts,
-      } = await loadFixture(setNameForAddrWithSignatureFixture)
+    it('event NameForAddrChanged is emitted', async () => {
+      const { l2ReverseRegistrar, name, signatureExpiry, signature, accounts } =
+        await loadFixture(setNameForAddrWithSignatureFixture)
 
       await expect(l2ReverseRegistrar)
         .write(
           'setNameForAddrWithSignature',
-          [accounts[0].address, name, [coinType], signatureExpiry, signature],
+          [accounts[0].address, signatureExpiry, name, [coinType], signature],
           { account: accounts[1] },
         )
-        .toEmitEvent('NameChanged')
-        .withArgs(getAddress(accounts[0].address), node, name)
+        .toEmitEvent('NameForAddrChanged')
+        .withArgs(getAddress(accounts[0].address), name)
     })
 
     it('allows SCA signatures', async () => {
@@ -300,17 +305,13 @@ describe('L2ReverseRegistrar', () => {
         walletClient,
       } = await loadFixture(setNameForAddrWithSignatureFixture)
 
-      const node = await l2ReverseRegistrar.read.node([
-        mockSmartContractAccount.address,
-      ])
-
       const messageHash = createMessageHash({
         contractAddress: l2ReverseRegistrar.address,
         functionSelector,
-        name,
         address: mockSmartContractAccount.address,
-        coinTypes: [coinType],
         signatureExpiry,
+        name,
+        coinTypes: [coinType],
       })
       const signature = await walletClient.signMessage({
         message: { raw: messageHash },
@@ -321,17 +322,19 @@ describe('L2ReverseRegistrar', () => {
           'setNameForAddrWithSignature',
           [
             mockSmartContractAccount.address,
+            signatureExpiry,
             name,
             [coinType],
-            signatureExpiry,
             signature,
           ],
           { account: accounts[1] },
         )
-        .toEmitEvent('NameChanged')
-        .withArgs(getAddress(mockSmartContractAccount.address), node, name)
+        .toEmitEvent('NameForAddrChanged')
+        .withArgs(getAddress(mockSmartContractAccount.address), name)
 
-      await expect(l2ReverseRegistrar.read.name([node])).resolves.toBe(name)
+      await expect(
+        l2ReverseRegistrar.read.nameForAddr([mockSmartContractAccount.address]),
+      ).resolves.toBe(name)
     })
 
     it('allows undeployed SCA signatures (ERC6492)', async () => {
@@ -350,15 +353,13 @@ describe('L2ReverseRegistrar', () => {
           accounts[0].address,
         ])
 
-      const node = await l2ReverseRegistrar.read.node([predictedAddress])
-
       const messageHash = createMessageHash({
         contractAddress: l2ReverseRegistrar.address,
         functionSelector,
-        name,
         address: predictedAddress,
-        coinTypes: [coinType],
         signatureExpiry,
+        name,
+        coinTypes: [coinType],
       })
       const signature = await walletClient.signMessage({
         message: { raw: messageHash },
@@ -379,17 +380,19 @@ describe('L2ReverseRegistrar', () => {
           'setNameForAddrWithSignature',
           [
             predictedAddress,
+            signatureExpiry,
             name,
             [coinType],
-            signatureExpiry,
             wrappedSignature,
           ],
           { account: accounts[1] },
         )
-        .toEmitEvent('NameChanged')
-        .withArgs(getAddress(predictedAddress), node, name)
+        .toEmitEvent('NameForAddrChanged')
+        .withArgs(getAddress(predictedAddress), name)
 
-      await expect(l2ReverseRegistrar.read.name([node])).resolves.toBe(name)
+      await expect(
+        l2ReverseRegistrar.read.nameForAddr([predictedAddress]),
+      ).resolves.toBe(name)
     })
 
     it('reverts if signature parameters do not match', async () => {
@@ -421,7 +424,7 @@ describe('L2ReverseRegistrar', () => {
       await expect(l2ReverseRegistrar)
         .write(
           'setNameForAddrWithSignature',
-          [accounts[0].address, name, [coinType], signatureExpiry, signature],
+          [accounts[0].address, signatureExpiry, name, [coinType], signature],
           { account: accounts[1] },
         )
         .toBeRevertedWithCustomError('InvalidSignature')
@@ -441,10 +444,10 @@ describe('L2ReverseRegistrar', () => {
       const messageHash = createMessageHash({
         contractAddress: l2ReverseRegistrar.address,
         functionSelector,
-        name,
         address: accounts[0].address,
-        coinTypes: [coinType],
         signatureExpiry,
+        name,
+        coinTypes: [coinType],
       })
       const signature = await walletClient.signMessage({
         message: { raw: messageHash },
@@ -453,7 +456,7 @@ describe('L2ReverseRegistrar', () => {
       await expect(l2ReverseRegistrar)
         .write(
           'setNameForAddrWithSignature',
-          [accounts[0].address, name, [coinType], signatureExpiry, signature],
+          [accounts[0].address, signatureExpiry, name, [coinType], signature],
           { account: accounts[1] },
         )
         .toBeRevertedWithCustomError('SignatureExpired')
@@ -474,10 +477,10 @@ describe('L2ReverseRegistrar', () => {
       const messageHash = createMessageHash({
         contractAddress: l2ReverseRegistrar.address,
         functionSelector,
-        name,
         address: accounts[0].address,
-        coinTypes: [coinType],
         signatureExpiry,
+        name,
+        coinTypes: [coinType],
       })
       const signature = await walletClient.signMessage({
         message: { raw: messageHash },
@@ -486,7 +489,7 @@ describe('L2ReverseRegistrar', () => {
       await expect(l2ReverseRegistrar)
         .write(
           'setNameForAddrWithSignature',
-          [accounts[0].address, name, [coinType], signatureExpiry, signature],
+          [accounts[0].address, signatureExpiry, name, [coinType], signature],
           { account: accounts[1] },
         )
         .toBeRevertedWithCustomError('SignatureExpiryTooHigh')
@@ -496,7 +499,6 @@ describe('L2ReverseRegistrar', () => {
       const {
         l2ReverseRegistrar,
         name,
-        node,
         signatureExpiry,
         functionSelector,
         accounts,
@@ -508,9 +510,9 @@ describe('L2ReverseRegistrar', () => {
       const messageHash = createMessageHash({
         contractAddress: l2ReverseRegistrar.address,
         functionSelector,
-        name,
         address: accounts[0].address,
         signatureExpiry,
+        name,
         coinTypes,
       })
       const signature = await walletClient.signMessage({
@@ -518,11 +520,13 @@ describe('L2ReverseRegistrar', () => {
       })
 
       await l2ReverseRegistrar.write.setNameForAddrWithSignature(
-        [accounts[0].address, name, coinTypes, signatureExpiry, signature],
+        [accounts[0].address, signatureExpiry, name, coinTypes, signature],
         { account: accounts[1] },
       )
 
-      await expect(l2ReverseRegistrar.read.name([node])).resolves.toBe(name)
+      await expect(
+        l2ReverseRegistrar.read.nameForAddr([accounts[0].address]),
+      ).resolves.toBe(name)
     })
     it('reverts if coin type is not in array', async () => {
       const {
@@ -539,9 +543,9 @@ describe('L2ReverseRegistrar', () => {
       const messageHash = createMessageHash({
         contractAddress: l2ReverseRegistrar.address,
         functionSelector,
-        name,
         address: accounts[0].address,
         signatureExpiry,
+        name,
         coinTypes,
       })
       const signature = await walletClient.signMessage({
@@ -551,7 +555,7 @@ describe('L2ReverseRegistrar', () => {
       await expect(l2ReverseRegistrar)
         .write(
           'setNameForAddrWithSignature',
-          [accounts[0].address, name, coinTypes, signatureExpiry, signature],
+          [accounts[0].address, signatureExpiry, name, coinTypes, signature],
           { account: accounts[1] },
         )
         .toBeRevertedWithCustomError('CoinTypeNotFound')
@@ -571,9 +575,9 @@ describe('L2ReverseRegistrar', () => {
       const messageHash = createMessageHash({
         contractAddress: l2ReverseRegistrar.address,
         functionSelector,
-        name,
         address: accounts[0].address,
         signatureExpiry,
+        name,
         coinTypes,
       })
       const signature = await walletClient.signMessage({
@@ -583,7 +587,7 @@ describe('L2ReverseRegistrar', () => {
       await expect(l2ReverseRegistrar)
         .write(
           'setNameForAddrWithSignature',
-          [accounts[0].address, name, coinTypes, signatureExpiry, signature],
+          [accounts[0].address, signatureExpiry, name, coinTypes, signature],
           { account: accounts[1] },
         )
         .toBeRevertedWithCustomError('CoinTypeNotFound')
@@ -632,15 +636,14 @@ describe('L2ReverseRegistrar', () => {
         walletClient,
       } = await loadFixture(setNameForOwnableWithSignatureFixture)
 
-      const node = await l2ReverseRegistrar.read.node([mockOwnableEoa.address])
       const messageHash = createMessageHashForOwnable({
         contractAddress: l2ReverseRegistrar.address,
         functionSelector,
-        name,
         targetOwnableAddress: mockOwnableEoa.address,
         ownerAddress: accounts[0].address,
-        coinTypes: [coinType],
         signatureExpiry,
+        name,
+        coinTypes: [coinType],
       })
       const signature = await walletClient.signMessage({
         message: { raw: messageHash },
@@ -652,17 +655,19 @@ describe('L2ReverseRegistrar', () => {
           [
             mockOwnableEoa.address,
             accounts[0].address,
+            signatureExpiry,
             name,
             [coinType],
-            signatureExpiry,
             signature,
           ],
           { account: accounts[9] },
         )
-        .toEmitEvent('NameChanged')
-        .withArgs(getAddress(mockOwnableEoa.address), node, name)
+        .toEmitEvent('NameForAddrChanged')
+        .withArgs(getAddress(mockOwnableEoa.address), name)
 
-      await expect(l2ReverseRegistrar.read.name([node])).resolves.toBe(name)
+      await expect(
+        l2ReverseRegistrar.read.nameForAddr([mockOwnableEoa.address]),
+      ).resolves.toBe(name)
     })
 
     it('allows an SCA to sign a message to claim the address of a contract it owns via Ownable', async () => {
@@ -677,15 +682,14 @@ describe('L2ReverseRegistrar', () => {
         walletClient,
       } = await loadFixture(setNameForOwnableWithSignatureFixture)
 
-      const node = await l2ReverseRegistrar.read.node([mockOwnableSca.address])
       const messageHash = createMessageHashForOwnable({
         contractAddress: l2ReverseRegistrar.address,
         functionSelector,
-        name,
         targetOwnableAddress: mockOwnableSca.address,
         ownerAddress: mockSmartContractAccount.address,
-        coinTypes: [coinType],
         signatureExpiry,
+        name,
+        coinTypes: [coinType],
       })
       const signature = await walletClient.signMessage({
         message: { raw: messageHash },
@@ -697,17 +701,19 @@ describe('L2ReverseRegistrar', () => {
           [
             mockOwnableSca.address,
             mockSmartContractAccount.address,
+            signatureExpiry,
             name,
             [coinType],
-            signatureExpiry,
             signature,
           ],
           { account: accounts[9] },
         )
-        .toEmitEvent('NameChanged')
-        .withArgs(getAddress(mockOwnableSca.address), node, name)
+        .toEmitEvent('NameForAddrChanged')
+        .withArgs(getAddress(mockOwnableSca.address), name)
 
-      await expect(l2ReverseRegistrar.read.name([node])).resolves.toBe(name)
+      await expect(
+        l2ReverseRegistrar.read.nameForAddr([mockOwnableSca.address]),
+      ).resolves.toBe(name)
     })
 
     it('reverts if the owner address is not the owner of the contract', async () => {
@@ -724,11 +730,11 @@ describe('L2ReverseRegistrar', () => {
       const messageHash = createMessageHashForOwnable({
         contractAddress: l2ReverseRegistrar.address,
         functionSelector,
-        name,
         targetOwnableAddress: mockOwnableEoa.address,
         ownerAddress: accounts[1].address,
-        coinTypes: [coinType],
         signatureExpiry,
+        name,
+        coinTypes: [coinType],
       })
       const signature = await walletClient.signMessage({
         message: { raw: messageHash },
@@ -740,9 +746,9 @@ describe('L2ReverseRegistrar', () => {
           [
             mockOwnableEoa.address,
             accounts[1].address,
+            signatureExpiry,
             name,
             [coinType],
-            signatureExpiry,
             signature,
           ],
           { account: accounts[9] },
@@ -763,11 +769,11 @@ describe('L2ReverseRegistrar', () => {
       const messageHash = createMessageHashForOwnable({
         contractAddress: l2ReverseRegistrar.address,
         functionSelector,
-        name,
         targetOwnableAddress: accounts[2].address,
         ownerAddress: accounts[0].address,
-        coinTypes: [coinType],
         signatureExpiry,
+        name,
+        coinTypes: [coinType],
       })
       const signature = await walletClient.signMessage({
         message: { raw: messageHash },
@@ -779,9 +785,9 @@ describe('L2ReverseRegistrar', () => {
           [
             accounts[2].address,
             accounts[0].address,
+            signatureExpiry,
             name,
             [coinType],
-            signatureExpiry,
             signature,
           ],
           { account: accounts[9] },
@@ -802,11 +808,11 @@ describe('L2ReverseRegistrar', () => {
       const messageHash = createMessageHashForOwnable({
         contractAddress: l2ReverseRegistrar.address,
         functionSelector,
-        name,
         targetOwnableAddress: l2ReverseRegistrar.address,
         ownerAddress: accounts[0].address,
-        coinTypes: [coinType],
         signatureExpiry,
+        name,
+        coinTypes: [coinType],
       })
       const signature = await walletClient.signMessage({
         message: { raw: messageHash },
@@ -818,9 +824,9 @@ describe('L2ReverseRegistrar', () => {
           [
             l2ReverseRegistrar.address,
             accounts[0].address,
+            signatureExpiry,
             name,
             [coinType],
-            signatureExpiry,
             signature,
           ],
           { account: accounts[9] },
@@ -842,11 +848,11 @@ describe('L2ReverseRegistrar', () => {
       const messageHash = createMessageHashForOwnable({
         contractAddress: l2ReverseRegistrar.address,
         functionSelector,
-        name,
         targetOwnableAddress: mockOwnableEoa.address,
         ownerAddress: accounts[0].address,
-        coinTypes: [coinType],
         signatureExpiry: 0n,
+        name,
+        coinTypes: [coinType],
       })
       const signature = await walletClient.signMessage({
         message: { raw: messageHash },
@@ -858,9 +864,9 @@ describe('L2ReverseRegistrar', () => {
           [
             mockOwnableEoa.address,
             accounts[0].address,
+            signatureExpiry,
             name,
             [coinType],
-            signatureExpiry,
             signature,
           ],
           { account: accounts[9] },
@@ -883,11 +889,11 @@ describe('L2ReverseRegistrar', () => {
       const messageHash = createMessageHashForOwnable({
         contractAddress: l2ReverseRegistrar.address,
         functionSelector,
-        name,
         targetOwnableAddress: mockOwnableEoa.address,
         ownerAddress: accounts[0].address,
-        coinTypes: [coinType],
         signatureExpiry,
+        name,
+        coinTypes: [coinType],
       })
       const signature = await walletClient.signMessage({
         message: { raw: messageHash },
@@ -899,9 +905,9 @@ describe('L2ReverseRegistrar', () => {
           [
             mockOwnableEoa.address,
             accounts[0].address,
+            signatureExpiry,
             name,
             [coinType],
-            signatureExpiry,
             signature,
           ],
           { account: accounts[9] },
@@ -925,11 +931,11 @@ describe('L2ReverseRegistrar', () => {
       const messageHash = createMessageHashForOwnable({
         contractAddress: l2ReverseRegistrar.address,
         functionSelector,
-        name,
         targetOwnableAddress: mockOwnableEoa.address,
         ownerAddress: accounts[0].address,
-        coinTypes: [coinType],
         signatureExpiry,
+        name,
+        coinTypes: [coinType],
       })
       const signature = await walletClient.signMessage({
         message: { raw: messageHash },
@@ -941,9 +947,9 @@ describe('L2ReverseRegistrar', () => {
           [
             mockOwnableEoa.address,
             accounts[0].address,
+            signatureExpiry,
             name,
             [coinType],
-            signatureExpiry,
             signature,
           ],
           { account: accounts[9] },
@@ -963,15 +969,14 @@ describe('L2ReverseRegistrar', () => {
       } = await loadFixture(setNameForOwnableWithSignatureFixture)
 
       const coinTypes = [34384n, 54842344n, 3498283n, coinType]
-      const node = await l2ReverseRegistrar.read.node([mockOwnableEoa.address])
       const messageHash = createMessageHashForOwnable({
         contractAddress: l2ReverseRegistrar.address,
         functionSelector,
-        name,
         targetOwnableAddress: mockOwnableEoa.address,
         ownerAddress: accounts[0].address,
-        coinTypes,
         signatureExpiry,
+        name,
+        coinTypes,
       })
       const signature = await walletClient.signMessage({
         message: { raw: messageHash },
@@ -983,17 +988,19 @@ describe('L2ReverseRegistrar', () => {
           [
             mockOwnableEoa.address,
             accounts[0].address,
+            signatureExpiry,
             name,
             coinTypes,
-            signatureExpiry,
             signature,
           ],
           { account: accounts[9] },
         )
-        .toEmitEvent('NameChanged')
-        .withArgs(getAddress(mockOwnableEoa.address), node, name)
+        .toEmitEvent('NameForAddrChanged')
+        .withArgs(getAddress(mockOwnableEoa.address), name)
 
-      await expect(l2ReverseRegistrar.read.name([node])).resolves.toBe(name)
+      await expect(
+        l2ReverseRegistrar.read.nameForAddr([mockOwnableEoa.address]),
+      ).resolves.toBe(name)
     })
 
     it('reverts if coin type is not in array', async () => {
@@ -1011,11 +1018,11 @@ describe('L2ReverseRegistrar', () => {
       const messageHash = createMessageHashForOwnable({
         contractAddress: l2ReverseRegistrar.address,
         functionSelector,
-        name,
         targetOwnableAddress: mockOwnableEoa.address,
         ownerAddress: accounts[0].address,
-        coinTypes,
         signatureExpiry,
+        name,
+        coinTypes,
       })
       const signature = await walletClient.signMessage({
         message: { raw: messageHash },
@@ -1027,9 +1034,9 @@ describe('L2ReverseRegistrar', () => {
           [
             mockOwnableEoa.address,
             accounts[0].address,
+            signatureExpiry,
             name,
             coinTypes,
-            signatureExpiry,
             signature,
           ],
           { account: accounts[9] },
@@ -1052,11 +1059,11 @@ describe('L2ReverseRegistrar', () => {
       const messageHash = createMessageHashForOwnable({
         contractAddress: l2ReverseRegistrar.address,
         functionSelector,
-        name,
         targetOwnableAddress: mockOwnableEoa.address,
         ownerAddress: accounts[0].address,
-        coinTypes,
         signatureExpiry,
+        name,
+        coinTypes,
       })
       const signature = await walletClient.signMessage({
         message: { raw: messageHash },
@@ -1068,9 +1075,9 @@ describe('L2ReverseRegistrar', () => {
           [
             mockOwnableEoa.address,
             accounts[0].address,
+            signatureExpiry,
             name,
             coinTypes,
-            signatureExpiry,
             signature,
           ],
           { account: accounts[9] },

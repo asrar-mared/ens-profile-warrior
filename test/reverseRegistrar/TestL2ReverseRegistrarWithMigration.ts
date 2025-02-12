@@ -30,9 +30,9 @@ async function fixture() {
   const l2ReverseRegistrar = await hre.viem.deployContract(
     'L2ReverseRegistrarWithMigration',
     [
-      namehash(reverseNamespace),
       coinType,
       accounts[0].address,
+      namehash(reverseNamespace),
       oldReverseResolver.address,
     ],
   )
@@ -59,8 +59,8 @@ describe('L2ReverseRegistrarWithMigration', () => {
         getReverseNodeHash(account.address, { chainId: base.id }),
       ])
       expect(name).toBe(`name-${i}.eth`)
-      const newName = await l2ReverseRegistrar.read.name([
-        getReverseNodeHash(account.address, { chainId: base.id }),
+      const newName = await l2ReverseRegistrar.read.nameForAddr([
+        account.address,
       ])
       expect(newName).toBe(`name-${i}.eth`)
     }

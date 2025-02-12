@@ -1,7 +1,7 @@
 import type { DeployFunction } from 'hardhat-deploy/types.js'
 import { concat, zeroHash, type Hex } from 'viem'
 
-const usvAddress = '0xAE347B9B53aCd7a417Bd86292f2f9E0dED658F98'
+const usvAddress = '0x164af34fAF9879394370C7f09064127C043A35E9'
 
 const func: DeployFunction = async function (hre) {
   const { viem } = hre
