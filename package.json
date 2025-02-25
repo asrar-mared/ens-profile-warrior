@@ -73,5 +73,8 @@
   "bugs": {
     "url": "https://github.com/ensdomains/ens-contracts/issues"
   },
-  "homepage": "https://github.com/ensdomains/ens-contracts#readme"
+  "homepage": "https://github.com/ensdomains/ens-contracts#readme",
+  "patchedDependencies": {
+    "hardhat-deploy@0.12.4": "patches/hardhat-deploy@0.12.4.patch"
+  }
 }
