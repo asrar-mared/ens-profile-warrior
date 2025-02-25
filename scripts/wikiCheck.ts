@@ -119,7 +119,11 @@ const checkChain = async ({ chainIndex, lines }: CheckChainParameters) => {
   }
 }
 
-const data = await fetch(WIKI_DEPLOYMENTS_URL).then((res) => res.text())
+const data = await fetch(WIKI_DEPLOYMENTS_URL, {
+  headers: {
+    Connection: 'close',
+  },
+}).then((res) => res.text())
 const lines = data.split('\n')
 
 for (let i = 0; i < SUPPORTED_CHAINS.length; i++) {

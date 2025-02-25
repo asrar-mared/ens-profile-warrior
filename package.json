@@ -16,22 +16,19 @@
     "format": "prettier --write .",
     "prepublishOnly": "bun run build",
     "pub": "npm publish --access public",
-    "prepare": "husky install",
-    "wikiCheck": "bun ./scripts/wikiCheck.ts",
-    "postinstall": "bunx patch-package"
+    "wikiCheck": "bun ./scripts/wikiCheck.ts"
   },
   "files": [
     "build",
     "contracts/**/*.sol",
     "artifacts",
-    "deployments/mainnet/*.json",
-    "deployments/archive/**/*.json"
+    "deployments"
   ],
   "main": "index.js",
   "devDependencies": {
     "@ensdomains/address-encoder": "1.1.2",
     "@ensdomains/dnsprovejs": "^0.5.1",
-    "@ensdomains/hardhat-chai-matchers-viem": "^0.0.7",
+    "@ensdomains/hardhat-chai-matchers-viem": "^0.0.8",
     "@nomicfoundation/hardhat-toolbox-viem": "^3.0.0",
     "@safe-global/api-kit": "^2.5.6",
     "@safe-global/protocol-kit": "^5.1.1",
@@ -47,14 +44,13 @@
     "hardhat-abi-exporter": "^2.9.0",
     "hardhat-contract-sizer": "^2.6.1",
     "hardhat-deploy": "^0.12.4",
-    "hardhat-gas-reporter": "^2.2.0",
-    "hardhat-storage-layout": "^0.1.7",
-    "husky": "^8.0.0",
+    "hardhat-gas-reporter": "^1.0.4",
+    "husky": "^9.1.7",
     "prettier": "^2.6.2",
     "prettier-plugin-solidity": "^1.0.0-beta.24",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.5",
-    "viem": "^2.12.0"
+    "viem": "2.12.0"
   },
   "dependencies": {
     "@ensdomains/buffer": "^0.1.1",
@@ -77,8 +73,5 @@
   "bugs": {
     "url": "https://github.com/ensdomains/ens-contracts/issues"
   },
-  "homepage": "https://github.com/ensdomains/ens-contracts#readme",
-  "volta": {
-    "node": "16.20.2"
-  }
+  "homepage": "https://github.com/ensdomains/ens-contracts#readme"
 }

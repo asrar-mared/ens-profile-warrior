@@ -24,7 +24,11 @@ const func: DeployFunction = async function (hre) {
   }
 
   const suffixList = await (
-    await fetch('https://publicsuffix.org/list/public_suffix_list.dat')
+    await fetch('https://publicsuffix.org/list/public_suffix_list.dat', {
+      headers: {
+        Connection: 'close',
+      },
+    })
   ).text()
   let suffixes = suffixList
     .split('\n')

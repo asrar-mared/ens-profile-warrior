@@ -37,7 +37,11 @@ const func: DeployFunction = async function (hre) {
   const dnsRegistrar = await viem.getContract('DNSRegistrar')
 
   const suffixList = await (
-    await fetch('https://publicsuffix.org/list/public_suffix_list.dat')
+    await fetch('https://publicsuffix.org/list/public_suffix_list.dat', {
+      headers: {
+        Connection: 'close',
+      },
+    })
   ).text()
 
   let suffixes = await Promise.all(
