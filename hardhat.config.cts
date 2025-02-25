@@ -190,7 +190,6 @@ const config = {
   },
   gasReporter: {
     enabled: true,
-    trackGasDeltas: true,
   },
   etherscan: {
     apiKey: {
