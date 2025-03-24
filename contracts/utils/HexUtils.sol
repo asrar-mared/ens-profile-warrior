@@ -2,12 +2,10 @@
 pragma solidity ^0.8.4;
 
 library HexUtils {
-    /**
-     * @dev Attempts to parse bytes32 from a hex string
-     * @param str The string to parse
-     * @param idx The offset to start parsing at
-     * @param lastIdx The (exclusive) last index in `str` to consider. Use `str.length` to scan the whole string.
-     */
+    /// @dev Attempts to parse bytes32 from a hex string
+    /// @param str The string to parse
+    /// @param idx The offset to start parsing at
+    /// @param lastIdx The (exclusive) last index in `str` to consider. Use `str.length` to scan the whole string.
     function hexStringToBytes32(
         bytes memory str,
         uint256 idx,
@@ -81,12 +79,10 @@ library HexUtils {
         }
     }
 
-    /**
-     * @dev Attempts to parse an address from a hex string
-     * @param str The string to parse
-     * @param idx The offset to start parsing at
-     * @param lastIdx The (exclusive) last index in `str` to consider. Use `str.length` to scan the whole string.
-     */
+    /// @dev Attempts to parse an address from a hex string
+    /// @param str The string to parse
+    /// @param idx The offset to start parsing at
+    /// @param lastIdx The (exclusive) last index in `str` to consider. Use `str.length` to scan the whole string.
     function hexToAddress(
         bytes memory str,
         uint256 idx,
@@ -97,10 +93,8 @@ library HexUtils {
         return (address(uint160(uint256(r))), valid);
     }
 
-    /**
-     * @dev Attempts to convert an address to a hex string
-     * @param addr The _addr to parse
-     */
+    /// @dev Attempts to convert an address to a hex string
+    /// @param addr The _addr to parse
     function addressToHex(address addr) internal pure returns (string memory) {
         bytes memory hexString = new bytes(40);
         for (uint i = 0; i < 20; i++) {

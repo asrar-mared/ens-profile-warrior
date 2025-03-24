@@ -73,10 +73,9 @@ interface BatchGateway {
     ) external returns (bool[] memory failures, bytes[] memory responses);
 }
 
-/**
- * The Universal Resolver is a contract that handles the work of resolving a name entirely onchain,
- * making it possible to make a single smart contract call to resolve an ENS name.
- */
+/// The Universal Resolver is a contract that handles the work of resolving a name entirely onchain,
+/// making it possible to make a single smart contract call to resolve an ENS name.
+
 contract UniversalResolver is ERC165, Ownable {
     using Address for address;
     using NameEncoder for string;
@@ -95,12 +94,10 @@ contract UniversalResolver is ERC165, Ownable {
         batchGatewayURLs = _urls;
     }
 
-    /**
-     * @dev Performs ENS name resolution for the supplied name and resolution data.
-     * @param name The name to resolve, in normalised and DNS-encoded form.
-     * @param data The resolution data, as specified in ENSIP-10.
-     * @return The result of resolving the name.
-     */
+    /// @dev Performs ENS name resolution for the supplied name and resolution data.
+    /// @param name The name to resolve, in normalised and DNS-encoded form.
+    /// @param data The resolution data, as specified in ENSIP-10.
+    /// @return The result of resolving the name.
     function resolve(
         bytes calldata name,
         bytes memory data
@@ -209,11 +206,9 @@ contract UniversalResolver is ERC165, Ownable {
         return reverse(reverseName, batchGatewayURLs);
     }
 
-    /**
-     * @dev Performs ENS name reverse resolution for the supplied reverse name.
-     * @param reverseName The reverse name to resolve, in normalised and DNS-encoded form. e.g. b6E040C9ECAaE172a89bD561c5F73e1C48d28cd9.addr.reverse
-     * @return The resolved name, the resolved address, the reverse resolver address, and the resolver address.
-     */
+    /// @dev Performs ENS name reverse resolution for the supplied reverse name.
+    /// @param reverseName The reverse name to resolve, in normalised and DNS-encoded form. e.g. b6E040C9ECAaE172a89bD561c5F73e1C48d28cd9.addr.reverse
+    /// @return The resolved name, the resolved address, the reverse resolver address, and the resolver address.
     function reverse(
         bytes calldata reverseName,
         string[] memory gateways
@@ -407,16 +402,14 @@ contract UniversalResolver is ERC165, Ownable {
         );
     }
 
-    /**
-     * @dev Makes a call to `target` with `data`. If the call reverts with an `OffchainLookup` error, wraps
-     *      the error with the data necessary to continue the request where it left off.
-     * @param target The address to call.
-     * @param data The data to call `target` with.
-     * @return offchain Whether the call reverted with an `OffchainLookup` error.
-     * @return returnData If `target` did not revert, contains the return data from the call to `target`. Otherwise, contains a `OffchainLookupCallData` struct.
-     * @return extraData If `target` did not revert, is empty. Otherwise, contains a `OffchainLookupExtraData` struct.
-     * @return result Whether the call succeeded.
-     */
+    /// @dev Makes a call to `target` with `data`. If the call reverts with an `OffchainLookup` error, wraps
+    ///      the error with the data necessary to continue the request where it left off.
+    /// @param target The address to call.
+    /// @param data The data to call `target` with.
+    /// @return offchain Whether the call reverted with an `OffchainLookup` error.
+    /// @return returnData If `target` did not revert, contains the return data from the call to `target`. Otherwise, contains a `OffchainLookupCallData` struct.
+    /// @return extraData If `target` did not revert, is empty. Otherwise, contains a `OffchainLookupExtraData` struct.
+    /// @return result Whether the call succeeded.
     function callWithOffchainLookupPropagation(
         address target,
         bytes memory data,
@@ -487,14 +480,12 @@ contract UniversalResolver is ERC165, Ownable {
         }
     }
 
-    /**
-     * @dev Finds a resolver by recursively querying the registry, starting at the longest name and progressively
-     *      removing labels until it finds a result.
-     * @param name The name to resolve, in DNS-encoded and normalised form.
-     * @return resolver The Resolver responsible for this name.
-     * @return namehash The namehash of the full name.
-     * @return finalOffset The offset of the first label with a resolver.
-     */
+    /// @dev Finds a resolver by recursively querying the registry, starting at the longest name and progressively
+    ///      removing labels until it finds a result.
+    /// @param name The name to resolve, in DNS-encoded and normalised form.
+    /// @return resolver The Resolver responsible for this name.
+    /// @return namehash The namehash of the full name.
+    /// @return finalOffset The offset of the first label with a resolver.
     function findResolver(
         bytes calldata name
     ) public view returns (Resolver, bytes32, uint256) {
