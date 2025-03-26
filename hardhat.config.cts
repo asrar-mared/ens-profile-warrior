@@ -75,7 +75,7 @@ const config = {
       accounts: real_accounts,
     },
     holesky: {
-      url: `https://holesky-rpc.nocturnode.tech`,
+      url: `https://holesky.gateway.tenderly.co`,
       tags: ['test', 'legacy', 'use_root'],
       chainId: 17000,
       accounts: real_accounts,
