@@ -1,3 +1,4 @@
+import { expect } from 'chai'
 import {
   type Hex,
   decodeFunctionResult,
@@ -8,7 +9,6 @@ import {
   parseAbi,
 } from 'viem'
 import { COIN_TYPE_ETH, shortCoin } from '../fixtures/ensip19.js'
-import { expect } from 'chai'
 
 export const RESOLVE_MULTICALL = parseAbi([
   'function multicall(bytes[] calls) external view returns (bytes[])',
@@ -115,7 +115,8 @@ export function bundleCalls(calls: KnownResolution[]): KnownBundle {
     }),
     answer: encodeFunctionResult({
       abi: RESOLVE_MULTICALL,
-      result: [calls.map((x) => x.answer)],
+      // TODO: fix when we can use newer viem version
+      result: [calls.map((x) => x.answer)] as never,
     }),
     unbundle: (data) =>
       decodeFunctionResult({
@@ -147,7 +148,8 @@ export function makeResolutions(p: KnownProfile): KnownResolution[] {
           }),
           answer: encodeFunctionResult({
             abi,
-            result: [encodedAddress],
+            // TODO: fix when we can use newer viem version
+            result: [encodedAddress] as never,
           }),
           expect(data) {
             const actual = decodeFunctionResult({
@@ -170,7 +172,8 @@ export function makeResolutions(p: KnownProfile): KnownResolution[] {
           answer: encodeFunctionResult({
             abi,
             functionName,
-            result: [encodedAddress],
+            // TODO: fix when we can use newer viem version
+            result: [encodedAddress] as never,
           }),
           expect(data) {
             const actual = decodeFunctionResult({
@@ -199,7 +202,8 @@ export function makeResolutions(p: KnownProfile): KnownResolution[] {
         answer: encodeFunctionResult({
           abi,
           functionName,
-          result: [value],
+          // TODO: fix when we can use newer viem version
+          result: [value] as never,
         }),
         expect(data) {
           const actual = decodeFunctionResult({
@@ -227,7 +231,8 @@ export function makeResolutions(p: KnownProfile): KnownResolution[] {
       answer: encodeFunctionResult({
         abi,
         functionName,
-        result: [name],
+        // TODO: fix when we can use newer viem version
+        result: [name] as never,
       }),
       expect(data) {
         const actual = decodeFunctionResult({
