@@ -13,7 +13,7 @@ import {IBaseRegistrar} from "../ethregistrar/IBaseRegistrar.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {BytesUtils} from "../utils/BytesUtils.sol";
+import {BytesUtils_LEGACY} from "../utils/BytesUtils_LEGACY.sol";
 import {ERC20Recoverable} from "../utils/ERC20Recoverable.sol";
 
 error Unauthorised(bytes32 node, address addr);
@@ -37,7 +37,7 @@ contract NameWrapper is
     ERC20Recoverable,
     ReverseClaimer
 {
-    using BytesUtils for bytes;
+    using BytesUtils_LEGACY for bytes;
 
     ENS public immutable ens;
     IBaseRegistrar public immutable registrar;
