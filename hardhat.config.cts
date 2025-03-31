@@ -42,6 +42,10 @@ const config = {
       saveDeployments: false,
       tags: ['test', 'legacy', 'use_root'],
       allowUnlimitedContractSize: false,
+      forking: {
+        url: `https://mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
+        enabled: !!process.env.FORKING_ENABLED,
+      },
     },
     localhost: {
       url: 'http://127.0.0.1:8545/',
@@ -103,8 +107,8 @@ const config = {
       tags: ['l2', 'testnet'],
     },
     holesky: {
-      url: `https://holesky.infura.io/v3/${process.env.INFURA_API_KEY}`,
-      tags: ['test', 'legacy', 'use_root', 'testnet'],
+      url: `https://holesky.gateway.tenderly.co`,
+      tags: ['test', 'legacy', 'use_root'],
       chainId: 17000,
       accounts: real_accounts,
     },

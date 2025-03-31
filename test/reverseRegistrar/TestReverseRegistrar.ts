@@ -13,8 +13,12 @@ import {
   type Address,
   type Hex,
 } from 'viem'
-import { getReverseNodeHash } from '../fixtures/getReverseNode.js'
+import { getReverseName } from '../fixtures/ensip19.js'
 import { shouldSupportInterfaces } from '../wrapper/SupportsInterface.behaviour.js'
+
+function getReverseNodeHash(addr: Address) {
+  return namehash(getReverseName(addr))
+}
 
 async function fixture() {
   const accounts = await hre.viem
