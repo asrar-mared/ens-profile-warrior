@@ -1,4 +1,5 @@
 import { evmChainIdToCoinType } from '@ensdomains/address-encoder/utils'
+import { shouldSupportInterfaces } from '@ensdomains/hardhat-chai-matchers-viem/behaviour'
 import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
 import { expect } from 'chai'
 import hre from 'hardhat'
@@ -15,7 +16,6 @@ import {
 import { optimism } from 'viem/chains'
 import { serializeErc6492Signature } from 'viem/experimental'
 import { deployUniversalSigValidator } from '../fixtures/universalSigValidator.js'
-import { shouldSupportInterfaces } from '../wrapper/SupportsInterface.behaviour.js'
 
 const coinType = evmChainIdToCoinType(optimism.id)
 

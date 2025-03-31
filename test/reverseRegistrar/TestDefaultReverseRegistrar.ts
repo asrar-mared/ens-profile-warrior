@@ -1,3 +1,4 @@
+import { shouldSupportInterfaces } from '@ensdomains/hardhat-chai-matchers-viem/behaviour'
 import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
 import { expect } from 'chai'
 import hre from 'hardhat'
@@ -13,7 +14,6 @@ import {
 } from 'viem'
 import { serializeErc6492Signature } from 'viem/experimental'
 import { deployUniversalSigValidator } from '../fixtures/universalSigValidator.js'
-import { shouldSupportInterfaces } from '../wrapper/SupportsInterface.behaviour.js'
 
 async function fixture() {
   const accounts = await hre.viem

@@ -2,15 +2,16 @@ import { evmChainIdToCoinType } from '@ensdomains/address-encoder/utils'
 import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
 import { expect } from 'chai'
 import hre from 'hardhat'
-import { getAddress, namehash } from 'viem'
+import { getAddress, namehash, type Address } from 'viem'
 import { base } from 'viem/chains'
-import {
-  getReverseNamespace,
-  getReverseNodeHash,
-} from '../fixtures/getReverseNode.js'
+import { getReverseNamespace } from '../fixtures/ensip19.js'
 
 const coinType = evmChainIdToCoinType(base.id)
-const reverseNamespace = getReverseNamespace({ chainId: base.id })
+const reverseNamespace = getReverseNamespace(coinType)
+
+function getReverseNodeHash(addr: Address) {
+  return namehash(`${addr.slice(2).toLowerCase()}.${reverseNamespace}`)
+}
 
 async function fixture() {
   const accounts = await hre.viem
@@ -22,7 +23,7 @@ async function fixture() {
   for (let i = 0; i < accounts.length; i++) {
     const account = accounts[i]
     await oldReverseResolver.write.setName([
-      getReverseNodeHash(account.address, { chainId: base.id }),
+      getReverseNodeHash(account.address),
       `name-${i}.eth`,
     ])
   }
@@ -56,7 +57,7 @@ describe('L2ReverseRegistrarWithMigration', () => {
     for (let i = 0; i < accounts.length; i++) {
       const account = accounts[i]
       const name = await oldReverseResolver.read.name([
-        getReverseNodeHash(account.address, { chainId: base.id }),
+        getReverseNodeHash(account.address),
       ])
       expect(name).toBe(`name-${i}.eth`)
       const newName = await l2ReverseRegistrar.read.nameForAddr([

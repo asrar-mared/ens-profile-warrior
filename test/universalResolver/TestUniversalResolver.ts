@@ -1,7 +1,7 @@
-import hre from 'hardhat'
+import { shouldSupportInterfaces } from '@ensdomains/hardhat-chai-matchers-viem/behaviour'
 import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
 import { expect } from 'chai'
-import { shouldSupportInterfaces } from '@ensdomains/hardhat-chai-matchers-viem/behaviour'
+import hre from 'hardhat'
 import {
   encodeErrorResult,
   HttpRequestError,
@@ -14,11 +14,11 @@ import {
   zeroAddress,
 } from 'viem'
 import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
-import { serveBatchGateway } from '../fixtures/localBatchGateway.js'
 import { COIN_TYPE_ETH, getReverseName } from '../fixtures/ensip19.js'
-import { ownedEnsFixture } from './ownedEnsFixture.js'
 import { expectVar } from '../fixtures/expectVar.js'
-import { makeResolutions, bundleCalls, getParentName } from './utils.js'
+import { serveBatchGateway } from '../fixtures/localBatchGateway.js'
+import { ownedEnsFixture } from './ownedEnsFixture.js'
+import { bundleCalls, getParentName, makeResolutions } from './utils.js'
 
 async function fixture() {
   const ens = await ownedEnsFixture()
@@ -53,7 +53,10 @@ const resolutions = makeResolutions({
 describe('UniversalResolver', () => {
   shouldSupportInterfaces({
     contract: () => loadFixture(fixture).then((F) => F.UniversalResolver),
-    interfaces: ['IERC165', 'IUniversalResolver'],
+    interfaces: [
+      '@openzeppelin/contracts/utils/introspection/IERC165.sol:IERC165',
+      'IUniversalResolver',
+    ],
   })
 
   describe('findResolver()', () => {
