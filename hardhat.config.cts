@@ -1,10 +1,10 @@
 // from @nomicfoundation/hardhat-toolbox-viem to avoid module issue
+import '@ensdomains/hardhat-toolbox-viem-extended'
 import '@nomicfoundation/hardhat-ignition-viem'
 import '@nomicfoundation/hardhat-verify'
 import '@nomicfoundation/hardhat-viem'
 import 'hardhat-gas-reporter'
 import 'solidity-coverage'
-import './tasks/hardhat-deploy-viem.cjs'
 
 import dotenv from 'dotenv'
 import 'hardhat-abi-exporter'
