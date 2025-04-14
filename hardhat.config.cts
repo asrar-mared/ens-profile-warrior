@@ -52,6 +52,9 @@ const config = {
       saveDeployments: false,
       tags: ['test', 'legacy', 'use_root'],
     },
+    anvil: {
+      url: `http://localhost:${parseInt(process.env['RPC_PORT'] || '8545')}`,
+    },
     sepolia: {
       url: `https://sepolia.infura.io/v3/${process.env.INFURA_API_KEY}`,
       tags: ['test', 'legacy', 'use_root', 'testnet'],
@@ -240,7 +243,10 @@ const config = {
   external: {
     contracts: [
       {
-        artifacts: [archivedDeploymentPath],
+        artifacts: [
+          archivedDeploymentPath,
+          './node_modules/@unruggable/gateways/artifacts',
+        ],
       },
     ],
   },
