@@ -71,6 +71,13 @@ const func: DeployFunction = async function (hre) {
   const targetsForChain = targets[publicClient.chain.id as keyof typeof targets]
   const owner = owners[publicClient.chain.id as keyof typeof owners]
 
+  if (!targetsForChain) {
+    console.log(`No targets for chain ${publicClient.chain.id}`)
+    return
+  }
+  // there should always be an owner specified when there are targets
+  if (!owner) throw new Error(`No owner for chain ${publicClient.chain.id}`)
+
   for (const [
     chainName,
     { verifier, target, urls, dnsEncodedReverseName },
