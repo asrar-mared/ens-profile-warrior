@@ -27,25 +27,25 @@ const targets = {
   [sepolia.id]: {
     Base: {
       dnsEncodedReverseName: getDnsEncodedReverseName(baseSepolia.id),
-      verifier: '0x8e77b311bed6906799BD3CaFBa34c13b64CAF460',
+      verifier: '0x2a5c43a0aa33c6ca184ac0eadf0a117109c9d6ae',
       target: '0x00000BeEF055f7934784D6d81b6BC86665630dbA',
       urls: ['https://lb.drpc.org/gateway/unruggable?network=base-sepolia'],
     },
     Optimism: {
       dnsEncodedReverseName: getDnsEncodedReverseName(optimismSepolia.id),
-      verifier: '0x5F1681D608e50458D96F43EbAb1137bA1d2A2E4D',
+      verifier: '0x9fc09f6683ea8e8ad0fae3317e39e57582469707',
       target: '0x00000BeEF055f7934784D6d81b6BC86665630dbA',
       urls: ['https://lb.drpc.org/gateway/unruggable?network=optimism-sepolia'],
     },
     Arbitrum: {
       dnsEncodedReverseName: getDnsEncodedReverseName(arbitrumSepolia.id),
-      verifier: '0x9133D1A6409b25546147229E102DFa439048028F',
+      verifier: '0x5e2a4f6c4cc16b27424249eedb15326207c9ee44',
       target: '0x00000BeEF055f7934784D6d81b6BC86665630dbA',
       urls: ['https://lb.drpc.org/gateway/unruggable?network=arbitrum-sepolia'],
     },
     Scroll: {
       dnsEncodedReverseName: getDnsEncodedReverseName(scrollSepolia.id),
-      verifier: '0xd6eaADB25D5145c3b0407341292720Efd798a51f',
+      verifier: '0xd126DD79133D3aaf0248E858323Cd10C04c5E43d',
       target: '0x00000BeEF055f7934784D6d81b6BC86665630dbA',
       urls: ['https://lb.drpc.org/gateway/unruggable?network=scroll-sepolia'],
     },
@@ -64,7 +64,9 @@ const func: DeployFunction = async function (hre) {
 
   const publicClient = await viem.getPublicClient()
 
-  const ensRegistryAddress = publicClient.chain.contracts!.ensRegistry!.address
+  const ensRegistryAddress = await hre.viem
+    .getContract('ENSRegistry')
+    .then((c) => c.address)
 
   const targetsForChain = targets[publicClient.chain.id as keyof typeof targets]
   const owner = owners[publicClient.chain.id as keyof typeof owners]
