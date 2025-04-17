@@ -25,13 +25,13 @@ contract L1ReverseResolver is
     using GatewayFetcher for GatewayRequest;
 
     /// @notice The ENS registry contract.
-    ENS immutable ens;
+    ENS public immutable ens;
 
     /// @notice The gateway verifier contract, unique to each L2 chain.
-    IGatewayVerifier immutable verifier;
+    IGatewayVerifier public immutable verifier;
 
     /// @notice The target registrar contract on the L2 chain.
-    address immutable target;
+    address public immutable l2Registrar;
 
     /// @notice A keccak256 hash of the DNS encoded reverse name.
     ///         NOT using the ENS namehash algorithm
@@ -57,30 +57,30 @@ contract L1ReverseResolver is
     event GatewayURLsChanged(string[] urls);
 
     /// @notice Thrown when the name is not reachable in this resolver's namespace.
-    error Unreachable(bytes name);
+    error UnreachableName(bytes name);
 
     /// @notice Thrown when the resolver profile is unknown.
-    error UnknownResolverProfile(bytes4 selector);
+    error UnsupportedResolverProfile(bytes4 selector);
 
     /// @notice Sets the initial state of the contract.
     ///
     /// @param owner_ The owner of the contract, able to modify the gateway URLs.
     /// @param ens_ The ENS registry contract.
     /// @param verifier_ The gateway verifier contract, unique to each L2 chain.
-    /// @param target_ The target registrar contract on the L2 chain.
+    /// @param l2Registrar_ The target registrar contract on the L2 chain.
     /// @param dnsEncodedReverseName_ The DNS encoded reverse name.
     /// @param urls_ The verifier gateway URLs.
     constructor(
         address owner_,
         ENS ens_,
         IGatewayVerifier verifier_,
-        address target_,
+        address l2Registrar_,
         bytes memory dnsEncodedReverseName_,
         string[] memory urls_
     ) Ownable(owner_) {
         ens = ens_;
         verifier = verifier_;
-        target = target_;
+        l2Registrar = l2Registrar_;
         _dnsEncodedReverseNameHash = keccak256(dnsEncodedReverseName_);
         _dnsEncodedReverseNameLength = dnsEncodedReverseName_.length;
         _urls = urls_;
@@ -119,26 +119,28 @@ contract L1ReverseResolver is
         if (!isNamespaceCall) {
             if (
                 name.length != _dnsEncodedReverseNameLength + ADDRESS_LENGTH + 1
-            ) revert Unreachable(name);
+            ) revert UnreachableName(name);
             if (keccak256(name[41:]) != _dnsEncodedReverseNameHash)
-                revert Unreachable(name);
+                revert UnreachableName(name);
         }
 
         if (selector == INameResolver.name.selector) {
             if (isNamespaceCall) return abi.encode("");
-            (address addr, ) = HexUtils.hexToAddress(
+            (address addr, bool valid) = HexUtils.hexToAddress(
                 name,
                 1,
                 ADDRESS_LENGTH + 1
             );
+            if (!valid) revert UnreachableName(name);
             // Always throws, does not need to return.
             _fetchName(addr);
         } else if (selector == IAddressResolver.addr.selector) {
-            if (isNamespaceCall) return abi.encode(abi.encodePacked(target));
+            if (isNamespaceCall)
+                return abi.encode(abi.encodePacked(l2Registrar));
             return abi.encode("");
         }
 
-        revert UnknownResolverProfile(selector);
+        revert UnsupportedResolverProfile(selector);
     }
 
     /// @notice Callback function, called by the verifier contract.
@@ -174,7 +176,7 @@ contract L1ReverseResolver is
             // Gets data for `names[addr]`
             GatewayFetcher
                 .newRequest(1)
-                .setTarget(target)
+                .setTarget(l2Registrar)
                 .setSlot(NAMES_SLOT)
                 .push(bytes32(uint256(uint160(addr))))
                 .follow()
@@ -207,6 +209,7 @@ contract L1ReverseResolver is
         bytes4 interfaceId
     ) public view override returns (bool) {
         return
+            interfaceId == bytes4(keccak256("eip3668.wrappable")) ||
             interfaceId == type(IExtendedResolver).interfaceId ||
             super.supportsInterface(interfaceId);
     }

@@ -8,9 +8,12 @@ import {
   decodeFunctionResult,
   encodeFunctionData,
   getContract,
+  keccak256,
   labelhash,
   namehash,
   parseAbi,
+  slice,
+  stringToHex,
   testActions,
   walletActions,
   zeroHash,
@@ -216,6 +219,16 @@ const addrAbi = parseAbi([
       ],
     })
 
+    it('implements eip3668.wrappable', async () => {
+      const { l1ReverseResolver } = await loadFixture(fixture)
+
+      const supportsInterface = await l1ReverseResolver.read.supportsInterface([
+        slice(keccak256(stringToHex('eip3668.wrappable')), 0, 4),
+      ])
+
+      expect(supportsInterface).toBe(true)
+    })
+
     it('should resolve name that is set on l2', async () => {
       const { accountWithL2Name, l1ReverseResolver } = await loadFixture(
         fixture,
@@ -368,7 +381,7 @@ const addrAbi = parseAbi([
       expect(decodedResult).toBe('0x')
     })
 
-    it('should revert with Unreachable if the label is not the correct length', async () => {
+    it('should revert with UnreachableName if the label is not the correct length', async () => {
       const { l1ReverseResolver } = await loadFixture(fixture)
 
       const reverseNode = getNamespacedReverseNode('0x12345678')
@@ -381,10 +394,10 @@ const addrAbi = parseAbi([
 
       await expect(l1ReverseResolver)
         .read('resolve', [encodedL2ReverseName, nameCalldata])
-        .toBeRevertedWithCustomError('Unreachable')
+        .toBeRevertedWithCustomError('UnreachableName')
         .withArgs(encodedL2ReverseName)
     })
-    it('should revert with Unreachable if the namespace is incorrect', async () => {
+    it('should revert with UnreachableName if the namespace is incorrect', async () => {
       const { l1ReverseResolver } = await loadFixture(fixture)
 
       const encodedL2ReverseName = dnsEncodeName(
@@ -398,9 +411,29 @@ const addrAbi = parseAbi([
 
       await expect(l1ReverseResolver)
         .read('resolve', [encodedL2ReverseName, nameCalldata])
-        .toBeRevertedWithCustomError('Unreachable')
+        .toBeRevertedWithCustomError('UnreachableName')
         .withArgs(encodedL2ReverseName)
     })
+
+    it('should revert with UnreachableName if the label is not a valid address', async () => {
+      const { l1ReverseResolver } = await loadFixture(fixture)
+
+      const reverseNode = getNamespacedReverseNode(
+        ('0x' + 'z'.repeat(40)) as Address,
+      )
+      const encodedL2ReverseName = dnsEncodeName(reverseNode)
+      const nameCalldata = encodeFunctionData({
+        abi: nameAbi,
+        functionName: 'name',
+        args: [namehash(reverseNode)],
+      })
+
+      await expect(l1ReverseResolver)
+        .read('resolve', [encodedL2ReverseName, nameCalldata])
+        .toBeRevertedWithCustomError('UnreachableName')
+        .withArgs(encodedL2ReverseName)
+    })
+
     it('should revert with UnknownResolverProfile if the selector is not supported', async () => {
       const { l1ReverseResolver } = await loadFixture(fixture)
 
@@ -409,7 +442,7 @@ const addrAbi = parseAbi([
 
       await expect(l1ReverseResolver)
         .read('resolve', [encodedL2ReverseName, unsupportedSelector])
-        .toBeRevertedWithCustomError('UnknownResolverProfile')
+        .toBeRevertedWithCustomError('UnsupportedResolverProfile')
         .withArgs(unsupportedSelector)
     })
   },
