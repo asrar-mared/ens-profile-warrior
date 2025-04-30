@@ -10,9 +10,14 @@ export function chainFromCoinType(coinType: bigint): number {
     : 0
 }
 
+export function isEVMCoinType(coinType: bigint) {
+  return !!chainFromCoinType(coinType) || coinType === EVM_BIT
+}
+
 export function shortCoin(coinType: bigint) {
-  const chain = chainFromCoinType(coinType)
-  return chain || coinType == EVM_BIT ? `chain:${chain}` : `coin:${coinType}`
+  return isEVMCoinType(coinType)
+    ? `chain:${chainFromCoinType(coinType)}`
+    : `coin:${coinType}`
 }
 
 export function getReverseNamespace(coinType: bigint) {
