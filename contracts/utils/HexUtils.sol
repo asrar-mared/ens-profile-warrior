@@ -6,8 +6,8 @@ library HexUtils {
     ///      Accepts 0-64 bytes.
     ///      Uses right alignment: `1` &rarr; `0000000000000000000000000000000000000000000000000000000000000001`.
     /// @param hexString The string to parse.
-    /// @param pos The index to start parsing at.
-    /// @param end The (exclusive) index to stop parsing at.
+    /// @param pos The index to start parsing.
+    /// @param end The (exclusive) index to stop parsing.
     /// @return word The parsed bytes32.
     /// @return valid True if the parse was successful.
     function hexStringToBytes32(
@@ -34,8 +34,8 @@ library HexUtils {
     ///      Accepts 40-64 bytes.
     ///      Uses right alignment: `FF8000000000000000000000000000000000000001` &rarr; `8000000000000000000000000000000000000001`.
     /// @param hexString The string to parse.
-    /// @param pos The index to start parsing at.
-    /// @param end The (exclusive) index to stop parsing at.
+    /// @param pos The index to start parsing.
+    /// @param end The (exclusive) index to stop parsing.
     /// @return addr The parsed address.
     /// @return valid True if the parse was successful.
     function hexToAddress(
@@ -49,8 +49,12 @@ library HexUtils {
         addr = address(uint160(uint256(word)));
     }
 
-    /// @dev Attempts to convert a `hexString[pos:end]` to `bytes`.
+    /// @dev Attempts to convert `hexString[pos:end]` to `bytes`.
     ///      Accepts 0+ bytes.
+    /// @param pos The index to start parsing.
+    /// @param end The (exclusive) index to stop parsing.
+    /// @return v The parsed bytes.
+    /// @return valid True if the parse was successful.
     function hexToBytes(
         bytes memory hexString,
         uint256 pos,
@@ -67,12 +71,13 @@ library HexUtils {
         valid = unsafeBytesFromHex(src, dst, nibbles);
     }
 
-    /// @dev Converts arbitrary hex-encoded memory to a byte string.
+    /// @dev Attempts to convert arbitrary hex-encoded memory.
     ///      Leading odd nibble is zero padded, eg. `F` &rarr; `0x0F`
     ///      Matches: /^[0-9a-f]*$/i.
     /// @param src The memory pos of first hex-char of input.
-    /// @param dst The memory pos of first byte of output.
-    /// @return valid True if all characters were valid hex.
+    /// @param dst The memory pos of first byte of output (cannot alias `src`).
+    /// @param nibbles The number of hex-chars to convert.
+    /// @return valid True if all characters were hex.
     function unsafeBytesFromHex(
         uint256 src,
         uint256 dst,
@@ -97,7 +102,7 @@ library HexUtils {
                     leave
                 }
                 // invalid char
-                ascii := 0xfff
+                ascii := 0x100
             }
             valid := true
             let end := add(src, nibbles)
@@ -195,7 +200,7 @@ library HexUtils {
 
     /// @dev Converts arbitrary memory to a hex string.
     /// @param src The memory pos of first nibble of input.
-    /// @param dst The memory pos of first hex-char of output.
+    /// @param dst The memory pos of first hex-char of output (can alias `src`).
     /// @param nibbles The number of nibbles to convert and the byte-length of the output.
     function unsafeHex(
         uint256 src,

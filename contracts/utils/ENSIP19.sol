@@ -77,7 +77,7 @@ library ENSIP19 {
     }
 
     /// @dev Parse Reverse Name into Encoded Address + Coin Type.
-    ///      Matches: /^[0-9a-f]{1,}\.([0-9a-f]{1,32}|addr|default)\.reverse$/i.
+    ///      Matches: /^[0-9a-fA-F]+\.([0-9a-f]{1,64}|addr|default)\.reverse$/.
     ///      Reverts `DNSDecodingFailed`.
     /// @param name The DNS-encoded name.
     /// @return encodedAddress The address or empty if invalid.
@@ -104,7 +104,7 @@ library ENSIP19 {
                 1 + offset,
                 offset2
             );
-            if (!valid) return ("", 0); // unknown coinType
+            if (!valid) return ("", 0); // invalid coinType
             coinType = uint256(word);
         }
         (labelHash, offset) = NameCoder.readLabel(name, offset2);

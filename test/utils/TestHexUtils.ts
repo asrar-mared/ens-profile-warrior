@@ -1,18 +1,22 @@
 import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
 import { expect } from 'chai'
 import hre from 'hardhat'
-import { type Hex, size, stringToHex, toHex, zeroAddress, zeroHash } from 'viem'
+import { type Hex, stringToHex, toHex, zeroAddress, zeroHash } from 'viem'
 
 async function fixture() {
   return hre.viem.deployContract('TestHexUtils')
 }
 
+function unprefixedHexStr(length: number) {
+  return Array.from({ length }, (_, i) =>
+    ((i + length) & 15).toString(16),
+  ).join('')
+}
+
 describe('HexUtils', () => {
   describe('hexToBytes()', () => {
     for (let n = 0; n <= 65; n++) {
-      const raw = Array.from({ length: n }, (_, i) =>
-        ((i + n) & 15).toString(16),
-      ).join('')
+      const raw = unprefixedHexStr(n)
       const data = stringToHex(raw)
       const hex = (n & 1 ? `0x0${raw}` : `0x${raw}`) as Hex
       it(`0x${raw}`, async () => {
@@ -26,9 +30,7 @@ describe('HexUtils', () => {
 
   describe('hexStringToBytes32()', () => {
     for (let n = 0; n <= 64; n++) {
-      const raw = Array.from({ length: n }, (_, i) =>
-        ((i + n) & 15).toString(16),
-      ).join('')
+      const raw = unprefixedHexStr(n)
       const data = stringToHex(raw)
       it(`0x${raw}`, async () => {
         const F = await loadFixture(fixture)

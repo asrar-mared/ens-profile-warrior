@@ -12,7 +12,7 @@ import {
 import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
 
 async function fixture() {
-  return hre.viem.deployContract('TestENSIP19', [])
+  return hre.viem.deployContract('TestENSIP19')
 }
 
 const addrs = [
@@ -55,6 +55,19 @@ describe('ENSIP19', () => {
             shortCoin(coinType),
           ).resolves.toStrictEqual([addr, coinType])
         }
+      })
+    }
+
+    for (const name of [
+      'zzz.addr.reverse',
+      '.default.reverse',
+      'abc.reverse',
+    ]) {
+      it(name, async () => {
+        const F = await loadFixture(fixture)
+        await expect(
+          F.read.parse([dnsEncodeName(name)]),
+        ).resolves.toStrictEqual(['0x', 0n])
       })
     }
   })
