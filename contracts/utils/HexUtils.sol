@@ -74,8 +74,8 @@ library HexUtils {
     /// @dev Attempts to convert arbitrary hex-encoded memory.
     ///      Leading odd nibble is zero padded, eg. `F` &rarr; `0x0F`
     ///      Matches: /^[0-9a-f]*$/i.
-    /// @param src The memory pos of first hex-char of input.
-    /// @param dst The memory pos of first byte of output (cannot alias `src`).
+    /// @param src The memory offset of first hex-char of input.
+    /// @param dst The memory offset of first byte of output (cannot alias `src`).
     /// @param nibbles The number of hex-chars to convert.
     /// @return valid True if all characters were hex.
     function unsafeBytesFromHex(
@@ -199,8 +199,8 @@ library HexUtils {
     }
 
     /// @dev Converts arbitrary memory to a hex string.
-    /// @param src The memory pos of first nibble of input.
-    /// @param dst The memory pos of first hex-char of output (can alias `src`).
+    /// @param src The memory offset of first nibble of input.
+    /// @param dst The memory offset of first hex-char of output (can alias `src`).
     /// @param nibbles The number of nibbles to convert and the byte-length of the output.
     function unsafeHex(
         uint256 src,
