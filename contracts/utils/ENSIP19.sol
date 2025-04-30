@@ -9,6 +9,7 @@ uint256 constant EVM_BIT = 1 << 31;
 
 string constant SLUG_ETH = "addr"; // <=> COIN_TYPE_ETH
 string constant SLUG_DEFAULT = "default"; // <=> EVM_BIT
+string constant TLD_REVERSE = "reverse";
 
 /// @dev Library for generating reverse names according to ENSIP-19.
 /// https://docs.ens.domains/ensip/19
@@ -65,13 +66,14 @@ library ENSIP19 {
         name = string(
             abi.encodePacked(
                 HexUtils.bytesToHex(encodedAddress),
-                ".",
+                bytes1("."),
                 coinType == COIN_TYPE_ETH
                     ? SLUG_ETH
                     : coinType == EVM_BIT
                         ? SLUG_DEFAULT
                         : HexUtils.unpaddedUintToHex(coinType, true),
-                ".reverse"
+                bytes1("."),
+                TLD_REVERSE
             )
         );
     }
@@ -108,8 +110,8 @@ library ENSIP19 {
             coinType = uint256(word);
         }
         (labelHash, offset) = NameCoder.readLabel(name, offset2);
-        if (labelHash != keccak256("reverse")) return ("", 0);
+        if (labelHash != keccak256(bytes(TLD_REVERSE))) return ("", 0); // invalid tld
         (labelHash, ) = NameCoder.readLabel(name, offset);
-        if (labelHash != bytes32(0)) return ("", 0);
+        if (labelHash != bytes32(0)) return ("", 0); // not tld
     }
 }

@@ -2,8 +2,8 @@
 pragma solidity ^0.8.4;
 
 library HexUtils {
-    /// @dev Attempts to convert a `hexString[pos:end]` to `bytes32`.
-    ///      Accepts 0-64 bytes.
+    /// @dev Convert a `hexString[pos:end]` to `bytes32`.
+    ///      Accepts 0-64 hex-chars.
     ///      Uses right alignment: `1` &rarr; `0000000000000000000000000000000000000000000000000000000000000001`.
     /// @param hexString The string to parse.
     /// @param pos The index to start parsing.
@@ -30,8 +30,8 @@ library HexUtils {
         }
     }
 
-    /// @dev Attempts to convert a `hexString[pos:end]` to `address`.
-    ///      Accepts 40-64 bytes.
+    /// @dev Convert a `hexString[pos:end]` to `address`.
+    ///      Accepts 40-64 hex-chars.
     ///      Uses right alignment: `FF8000000000000000000000000000000000000001` &rarr; `8000000000000000000000000000000000000001`.
     /// @param hexString The string to parse.
     /// @param pos The index to start parsing.
@@ -49,8 +49,8 @@ library HexUtils {
         addr = address(uint160(uint256(word)));
     }
 
-    /// @dev Attempts to convert `hexString[pos:end]` to `bytes`.
-    ///      Accepts 0+ bytes.
+    /// @dev Convert `hexString[pos:end]` to `bytes`.
+    ///      Accepts 0+ hex-chars.
     /// @param pos The index to start parsing.
     /// @param end The (exclusive) index to stop parsing.
     /// @return v The parsed bytes.
@@ -71,8 +71,8 @@ library HexUtils {
         valid = unsafeBytesFromHex(src, dst, nibbles);
     }
 
-    /// @dev Attempts to convert arbitrary hex-encoded memory.
-    ///      Leading odd nibble is zero padded, eg. `F` &rarr; `0x0F`
+    /// @dev Convert arbitrary hex-encoded memory.
+    ///      If nibbles is odd, leading byte is padded, eg. `F` &rarr; `0x0F`.
     ///      Matches: /^[0-9a-f]*$/i.
     /// @param src The memory offset of first hex-char of input.
     /// @param dst The memory offset of first byte of output (cannot alias `src`).
