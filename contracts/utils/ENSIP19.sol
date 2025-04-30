@@ -98,10 +98,14 @@ library ENSIP19 {
         } else if (labelHash == keccak256(bytes(SLUG_DEFAULT))) {
             coinType = EVM_BIT;
         } else {
-            bytes memory v;
-            (v, valid) = HexUtils.hexToBytes(name, 1 + offset, offset2);
-            if (!valid || v.length > 32) return ("", 0); // unknown coinType
-            coinType = uint256(bytes32(v) >> (256 - (v.length << 3)));
+            bytes32 word;
+            (word, valid) = HexUtils.hexStringToBytes32(
+                name,
+                1 + offset,
+                offset2
+            );
+            if (!valid) return ("", 0); // unknown coinType
+            coinType = uint256(word);
         }
         (labelHash, offset) = NameCoder.readLabel(name, offset2);
         if (labelHash != keccak256("reverse")) return ("", 0);
