@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import {HexUtils} from "../utils/HexUtils.sol";
 import {NameCoder} from "../utils/NameCoder.sol";
 
+uint32 constant CHAIN_ID_ETH = 1;
 uint256 constant COIN_TYPE_ETH = 60;
 uint256 constant EVM_BIT = 1 << 31;
 
@@ -23,7 +24,7 @@ library ENSIP19 {
     function chainFromCoinType(
         uint256 coinType
     ) internal pure returns (uint32 chain) {
-        if (coinType == COIN_TYPE_ETH) return 1;
+        if (coinType == COIN_TYPE_ETH) return CHAIN_ID_ETH;
         return
             uint32(
                 uint32(coinType) == coinType && (coinType & EVM_BIT) != 0
@@ -49,7 +50,7 @@ library ENSIP19 {
         return
             reverseName(
                 abi.encodePacked(addr),
-                chain == 1 ? COIN_TYPE_ETH : chain | EVM_BIT
+                chain == CHAIN_ID_ETH ? COIN_TYPE_ETH : chain | EVM_BIT
             );
     }
 

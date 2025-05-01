@@ -2,7 +2,7 @@
 pragma solidity ^0.8.4;
 
 library HexUtils {
-    /// @dev Convert a `hexString[pos:end]` to `bytes32`.
+    /// @dev Convert `hexString[pos:end]` to `bytes32`.
     ///      Accepts 0-64 hex-chars.
     ///      Uses right alignment: `1` &rarr; `0000000000000000000000000000000000000000000000000000000000000001`.
     /// @param hexString The string to parse.
@@ -16,21 +16,21 @@ library HexUtils {
         uint256 end
     ) internal pure returns (bytes32 word, bool valid) {
         uint256 nibbles = end - pos;
-        if (nibbles > 64 || pos + nibbles > hexString.length) {
+        if (nibbles > 64 || end > hexString.length) {
             return (bytes32(0), false); // too large or out of bounds
         }
         uint256 src;
         assembly {
             src := add(add(hexString, 32), pos)
         }
-        valid = unsafeBytesFromHex(src, 0, nibbles);
+        valid = unsafeBytes(src, 0, nibbles);
         assembly {
             let pad := sub(32, shr(1, add(nibbles, 1))) // number of bytes
             word := shr(shl(3, pad), mload(0)) // right align
         }
     }
 
-    /// @dev Convert a `hexString[pos:end]` to `address`.
+    /// @dev Convert `hexString[pos:end]` to `address`.
     ///      Accepts 40-64 hex-chars.
     ///      Uses right alignment: `FF8000000000000000000000000000000000000001` &rarr; `8000000000000000000000000000000000000001`.
     /// @param hexString The string to parse.
@@ -68,17 +68,17 @@ library HexUtils {
             src := add(add(hexString, 32), pos)
             dst := add(v, 32)
         }
-        valid = unsafeBytesFromHex(src, dst, nibbles);
+        valid = unsafeBytes(src, dst, nibbles);
     }
 
-    /// @dev Convert arbitrary hex-encoded memory.
-    ///      If nibbles is odd, leading byte is padded, eg. `F` &rarr; `0x0F`.
+    /// @dev Convert arbitrary hex-encoded memory to bytes.
+    ///      If nibbles is odd, leading hex-char is padded, eg. `F` &rarr; `0x0F`.
     ///      Matches: /^[0-9a-f]*$/i.
     /// @param src The memory offset of first hex-char of input.
     /// @param dst The memory offset of first byte of output (cannot alias `src`).
     /// @param nibbles The number of hex-chars to convert.
     /// @return valid True if all characters were hex.
-    function unsafeBytesFromHex(
+    function unsafeBytes(
         uint256 src,
         uint256 dst,
         uint256 nibbles
@@ -133,7 +133,7 @@ library HexUtils {
         }
     }
 
-    /// @dev Format an address as a hex string.
+    /// @dev Format `address` as a hex string.
     /// @param addr The address to format.
     /// @return hexString The corresponding hex string w/o a 0x-prefix.
     function addressToHex(
@@ -149,14 +149,14 @@ library HexUtils {
         unsafeHex(12, dst, 40);
     }
 
-    /// @dev Format an integer as a variable-length hex string without zero padding.
+    /// @dev Format `uint256` as a variable-length hex string without zero padding.
     /// * unpaddedUintToHex(0, true)  = "0"
     /// * unpaddedUintToHex(1, true)  = "1"
     /// * unpaddedUintToHex(0, false) = "00"
     /// * unpaddedUintToHex(1, false) = "01"
     /// @param value The number to format.
     /// @param dropZeroNibble If true, the leading byte will use one nibble if less than 16.
-    /// @return hexString The corresponding hex string w/o a 0x-prefix.
+    /// @return hexString The corresponding hex string w/o an 0x-prefix.
     function unpaddedUintToHex(
         uint256 value,
         bool dropZeroNibble
@@ -181,7 +181,7 @@ library HexUtils {
         unsafeHex(0, dst, nibbles);
     }
 
-    /// @dev Format bytes as a hex string.
+    /// @dev Format `bytes` as a hex string.
     /// @param v The bytes to format.
     /// @return hexString The corresponding hex string w/o a 0x-prefix.
     function bytesToHex(
