@@ -2,7 +2,7 @@ import { shouldSupportInterfaces } from '@ensdomains/hardhat-chai-matchers-viem/
 import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
 import { expect } from 'chai'
 import hre from 'hardhat'
-import type { Hex } from 'viem'
+import { keccak256, slice, stringToBytes } from 'viem'
 import {
   COIN_TYPE_ETH,
   EVM_BIT,
@@ -42,6 +42,28 @@ describe('L1DefaultReverseResolver', () => {
     ],
   })
 
+  it('eip3668.wrappable', async () => {
+    const F = await loadFixture(fixture)
+    await expect(
+      F.defaultReverseResolver.read.supportsInterface([
+        slice(keccak256(stringToBytes('eip3668.wrappable')), 0, 4),
+      ]),
+    ).resolves.toStrictEqual(true)
+  })
+
+  it('unsupported profile', async () => {
+    const F = await loadFixture(fixture)
+    const kp: KnownProfile = {
+      name: getReverseName(F.owner),
+      addresses: [{ coinType: 0n, encodedAddress: '0x1234' }],
+    }
+    const [res] = makeResolutions(kp)
+    await expect(F.defaultReverseResolver)
+      .read('resolve', [dnsEncodeName(kp.name), res.call])
+      .toBeRevertedWithCustomError('UnsupportedResolverProfile')
+      .withArgs(slice(res.call, 0, 4))
+  })
+
   describe('resolve()', () => {
     for (const coinType of coinTypes) {
       it(shortCoin(coinType), async () => {
@@ -68,19 +90,6 @@ describe('L1DefaultReverseResolver', () => {
         }
       })
     }
-  })
-
-  it('unsupported', async () => {
-    const F = await loadFixture(fixture)
-    const kp: KnownProfile = {
-      name: getReverseName(F.owner),
-      addresses: [{ coinType: 0n, encodedAddress: '0x1234' }],
-    }
-    const [res] = makeResolutions(kp)
-    await expect(F.defaultReverseResolver)
-      .read('resolve', [dnsEncodeName(kp.name), res.call])
-      .toBeRevertedWithCustomError('UnsupportedResolverProfile')
-      .withArgs(res.call.slice(0, 10) as Hex)
   })
 
   describe('edge cases', () => {
