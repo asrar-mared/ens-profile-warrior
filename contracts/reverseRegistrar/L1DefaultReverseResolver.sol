@@ -7,7 +7,7 @@ import {IExtendedResolver} from "../resolvers/profiles/IExtendedResolver.sol";
 import {INameResolver} from "../resolvers/profiles/INameResolver.sol";
 import {ENSIP19} from "../utils/ENSIP19.sol";
 
-contract L1ReverseDefaultResolver is IExtendedResolver, ERC165 {
+contract L1DefaultReverseResolver is IExtendedResolver, ERC165 {
     /// @param name DNS-encoded ENS name that does not exist.
     error UnreachableName(bytes name);
 
