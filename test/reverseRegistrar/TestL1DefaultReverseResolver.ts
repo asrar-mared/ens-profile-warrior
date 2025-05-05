@@ -27,9 +27,9 @@ async function fixture() {
   await defaultReverseRegistrar.write.setName([testName])
   const [wallet] = await hre.viem.getWalletClients()
   return {
+    owner: wallet.account.address,
     defaultReverseRegistrar,
     defaultReverseResolver,
-    owner: wallet.account.address,
   }
 }
 
@@ -95,6 +95,8 @@ describe('L1DefaultReverseResolver', () => {
   describe('edge cases', () => {
     for (const domain of [
       '3c.reverse',
+      '03c.reverse',
+      '000000000000000000000000000000000000000000000000000000000000003c.reverse',
       '80000000.reverse',
       '80000001.reverse',
     ]) {

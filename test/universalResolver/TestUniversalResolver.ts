@@ -17,23 +17,49 @@ import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
 import { COIN_TYPE_ETH, getReverseName } from '../fixtures/ensip19.js'
 import { expectVar } from '../fixtures/expectVar.js'
 import { serveBatchGateway } from '../fixtures/localBatchGateway.js'
-import { ownedEnsFixture } from './ownedEnsFixture.js'
+import { deployRegistryFixture } from '../fixtures/registryFixture.js'
 import { bundleCalls, getParentName, makeResolutions } from './utils.js'
 
 async function fixture() {
-  const ens = await ownedEnsFixture()
+  const F = await deployRegistryFixture()
+  const ReverseRegistrar = await hre.viem.deployContract('ReverseRegistrar', [
+    F.ensRegistry.address,
+  ])
+  await F.takeControl('addr.reverse')
+  await F.ensRegistry.write.setOwner([
+    namehash('addr.reverse'),
+    ReverseRegistrar.address,
+  ])
+  const PublicResolver = await hre.viem.deployContract('PublicResolver', [
+    F.ensRegistry.address,
+    zeroAddress, // nameWrapper
+    zeroAddress, // ethController
+    ReverseRegistrar.address,
+  ])
+  await ReverseRegistrar.write.setDefaultResolver([PublicResolver.address])
+  const OldResolver = await hre.viem.deployContract('DummyOldResolver')
+  const Shapeshift1 = await hre.viem.deployContract('DummyShapeshiftResolver')
+  const Shapeshift2 = await hre.viem.deployContract('DummyShapeshiftResolver')
   const bg = await serveBatchGateway()
   after(bg.shutdown)
   const UniversalResolver = await hre.viem.deployContract(
     'UniversalResolver',
-    [ens.ENSRegistry.address, [bg.localBatchGatewayUrl]],
+    [F.ensRegistry.address, [bg.localBatchGatewayUrl]],
     {
       client: {
         public: await hre.viem.getPublicClient({ ccipRead: undefined }),
       },
     },
   )
-  return { UniversalResolver, ...ens }
+  return {
+    ...F,
+    UniversalResolver,
+    PublicResolver,
+    ReverseRegistrar,
+    OldResolver,
+    Shapeshift1,
+    Shapeshift2,
+  }
 }
 
 const dummyCalldata = '0x12345678'
@@ -73,7 +99,7 @@ describe('UniversalResolver', () => {
     it('immediate', async () => {
       const F = await loadFixture(fixture)
       await F.takeControl(testName)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(testName),
         F.Shapeshift1.address,
       ])
@@ -87,7 +113,7 @@ describe('UniversalResolver', () => {
     it('extended', async () => {
       const F = await loadFixture(fixture)
       await F.takeControl(testName)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(getParentName(testName)),
         F.Shapeshift1.address,
       ])
@@ -105,7 +131,7 @@ describe('UniversalResolver', () => {
       const F = await loadFixture(fixture)
       const name = `${'1'.repeat(300)}.${testName}`
       await F.takeControl(name)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(name),
         F.Shapeshift1.address,
       ])
@@ -123,7 +149,7 @@ describe('UniversalResolver', () => {
         .map((x) => `[${keccak256(toHex(x)).slice(2)}]`)
         .join('.')
       await F.takeControl(name)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(name),
         F.Shapeshift1.address,
       ])
@@ -147,7 +173,7 @@ describe('UniversalResolver', () => {
     it('not extended', async () => {
       const F = await loadFixture(fixture)
       await F.takeControl(testName)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(getParentName(testName)),
         F.owner,
       ])
@@ -160,7 +186,7 @@ describe('UniversalResolver', () => {
     it('not a contract', async () => {
       const F = await loadFixture(fixture)
       await F.takeControl(testName)
-      await F.ENSRegistry.write.setResolver([namehash(testName), F.owner])
+      await F.ensRegistry.write.setResolver([namehash(testName), F.owner])
       await expect(F.UniversalResolver)
         .read('resolve', [dnsEncodeName(testName), dummyCalldata])
         .toBeRevertedWithCustomError('ResolverNotContract')
@@ -170,7 +196,7 @@ describe('UniversalResolver', () => {
     it('empty response', async () => {
       const F = await loadFixture(fixture)
       await F.takeControl(testName)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(testName),
         F.Shapeshift1.address,
       ])
@@ -183,7 +209,7 @@ describe('UniversalResolver', () => {
     it('empty revert', async () => {
       const F = await loadFixture(fixture)
       await F.takeControl(testName)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(testName),
         F.Shapeshift1.address,
       ])
@@ -197,7 +223,7 @@ describe('UniversalResolver', () => {
     it('resolver revert', async () => {
       const F = await loadFixture(fixture)
       await F.takeControl(testName)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(testName),
         F.Shapeshift1.address,
       ])
@@ -215,7 +241,7 @@ describe('UniversalResolver', () => {
       })
       after(bg.shutdown)
       await F.takeControl(testName)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(testName),
         F.Shapeshift1.address,
       ])
@@ -234,7 +260,7 @@ describe('UniversalResolver', () => {
     it('unsupported revert', async () => {
       const F = await loadFixture(fixture)
       await F.takeControl(testName)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(testName),
         F.Shapeshift1.address,
       ])
@@ -248,7 +274,7 @@ describe('UniversalResolver', () => {
     it('old', async () => {
       const F = await loadFixture(fixture)
       await F.takeControl(testName)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(testName),
         F.OldResolver.address,
       ])
@@ -270,7 +296,7 @@ describe('UniversalResolver', () => {
     it('old w/multicall (1 revert)', async () => {
       const F = await loadFixture(fixture)
       await F.takeControl(testName)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(testName),
         F.OldResolver.address,
       ])
@@ -300,7 +326,7 @@ describe('UniversalResolver', () => {
     it('onchain immediate', async () => {
       const F = await loadFixture(fixture)
       await F.takeControl(testName)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(testName),
         F.Shapeshift1.address,
       ])
@@ -318,7 +344,7 @@ describe('UniversalResolver', () => {
     it('onchain immediate w/multicall', async () => {
       const F = await loadFixture(fixture)
       await F.takeControl(testName)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(testName),
         F.Shapeshift1.address,
       ])
@@ -338,7 +364,7 @@ describe('UniversalResolver', () => {
     it('onchain extended', async () => {
       const F = await loadFixture(fixture)
       await F.takeControl(testName)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(getParentName(testName)),
         F.Shapeshift1.address,
       ])
@@ -357,7 +383,7 @@ describe('UniversalResolver', () => {
     it('onchain extended w/multicall', async () => {
       const F = await loadFixture(fixture)
       await F.takeControl(testName)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(getParentName(testName)),
         F.Shapeshift1.address,
       ])
@@ -378,7 +404,7 @@ describe('UniversalResolver', () => {
     it('offchain immediate', async () => {
       const F = await loadFixture(fixture)
       await F.takeControl(testName)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(testName),
         F.Shapeshift1.address,
       ])
@@ -397,7 +423,7 @@ describe('UniversalResolver', () => {
     it('offchain immediate w/multicall', async () => {
       const F = await loadFixture(fixture)
       await F.takeControl(testName)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(testName),
         F.Shapeshift1.address,
       ])
@@ -418,7 +444,7 @@ describe('UniversalResolver', () => {
     it('offchain extended', async () => {
       const F = await loadFixture(fixture)
       await F.takeControl(testName)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(getParentName(testName)),
         F.Shapeshift1.address,
       ])
@@ -438,7 +464,7 @@ describe('UniversalResolver', () => {
     it('offchain extended w/multicall', async () => {
       const F = await loadFixture(fixture)
       await F.takeControl(testName)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(getParentName(testName)),
         F.Shapeshift1.address,
       ])
@@ -460,7 +486,7 @@ describe('UniversalResolver', () => {
     it('offchain extended w/multicall (1 revert)', async () => {
       const F = await loadFixture(fixture)
       await F.takeControl(testName)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(getParentName(testName)),
         F.Shapeshift1.address,
       ])
@@ -515,7 +541,7 @@ describe('UniversalResolver', () => {
       const F = await loadFixture(fixture)
       const reverseName = getReverseName(F.owner)
       await F.takeControl(reverseName)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(reverseName),
         F.OldResolver.address,
       ])
@@ -529,7 +555,7 @@ describe('UniversalResolver', () => {
       const F = await loadFixture(fixture)
       const reverseName = getReverseName(F.owner)
       await F.takeControl(reverseName)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(reverseName),
         F.Shapeshift1.address,
       ])
@@ -549,7 +575,7 @@ describe('UniversalResolver', () => {
       const F = await loadFixture(fixture)
       const reverseName = getReverseName(F.owner)
       await F.takeControl(reverseName)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(reverseName),
         F.Shapeshift1.address,
       ])
@@ -563,12 +589,12 @@ describe('UniversalResolver', () => {
       const F = await loadFixture(fixture)
       const reverseName = getReverseName(F.owner)
       await F.takeControl(reverseName)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(reverseName),
         F.OldResolver.address,
       ])
       await F.takeControl(testName)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(testName),
         F.Shapeshift1.address,
       ])
@@ -593,12 +619,12 @@ describe('UniversalResolver', () => {
       const F = await loadFixture(fixture)
       const reverseName = getReverseName(F.owner)
       await F.takeControl(reverseName)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(reverseName),
         F.OldResolver.address,
       ])
       await F.takeControl(testName)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(testName),
         F.Shapeshift1.address,
       ])
@@ -622,12 +648,12 @@ describe('UniversalResolver', () => {
       const F = await loadFixture(fixture)
       const reverseName = getReverseName(F.owner)
       await F.takeControl(reverseName)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(reverseName),
         F.OldResolver.address,
       ])
       await F.takeControl(testName)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(testName),
         F.OldResolver.address,
       ])
@@ -641,12 +667,12 @@ describe('UniversalResolver', () => {
       const F = await loadFixture(fixture)
       const reverseName = getReverseName(F.owner)
       await F.takeControl(reverseName)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(reverseName),
         F.OldResolver.address,
       ])
       await F.takeControl(testName)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(testName),
         F.Shapeshift1.address,
       ])
@@ -660,7 +686,7 @@ describe('UniversalResolver', () => {
       const F = await loadFixture(fixture)
       const reverseName = getReverseName(F.owner)
       await F.takeControl(reverseName)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(getParentName(reverseName)),
         F.Shapeshift1.address,
       ])
@@ -672,7 +698,7 @@ describe('UniversalResolver', () => {
       await F.Shapeshift1.write.setOffchain([true])
       await F.Shapeshift1.write.setResponse([rev.call, rev.answer])
       await F.takeControl(testName)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(testName),
         F.Shapeshift2.address,
       ])
@@ -698,7 +724,7 @@ describe('UniversalResolver', () => {
       const coinType = 123n // non-evm
       const reverseName = getReverseName(F.owner, coinType)
       await F.takeControl(reverseName)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(getParentName(reverseName)),
         F.Shapeshift1.address,
       ])
@@ -710,7 +736,7 @@ describe('UniversalResolver', () => {
       await F.Shapeshift1.write.setOffchain([true])
       await F.Shapeshift1.write.setResponse([rev.call, rev.answer])
       await F.takeControl(testName)
-      await F.ENSRegistry.write.setResolver([
+      await F.ensRegistry.write.setResolver([
         namehash(getParentName(testName)),
         F.Shapeshift2.address,
       ])

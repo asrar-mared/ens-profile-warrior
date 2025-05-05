@@ -30,11 +30,12 @@ describe('HexUtils', () => {
   describe('hexStringToBytes32()', () => {
     for (let n = 0; n <= 64; n++) {
       const raw = unprefixedHexStr(n)
+      const hex = ('0x' + raw.padStart(64, '0')) as Hex
       it(`0x${raw}`, async () => {
         const F = await loadFixture(fixture)
         await expect(
           F.read.hexStringToBytes32([stringToHex(raw), 0n, BigInt(n)]),
-        ).resolves.toStrictEqual([('0x' + raw.padStart(64, '0')) as Hex, true])
+        ).resolves.toStrictEqual([hex, true])
       })
     }
 
