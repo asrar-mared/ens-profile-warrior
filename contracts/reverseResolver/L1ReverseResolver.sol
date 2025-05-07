@@ -5,11 +5,12 @@ import {ERC165} from "@openzeppelin/contracts-v5/utils/introspection/ERC165.sol"
 import {Ownable} from "@openzeppelin/contracts-v5/access/Ownable.sol";
 import {GatewayFetchTarget, IGatewayVerifier} from "@ensdomains/unruggable-gateways/contracts/GatewayFetchTarget.sol";
 import {GatewayFetcher, GatewayRequest} from "@ensdomains/unruggable-gateways/contracts/GatewayFetcher.sol";
-import {IReverseRegistrarProvider} from "./IReverseRegistrarProvider.sol";
+import {IStandaloneReverseRegistrar} from "../reverseRegistrar/IStandaloneReverseRegistrar.sol";
 import {ENS} from "../registry/ENS.sol";
 import {IExtendedResolver} from "../resolvers/profiles/IExtendedResolver.sol";
 import {IAddressResolver} from "../resolvers/profiles/IAddressResolver.sol";
 import {INameResolver} from "../resolvers/profiles/INameResolver.sol";
+import {IMulticallable} from "../resolvers/IMulticallable.sol";
 import {NameCoder} from "../utils/NameCoder.sol";
 import {ENSIP19} from "../utils/ENSIP19.sol";
 
@@ -93,7 +94,8 @@ contract L1ReverseResolver is
     ///         or falls back to the default resolver if the name is not found.
     ///         Also supports `addr` calls for the L2 chain's reverse namespace,
     ///         which resolves to the target L2 chain's registrar contract.
-    ///
+    /// @notice Callers should enable EIP-3668.
+    /// @dev This function executes over multiple steps (step 1 of 2).
     /// @param name The DNS encoded ENS name to query.
     /// @param data The resolver calldata.
     function resolve(
@@ -112,7 +114,7 @@ contract L1ReverseResolver is
             fetch(
                 l2Verifier,
                 req,
-                this.fetchNameCallback.selector,
+                this.resolveNameCallback.selector,
                 abi.encode(addr),
                 gatewayURLs
             );
@@ -125,31 +127,95 @@ contract L1ReverseResolver is
         }
     }
 
-    /// @notice Callback function, called by the verifier contract.
-    ///
-    /// @dev If the primary name is empty, the default resolver is used.
-    ///
-    /// @param values The values returned from the verifier contract.
-    ///               Should be a single value.
+    /// @dev CCIP-Read callback for `resolve()` (step 2 of 2).
+    /// @param values The outputs for `GatewayRequest` (1 name).
     /// @param extraData The contextual data passed from `resolve()`.
-    /// @return The name for the given address, ABI encoded.
-    function fetchNameCallback(
+    /// @return result The abi-encoded name for the given address.
+    function resolveNameCallback(
         bytes[] memory values,
         uint8 /* exitCode */,
         bytes calldata extraData
-    ) external view returns (bytes memory) {
-        bytes memory primary = values[0];
-        if (primary.length == 0) {
+    ) external view returns (bytes memory result) {
+        string memory name = string(values[0]);
+        if (bytes(name).length == 0) {
             address resolver = registry.resolver(REVERSE_NODE);
             if (resolver != address(0)) {
                 address addr = abi.decode(extraData, (address));
-                primary = bytes(
-                    IReverseRegistrarProvider(resolver)
-                        .reverseRegistrar()
-                        .nameForAddr(addr)
-                );
+                name = IStandaloneReverseRegistrar(resolver).nameForAddr(addr);
             }
         }
-        return abi.encode(primary);
+        result = abi.encode(name);
+    }
+
+    /// @notice Resolve multiple addresses using L2 Registrar.
+    ///         If the name is empty, the default resolver is used.
+    /// @notice Callers should enable EIP-3668.
+    /// @dev This function executes over multiple steps (step 1 of 2+).
+    /// @param addrs The addresses to resolve.
+    /// @param perPage The maximum number of addresses to resolve per `GatewayRequest`.
+    /// @return names The corresponding names.
+    function resolveNames(
+        address[] memory addrs,
+        uint8 perPage
+    ) external view returns (string[] memory names) {
+        names = new string[](addrs.length);
+        _resolveNames(addrs, names, 0, perPage);
+    }
+
+    /// @dev Resolve the next page of names.
+    function _resolveNames(
+        address[] memory addrs,
+        string[] memory names,
+        uint256 start,
+        uint8 perPage
+    ) internal view {
+        uint256 end = start + perPage;
+        if (end > addrs.length) end = addrs.length;
+        uint8 count = uint8(end - start);
+        if (count == 0) return;
+        GatewayRequest memory req = GatewayFetcher.newRequest(count);
+        req.setTarget(l2Registrar); // target L2 registrar
+        for (uint256 i; i < count; i++) {
+            req.setSlot(NAMES_SLOT);
+            req.push(addrs[start + i]).follow().readBytes(); // names[addr[i]]
+            req.setOutput(uint8(i));
+        }
+        fetch(
+            l2Verifier,
+            req,
+            this.resolveNamesCallback.selector,
+            abi.encode(addrs, names, start, perPage),
+            gatewayURLs
+        );
+    }
+
+    /// @dev CCIP-Read callback for `names()` (step 2 of 2+).
+    ///      Recursive if there are still names to resolve.
+    /// @param values The outputs for `GatewayRequest` (N names).
+    /// @param extraData The contextual data passed from `names()`.
+    /// @return names The corresponding names.
+    function resolveNamesCallback(
+        bytes[] memory values,
+        uint8 /* exitCode */,
+        bytes calldata extraData
+    ) external view returns (string[] memory names) {
+        address[] memory addrs;
+        uint256 start;
+        uint8 perPage;
+        (addrs, names, start, perPage) = abi.decode(
+            extraData,
+            (address[], string[], uint256, uint8)
+        );
+        address resolver = registry.resolver(REVERSE_NODE);
+        for (uint256 i; i < values.length; i++) {
+            string memory name = string(values[i]);
+            if (bytes(name).length == 0 && resolver != address(0)) {
+                name = IStandaloneReverseRegistrar(resolver).nameForAddr(
+                    addrs[start + i]
+                );
+            }
+            names[start + i] = name;
+        }
+        _resolveNames(addrs, names, start + values.length, perPage);
     }
 }

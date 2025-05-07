@@ -179,4 +179,44 @@ describe('L1ReverseResolver', () => {
       )
     })
   })
+
+  describe('resolveNames()', () => {
+    it('empty', async () => {
+      const F = await loadFixture(fixture)
+      await expect(
+        F.reverseResolver.read.resolveNames([[], 255]),
+      ).resolves.toStrictEqual([])
+    })
+
+    it('multiple pages', async () => {
+      const F = await loadFixture(fixture)
+      const wallets = await hre.viem.getWalletClients()
+      for (const w of wallets) {
+        await F.reverseRegistrar.write.setName([w.uid], { account: w.account })
+      }
+      await expect(
+        F.reverseResolver.read.resolveNames([
+          wallets.map((x) => x.account.address),
+          3,
+        ]),
+      ).resolves.toStrictEqual(wallets.map((x) => x.uid))
+    })
+
+    it('mixed', async () => {
+      const F = await loadFixture(fixture)
+      const wallets = await hre.viem.getWalletClients()
+      await F.reverseRegistrar.write.setName(['A'], {
+        account: wallets[0].account,
+      })
+      await F.defaultReverseRegistrar.write.setName(['B'], {
+        account: wallets[1].account,
+      })
+      await expect(
+        F.reverseResolver.read.resolveNames([
+          wallets.slice(0, 3).map((x) => x.account.address),
+          255,
+        ]),
+      ).resolves.toStrictEqual(['A', 'B', ''])
+    })
+  })
 })
