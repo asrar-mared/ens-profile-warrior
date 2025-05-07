@@ -55,7 +55,7 @@ describe('L1DefaultReverseResolver', () => {
     const F = await loadFixture(fixture)
     const kp: KnownProfile = {
       name: getReverseName(F.owner),
-      addresses: [{ coinType: 0n, encodedAddress: '0x1234' }],
+      texts: [{ key: 'dne', value: 'abc' }],
     }
     const [res] = makeResolutions(kp)
     await expect(F.defaultReverseResolver)
