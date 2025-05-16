@@ -2,7 +2,7 @@ import { shouldSupportInterfaces } from '@ensdomains/hardhat-chai-matchers-viem/
 import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
 import { expect } from 'chai'
 import hre from 'hardhat'
-import { keccak256, slice, stringToBytes } from 'viem'
+import { slice } from 'viem'
 import {
   COIN_TYPE_ETH,
   EVM_BIT,
@@ -39,16 +39,9 @@ describe('L1DefaultReverseResolver', () => {
     interfaces: [
       '@openzeppelin/contracts-v5/utils/introspection/IERC165.sol:IERC165',
       'IExtendedResolver',
+      'IEVMNameReverser',
+      'IEVMNamesReverser',
     ],
-  })
-
-  it('eip3668.wrappable', async () => {
-    const F = await loadFixture(fixture)
-    await expect(
-      F.defaultReverseResolver.read.supportsInterface([
-        slice(keccak256(stringToBytes('eip3668.wrappable')), 0, 4),
-      ]),
-    ).resolves.toStrictEqual(true)
   })
 
   it('unsupported profile', async () => {
@@ -93,17 +86,17 @@ describe('L1DefaultReverseResolver', () => {
   })
 
   describe('edge cases', () => {
-    for (const domain of [
+    for (const namespace of [
       '3c.reverse',
       '03c.reverse',
       '000000000000000000000000000000000000000000000000000000000000003c.reverse',
       '80000000.reverse',
       '80000001.reverse',
     ]) {
-      it(domain, async () => {
+      it(namespace, async () => {
         const F = await loadFixture(fixture)
         const kp: KnownProfile = {
-          name: `${F.owner.slice(2).toLowerCase()}.${domain}`,
+          name: `${F.owner.slice(2).toLowerCase()}.${namespace}`,
           primary: {
             name: testName,
           },
@@ -117,5 +110,33 @@ describe('L1DefaultReverseResolver', () => {
         )
       })
     }
+  })
+
+  describe('resolveNames()', () => {
+    it('empty', async () => {
+      const F = await loadFixture(fixture)
+      await expect(
+        F.defaultReverseResolver.read.resolveNames([[], /*ignored*/ 0]),
+      ).resolves.toStrictEqual([])
+    })
+
+    it('multiple + 1 unset', async () => {
+      const F = await loadFixture(fixture)
+      const wallets = await hre.viem.getWalletClients()
+      for (const w of wallets) {
+        await F.defaultReverseRegistrar.write.setName([w.uid], {
+          account: w.account,
+        })
+      }
+      await expect(
+        F.defaultReverseResolver.read.resolveNames([
+          [
+            ...wallets.map((x) => x.account.address),
+            F.defaultReverseRegistrar.address,
+          ],
+          /*ignored*/ 0,
+        ]),
+      ).resolves.toStrictEqual([...wallets.map((x) => x.uid), ''])
+    })
   })
 })

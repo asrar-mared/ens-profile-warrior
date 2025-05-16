@@ -2,7 +2,7 @@ import { shouldSupportInterfaces } from '@ensdomains/hardhat-chai-matchers-viem/
 import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
 import { expect } from 'chai'
 import hre from 'hardhat'
-import { keccak256, namehash, slice, stringToBytes } from 'viem'
+import { namehash, slice } from 'viem'
 import {
   EVM_BIT,
   getReverseName,
@@ -62,7 +62,7 @@ async function fixture() {
     },
   )
   {
-    const name = 'reverse'
+    const name = 'default.reverse'
     await F.takeControl(name)
     await F.ensRegistry.write.setResolver([
       namehash(name),
@@ -92,16 +92,8 @@ describe('L1ReverseResolver', () => {
     interfaces: [
       '@openzeppelin/contracts-v5/utils/introspection/IERC165.sol:IERC165',
       'IExtendedResolver',
+      'IEVMNamesReverser',
     ],
-  })
-
-  it('eip3668.wrappable', async () => {
-    const F = await loadFixture(fixture)
-    await expect(
-      F.reverseResolver.read.supportsInterface([
-        slice(keccak256(stringToBytes('eip3668.wrappable')), 0, 4),
-      ]),
-    ).resolves.toStrictEqual(true)
   })
 
   it('unsupported profile', async () => {
@@ -202,7 +194,7 @@ describe('L1ReverseResolver', () => {
       ).resolves.toStrictEqual(wallets.map((x) => x.uid))
     })
 
-    it('mixed', async () => {
+    it('1 specific + 1 default + 1 unset', async () => {
       const F = await loadFixture(fixture)
       const wallets = await hre.viem.getWalletClients()
       await F.reverseRegistrar.write.setName(['A'], {

@@ -5,13 +5,14 @@ import {ERC165} from "@openzeppelin/contracts-v5/utils/introspection/ERC165.sol"
 import {Ownable} from "@openzeppelin/contracts-v5/access/Ownable.sol";
 import {GatewayFetchTarget, IGatewayVerifier} from "@ensdomains/unruggable-gateways/contracts/GatewayFetchTarget.sol";
 import {GatewayFetcher, GatewayRequest} from "@ensdomains/unruggable-gateways/contracts/GatewayFetcher.sol";
-import {IStandaloneReverseRegistrar} from "../reverseRegistrar/IStandaloneReverseRegistrar.sol";
 import {ENS} from "../registry/ENS.sol";
 import {IExtendedResolver} from "../resolvers/profiles/IExtendedResolver.sol";
 import {IAddressResolver} from "../resolvers/profiles/IAddressResolver.sol";
 import {INameResolver} from "../resolvers/profiles/INameResolver.sol";
 import {IMulticallable} from "../resolvers/IMulticallable.sol";
 import {NameCoder} from "../utils/NameCoder.sol";
+import {IEVMNameReverser} from "../reverseRegistrar/IEVMNameReverser.sol";
+import {IEVMNamesReverser} from "./IEVMNamesReverser.sol";
 import {ENSIP19} from "../utils/ENSIP19.sol";
 
 /// @title L1 Reverse Resolver
@@ -19,6 +20,7 @@ import {ENSIP19} from "../utils/ENSIP19.sol";
 contract L1ReverseResolver is
     GatewayFetchTarget,
     IExtendedResolver,
+    IEVMNamesReverser,
     ERC165,
     Ownable
 {
@@ -45,9 +47,14 @@ contract L1ReverseResolver is
     /// @notice The target registrar contract on the L2 chain.
     address public immutable l2Registrar;
 
-    /// @notice The namehash of 'reverse'
-    bytes32 constant REVERSE_NODE =
-        keccak256(abi.encode(0, keccak256("reverse")));
+    /// @notice The namehash of 'default.reverse'
+    bytes32 constant FALLBACK_NODE =
+        keccak256(
+            abi.encode(
+                keccak256(abi.encode(0, keccak256("reverse"))),
+                keccak256("default")
+            )
+        );
 
     /// @notice Storage slot for the names mapping in the target registrar contract.
     uint256 constant NAMES_SLOT = 0;
@@ -77,8 +84,8 @@ contract L1ReverseResolver is
         bytes4 interfaceId
     ) public view override returns (bool) {
         return
-            interfaceId == bytes4(keccak256("eip3668.wrappable")) ||
             interfaceId == type(IExtendedResolver).interfaceId ||
+            interfaceId == type(IEVMNamesReverser).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 
@@ -138,22 +145,16 @@ contract L1ReverseResolver is
     ) external view returns (bytes memory result) {
         string memory name = string(values[0]);
         if (bytes(name).length == 0) {
-            address resolver = registry.resolver(REVERSE_NODE);
+            address resolver = registry.resolver(FALLBACK_NODE);
             if (resolver != address(0)) {
                 address addr = abi.decode(extraData, (address));
-                name = IStandaloneReverseRegistrar(resolver).nameForAddr(addr);
+                name = IEVMNameReverser(resolver).nameForAddr(addr);
             }
         }
         result = abi.encode(name);
     }
 
-    /// @notice Resolve multiple addresses using L2 Registrar.
-    ///         If the name is empty, the default resolver is used.
-    /// @notice Callers should enable EIP-3668.
-    /// @dev This function executes over multiple steps (step 1 of 2+).
-    /// @param addrs The addresses to resolve.
-    /// @param perPage The maximum number of addresses to resolve per `GatewayRequest`.
-    /// @return names The corresponding names.
+    /// @inheritdoc IEVMNamesReverser
     function resolveNames(
         address[] memory addrs,
         uint8 perPage
@@ -189,10 +190,10 @@ contract L1ReverseResolver is
         );
     }
 
-    /// @dev CCIP-Read callback for `names()` (step 2 of 2+).
+    /// @dev CCIP-Read callback for `resolveNames()` (step 2 of 2+).
     ///      Recursive if there are still names to resolve.
     /// @param values The outputs for `GatewayRequest` (N names).
-    /// @param extraData The contextual data passed from `names()`.
+    /// @param extraData The contextual data passed from `resolveNames()`.
     /// @return names The corresponding names.
     function resolveNamesCallback(
         bytes[] memory values,
@@ -206,13 +207,11 @@ contract L1ReverseResolver is
             extraData,
             (address[], string[], uint256, uint8)
         );
-        address resolver = registry.resolver(REVERSE_NODE);
+        address resolver = registry.resolver(FALLBACK_NODE);
         for (uint256 i; i < values.length; i++) {
             string memory name = string(values[i]);
             if (bytes(name).length == 0 && resolver != address(0)) {
-                name = IStandaloneReverseRegistrar(resolver).nameForAddr(
-                    addrs[start + i]
-                );
+                name = IEVMNameReverser(resolver).nameForAddr(addrs[start + i]);
             }
             names[start + i] = name;
         }

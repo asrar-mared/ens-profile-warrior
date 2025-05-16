@@ -128,9 +128,9 @@ describe('L2ReverseRegistrar', () => {
     contract: () =>
       loadFixture(fixture).then(({ l2ReverseRegistrar }) => l2ReverseRegistrar),
     interfaces: [
-      'IL2ReverseRegistrar',
       '@openzeppelin/contracts-v5/utils/introspection/IERC165.sol:IERC165',
-      'IStandaloneReverseRegistrar',
+      'IL2ReverseRegistrar',
+      'IEVMNameReverser',
     ],
   })
 

@@ -68,9 +68,9 @@ describe('DefaultReverseRegistrar', () => {
         ({ defaultReverseRegistrar }) => defaultReverseRegistrar,
       ),
     interfaces: [
-      'IDefaultReverseRegistrar',
       '@openzeppelin/contracts-v5/utils/introspection/IERC165.sol:IERC165',
-      'IStandaloneReverseRegistrar',
+      'IDefaultReverseRegistrar',
+      'IEVMNameReverser',
     ],
   })
 
