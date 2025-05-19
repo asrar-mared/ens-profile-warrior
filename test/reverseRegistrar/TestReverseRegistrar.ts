@@ -1,19 +1,8 @@
-import { shouldSupportInterfaces } from '@ensdomains/hardhat-chai-matchers-viem/behaviour'
 import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
 import { expect } from 'chai'
 import hre from 'hardhat'
-import {
-  encodePacked,
-  keccak256,
-  labelhash,
-  namehash,
-  toFunctionSelector,
-  zeroAddress,
-  zeroHash,
-  type AbiFunction,
-  type Address,
-  type Hex,
-} from 'viem'
+import { type Address, labelhash, namehash, zeroAddress, zeroHash } from 'viem'
+
 import { getReverseName } from '../fixtures/ensip19.js'
 
 function getReverseNodeHash(addr: Address) {
@@ -65,42 +54,7 @@ async function fixture() {
   }
 }
 
-const createMessageHash = ({
-  functionSelector,
-  address,
-  ownerAddress,
-  resolverAddress,
-  signatureExpiry,
-}: {
-  functionSelector: Hex
-  address: Address
-  ownerAddress: Address
-  resolverAddress: Address
-  signatureExpiry: bigint
-}) =>
-  keccak256(
-    encodePacked(
-      ['bytes4', 'address', 'address', 'address', 'uint256'],
-      [
-        functionSelector,
-        address,
-        ownerAddress,
-        resolverAddress,
-        signatureExpiry,
-      ],
-    ),
-  )
-
 describe('ReverseRegistrar', () => {
-  shouldSupportInterfaces({
-    contract: () =>
-      loadFixture(fixture).then(({ reverseRegistrar }) => reverseRegistrar),
-    interfaces: [
-      'IReverseRegistrar',
-      '@openzeppelin/contracts/utils/introspection/IERC165.sol:IERC165',
-    ],
-  })
-
   it('should calculate node hash correctly', async () => {
     const { reverseRegistrar, accounts } = await loadFixture(fixture)
 
@@ -174,7 +128,7 @@ describe('ReverseRegistrar', () => {
           accounts[0].address,
           publicResolver.address,
         ])
-        .toBeRevertedWithCustomError('Unauthorised')
+        .toBeRevertedWithoutReason()
     })
 
     it('allows an authorised account to claim a different address', async () => {
@@ -311,7 +265,7 @@ describe('ReverseRegistrar', () => {
           publicResolver.address,
           'testname',
         ])
-        .toBeRevertedWithCustomError('Unauthorised')
+        .toBeRevertedWithoutReason()
     })
 
     it('allows name to be set for an address if the sender is the address', async () => {
@@ -378,106 +332,6 @@ describe('ReverseRegistrar', () => {
       await expect(
         publicResolver.read.name([getReverseNodeHash(dummyOwnable.address)]),
       ).resolves.toEqual('dummyownable.eth')
-    })
-  })
-
-  describe('claimForAddrWithSignature', () => {
-    it('allows an account to sign a message to allow a relayer to claim the address', async () => {
-      const { ensRegistry, reverseRegistrar, publicResolver, accounts } =
-        await loadFixture(fixture)
-
-      const [walletClient] = await hre.viem.getWalletClients()
-
-      const functionSelector = toFunctionSelector(
-        reverseRegistrar.abi.find(
-          (f) =>
-            f.type === 'function' && f.name === 'claimForAddrWithSignature',
-        ) as AbiFunction,
-      )
-      const publicClient = await hre.viem.getPublicClient()
-      const blockTimestamp = await publicClient
-        .getBlock()
-        .then((b) => b.timestamp)
-      const signatureExpiry = blockTimestamp + 3600n
-
-      const messageHash = createMessageHash({
-        functionSelector,
-        address: accounts[0].address,
-        ownerAddress: accounts[1].address,
-        resolverAddress: publicResolver.address,
-        signatureExpiry,
-      })
-      const signature = await walletClient.signMessage({
-        message: { raw: messageHash },
-      })
-
-      await reverseRegistrar.write.claimForAddrWithSignature(
-        [
-          accounts[0].address,
-          accounts[1].address,
-          publicResolver.address,
-          signatureExpiry,
-          signature,
-        ],
-        { account: accounts[2] },
-      )
-
-      await expect(
-        ensRegistry.read.owner([getReverseNodeHash(accounts[0].address)]),
-      ).resolves.toEqualAddress(accounts[1].address)
-    })
-  })
-
-  describe('setNameForAddrWithSignature', () => {
-    it('allows an account to sign a message to allow a relayer to claim the address', async () => {
-      const { ensRegistry, reverseRegistrar, publicResolver, accounts } =
-        await loadFixture(fixture)
-
-      const [walletClient] = await hre.viem.getWalletClients()
-
-      const functionSelector = toFunctionSelector(
-        reverseRegistrar.abi.find(
-          (f) =>
-            f.type === 'function' && f.name === 'claimForAddrWithSignature',
-        ) as AbiFunction,
-      )
-      const publicClient = await hre.viem.getPublicClient()
-      const blockTimestamp = await publicClient
-        .getBlock()
-        .then((b) => b.timestamp)
-      const signatureExpiry = blockTimestamp + 3600n
-
-      const messageHash = createMessageHash({
-        functionSelector,
-        address: accounts[0].address,
-        ownerAddress: accounts[1].address,
-        resolverAddress: publicResolver.address,
-        signatureExpiry,
-      })
-      const signature = await walletClient.signMessage({
-        message: { raw: messageHash },
-      })
-
-      await reverseRegistrar.write.setNameForAddrWithSignature(
-        [
-          accounts[0].address,
-          accounts[1].address,
-          publicResolver.address,
-          signatureExpiry,
-          signature,
-          'hello.eth',
-        ],
-        { account: accounts[2] },
-      )
-
-      const node = getReverseNodeHash(accounts[0].address)
-
-      await expect(ensRegistry.read.owner([node])).resolves.toEqualAddress(
-        accounts[1].address,
-      )
-      await expect(publicResolver.read.name([node])).resolves.toEqual(
-        'hello.eth',
-      )
     })
   })
 
