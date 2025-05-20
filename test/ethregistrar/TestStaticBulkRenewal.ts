@@ -107,7 +107,7 @@ describe('StaticBulkRenewal', () => {
     const { bulkRenewal } = await loadFixture(fixture)
 
     await expect(bulkRenewal)
-      .write('renewAll', [['foobar'], 86400n])
+      .write('renewAll', [['foobar'], 86400n, zeroHash])
       .toBeRevertedWithoutReason()
   })
 
@@ -117,7 +117,7 @@ describe('StaticBulkRenewal', () => {
 
     const oldExpiry = await baseRegistrar.read.nameExpires([toLabelId('test2')])
 
-    await bulkRenewal.write.renewAll([['test1', 'test2'], 86400n], {
+    await bulkRenewal.write.renewAll([['test1', 'test2'], 86400n, zeroHash], {
       value: 86400n * 2n,
     })
 
