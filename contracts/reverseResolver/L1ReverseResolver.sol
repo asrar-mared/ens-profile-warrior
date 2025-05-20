@@ -4,19 +4,19 @@ pragma solidity ^0.8.17;
 import {Ownable} from "@openzeppelin/contracts-v5/access/Ownable.sol";
 import {GatewayFetchTarget, IGatewayVerifier} from "@unruggable/gateways/contracts/GatewayFetchTarget.sol";
 import {GatewayFetcher, GatewayRequest} from "@unruggable/gateways/contracts/GatewayFetcher.sol";
-import {AbstractL1ReverseResolver} from "./AbstractL1ReverseResolver.sol";
+import {AbstractReverseResolver} from "./AbstractReverseResolver.sol";
 import {ENS} from "../registry/ENS.sol";
 import {IStandaloneReverseRegistrar} from "../reverseRegistrar/IStandaloneReverseRegistrar.sol";
 import {IAddressResolver} from "../resolvers/profiles/IAddressResolver.sol";
 import {INameResolver} from "../resolvers/profiles/INameResolver.sol";
 import {NameCoder} from "../utils/NameCoder.sol";
-import {IEVMNamesReverser} from "./IEVMNamesReverser.sol";
+import {IBatchReverser} from "./IBatchReverser.sol";
 import {ENSIP19} from "../utils/ENSIP19.sol";
 
 /// @title L1 Reverse Resolver
 /// @notice Resolves reverse records for an L2 chain. Deployed on the L1 chain.
 contract L1ReverseResolver is
-    AbstractL1ReverseResolver,
+    AbstractReverseResolver,
     GatewayFetchTarget,
     Ownable
 {
@@ -50,7 +50,7 @@ contract L1ReverseResolver is
         IGatewayVerifier verifier,
         string[] memory gateways,
         address registrar
-    ) AbstractL1ReverseResolver(ens) Ownable(_owner) {
+    ) AbstractReverseResolver(ens) Ownable(_owner) {
         l2Verifier = verifier;
         gatewayURLs = gateways;
         l2Registrar = registrar;
@@ -122,7 +122,7 @@ contract L1ReverseResolver is
         result = abi.encode(name);
     }
 
-    /// @inheritdoc IEVMNamesReverser
+    /// @inheritdoc IBatchReverser
     function resolveNames(
         address[] memory addrs,
         uint8 perPage

@@ -54,15 +54,15 @@ async function fixture() {
       },
     },
   )
-  const reverseName = getReverseNamespace(l2CoinType)
-  await F.takeControl(reverseName)
+  const reverseNamespace = getReverseNamespace(l2CoinType)
+  await F.takeControl(reverseNamespace)
   await F.ensRegistry.write.setResolver([
-    namehash(reverseName),
+    namehash(reverseNamespace),
     reverseResolver.address,
   ])
   return {
     ...F,
-    reverseName,
+    reverseNamespace,
     reverseRegistrar,
     reverseResolver,
   }
@@ -74,7 +74,7 @@ describe('L1ReverseResolver', () => {
     interfaces: [
       '@openzeppelin/contracts-v5/utils/introspection/IERC165.sol:IERC165',
       'IExtendedResolver',
-      'IEVMNamesReverser',
+      'IBatchReverser',
     ],
   })
 

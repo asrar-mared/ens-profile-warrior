@@ -5,11 +5,11 @@ import {ERC165} from "@openzeppelin/contracts-v5/utils/introspection/ERC165.sol"
 import {ENS} from "../registry/ENS.sol";
 import {IStandaloneReverseRegistrar} from "../reverseRegistrar/IStandaloneReverseRegistrar.sol";
 import {IExtendedResolver} from "../resolvers/profiles/IExtendedResolver.sol";
-import {IEVMNamesReverser} from "./IEVMNamesReverser.sol";
+import {IBatchReverser} from "./IBatchReverser.sol";
 
-abstract contract AbstractL1ReverseResolver is
+abstract contract AbstractReverseResolver is
     IExtendedResolver,
-    IEVMNamesReverser,
+    IBatchReverser,
     ERC165
 {
     /// @notice Thrown when the name is not reachable in this resolver's namespace.
@@ -41,11 +41,11 @@ abstract contract AbstractL1ReverseResolver is
     ) public view override returns (bool) {
         return
             interfaceId == type(IExtendedResolver).interfaceId ||
-            interfaceId == type(IEVMNamesReverser).interfaceId ||
+            interfaceId == type(IBatchReverser).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 
-	/// @return registrar The default reverse registrar.
+	/// @return registrar The default reverse registrar (assumed to exist.)
 	function defaultRegistrar() public view returns (IStandaloneReverseRegistrar registrar) {
 		registrar = IStandaloneReverseRegistrar(registry.owner(DEFAULT_NODE));
 	}

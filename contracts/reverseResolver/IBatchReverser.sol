@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-interface IEVMNamesReverser {
+interface IBatchReverser {
     /// @notice Resolve multiple addresses to names.
     /// @notice Callers should enable EIP-3668.
     /// @dev This function executes over multiple steps (step 1 of 2+).

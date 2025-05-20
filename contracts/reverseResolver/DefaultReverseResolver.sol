@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import {AbstractL1ReverseResolver} from "./AbstractL1ReverseResolver.sol";
+import {AbstractReverseResolver} from "./AbstractReverseResolver.sol";
 import {ENS} from "../registry/ENS.sol";
 import {IStandaloneReverseRegistrar} from "../reverseRegistrar/IStandaloneReverseRegistrar.sol";
 import {INameResolver} from "../resolvers/profiles/INameResolver.sol";
-import {IEVMNamesReverser} from "./IEVMNamesReverser.sol";
+import {IBatchReverser} from "./IBatchReverser.sol";
 import {ENSIP19} from "../utils/ENSIP19.sol";
 
-/// @title L1 Default Reverse Resolver
+/// @title Default Reverse Resolver
 /// @notice Resolves reverse records for EVM addresses to the default registrar. Deployed on the L1 chain.
-contract L1DefaultReverseResolver is AbstractL1ReverseResolver {
-    constructor(ENS ens) AbstractL1ReverseResolver(ens) {}
+contract DefaultReverseResolver is AbstractReverseResolver {
+    constructor(ENS ens) AbstractReverseResolver(ens) {}
 
     function resolve(
         bytes calldata name,
@@ -30,7 +30,7 @@ contract L1DefaultReverseResolver is AbstractL1ReverseResolver {
         }
     }
 
-    /// @inheritdoc IEVMNamesReverser
+    /// @inheritdoc IBatchReverser
     function resolveNames(
         address[] memory addrs,
         uint8 /*perPage*/
