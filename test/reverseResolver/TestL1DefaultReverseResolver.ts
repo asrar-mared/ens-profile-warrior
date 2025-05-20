@@ -12,24 +12,18 @@ import {
 } from '../fixtures/ensip19.js'
 import { KnownProfile, makeResolutions } from '../universalResolver/utils.js'
 import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
+import { deployDefaultReverseFixture } from '../fixtures/deployDefaultReverseFixture.js'
 
 const testName = 'test.eth'
 const coinTypes = [COIN_TYPE_ETH, EVM_BIT, 0n, 1n]
 
 async function fixture() {
-  const defaultReverseRegistrar = await hre.viem.deployContract(
-    'DefaultReverseRegistrar',
-  )
-  const defaultReverseResolver = await hre.viem.deployContract(
-    'L1DefaultReverseResolver',
-    [defaultReverseRegistrar.address],
-  )
-  await defaultReverseRegistrar.write.setName([testName])
+  const F = await deployDefaultReverseFixture()
   const [wallet] = await hre.viem.getWalletClients()
+  await F.defaultReverseRegistrar.write.setName([testName])
   return {
+    ...F,
     owner: wallet.account.address,
-    defaultReverseRegistrar,
-    defaultReverseResolver,
   }
 }
 
@@ -39,7 +33,6 @@ describe('L1DefaultReverseResolver', () => {
     interfaces: [
       '@openzeppelin/contracts-v5/utils/introspection/IERC165.sol:IERC165',
       'IExtendedResolver',
-      'IEVMNameReverser',
       'IEVMNamesReverser',
     ],
   })
@@ -63,9 +56,7 @@ describe('L1DefaultReverseResolver', () => {
         const F = await loadFixture(fixture)
         const kp: KnownProfile = {
           name: getReverseName(F.owner, coinType),
-          primary: {
-            name: testName,
-          },
+          primary: { name: testName },
         }
         const [res] = makeResolutions(kp)
         if (isEVMCoinType(coinType)) {
@@ -97,9 +88,7 @@ describe('L1DefaultReverseResolver', () => {
         const F = await loadFixture(fixture)
         const kp: KnownProfile = {
           name: `${F.owner.slice(2).toLowerCase()}.${namespace}`,
-          primary: {
-            name: testName,
-          },
+          primary: { name: testName },
         }
         const [res] = makeResolutions(kp)
         res.expect(
@@ -113,10 +102,12 @@ describe('L1DefaultReverseResolver', () => {
   })
 
   describe('resolveNames()', () => {
+    const perPage = 0 // ignored
+
     it('empty', async () => {
       const F = await loadFixture(fixture)
       await expect(
-        F.defaultReverseResolver.read.resolveNames([[], /*ignored*/ 0]),
+        F.defaultReverseResolver.read.resolveNames([[], perPage]),
       ).resolves.toStrictEqual([])
     })
 
@@ -134,7 +125,7 @@ describe('L1DefaultReverseResolver', () => {
             ...wallets.map((x) => x.account.address),
             F.defaultReverseRegistrar.address,
           ],
-          /*ignored*/ 0,
+          perPage,
         ]),
       ).resolves.toStrictEqual([...wallets.map((x) => x.uid), ''])
     })

@@ -10,25 +10,18 @@ import {
 } from '../fixtures/ensip19.js'
 import { KnownProfile, makeResolutions } from '../universalResolver/utils.js'
 import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
-import { deployRegistryFixture } from '../fixtures/registryFixture.js'
-import { Gateway, UncheckedRollup } from '@ensdomains/unruggable-gateways'
+import { Gateway, UncheckedRollup } from '@unruggable/gateways'
 import { serve } from '@namestone/ezccip/serve'
 import { BrowserProvider } from 'ethers'
 import { deployArtifact } from '../fixtures/deployArtifact.js'
 import { urgArtifact } from '../fixtures/externalArtifacts.js'
+import { deployDefaultReverseFixture } from '../fixtures/deployDefaultReverseFixture.js'
 
 const testName = 'test.eth'
 const l2CoinType = EVM_BIT | 8453n
 
 async function fixture() {
-  const F = await deployRegistryFixture()
-  const defaultReverseRegistrar = await hre.viem.deployContract(
-    'DefaultReverseRegistrar',
-  )
-  const defaultReverseResolver = await hre.viem.deployContract(
-    'L1DefaultReverseResolver',
-    [defaultReverseRegistrar.address],
-  )
+  const F = await deployDefaultReverseFixture()
   const gateway = new Gateway(
     new UncheckedRollup(new BrowserProvider(hre.network.provider)),
   )
@@ -61,26 +54,15 @@ async function fixture() {
       },
     },
   )
-  {
-    const name = 'default.reverse'
-    await F.takeControl(name)
-    await F.ensRegistry.write.setResolver([
-      namehash(name),
-      defaultReverseResolver.address,
-    ])
-  }
-  {
-    const name = getReverseNamespace(l2CoinType)
-    await F.takeControl(name)
-    await F.ensRegistry.write.setResolver([
-      namehash(name),
-      reverseResolver.address,
-    ])
-  }
+  const reverseName = getReverseNamespace(l2CoinType)
+  await F.takeControl(reverseName)
+  await F.ensRegistry.write.setResolver([
+    namehash(reverseName),
+    reverseResolver.address,
+  ])
   return {
     ...F,
-    defaultReverseRegistrar,
-    defaultReverseResolver,
+    reverseName,
     reverseRegistrar,
     reverseResolver,
   }
@@ -125,9 +107,9 @@ describe('L1ReverseResolver', () => {
     it('addr() on namespace', async () => {
       const F = await loadFixture(fixture)
       const kp: KnownProfile = {
-        name: getReverseNamespace(l2CoinType),
+        name: F.reverseName,
         addresses: [
-          { coinType: l2CoinType, encodedAddress: F.reverseRegistrar.address },
+          { coinType: l2CoinType, value: F.reverseRegistrar.address },
         ],
       }
       const [res] = makeResolutions(kp)

@@ -8,7 +8,6 @@
     "compile": "bun run hh compile",
     "test": "bun run hh test",
     "test:remote": "FORKING_ENABLED=1 bun hh test ./test/**/Test*.remote.ts",
-    "test:gateway": "node scripts/gateway-test.js",
     "test:parallel": "bun run hh test ./test/**/Test*.ts --parallel",
     "test:local": "bun run hh --network localhost test",
     "test:deploy": "bun ./scripts/deploy-test.ts",
@@ -60,10 +59,10 @@
   "dependencies": {
     "@ensdomains/buffer": "^0.1.1",
     "@ensdomains/solsha1": "0.0.3",
-    "@ensdomains/unruggable-gateways": "^0.0.1",
     "@nomicfoundation/hardhat-verify": "^2.0.4",
     "@openzeppelin/contracts": "4.9.3",
     "@openzeppelin/contracts-v5": "npm:@openzeppelin/contracts@5.1.0",
+    "@unruggable/gateways": "^1.2.2",
     "clones-with-immutable-args": "Arachnid/clones-with-immutable-args#feature/create2",
     "dns-packet": "^5.3.0"
   },
