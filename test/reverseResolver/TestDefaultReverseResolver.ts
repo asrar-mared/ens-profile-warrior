@@ -27,7 +27,7 @@ async function fixture() {
   }
 }
 
-describe('L1DefaultReverseResolver', () => {
+describe('DefaultReverseResolver', () => {
   shouldSupportInterfaces({
     contract: () => loadFixture(fixture).then((F) => F.defaultReverseResolver),
     interfaces: [
