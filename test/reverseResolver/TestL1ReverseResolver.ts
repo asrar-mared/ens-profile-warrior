@@ -4,6 +4,7 @@ import { expect } from 'chai'
 import hre from 'hardhat'
 import { namehash, slice } from 'viem'
 import {
+  COIN_TYPE_ETH,
   EVM_BIT,
   getReverseName,
   getReverseNamespace,
@@ -39,11 +40,15 @@ async function fixture() {
   const reverseRegistrar = await hre.viem.deployContract('L2ReverseRegistrar', [
     l2CoinType,
   ])
+  const universalResolver = await hre.viem.deployContract('UniversalResolver', [
+    F.ensRegistry.address,
+    [],
+  ])
   const reverseResolver = await hre.viem.deployContract(
     'L1ReverseResolver',
     [
       F.owner,
-      F.ensRegistry.address,
+      universalResolver.address,
       verifierAddress,
       [ccip.endpoint],
       reverseRegistrar.address,
@@ -74,7 +79,7 @@ describe('L1ReverseResolver', () => {
     interfaces: [
       '@openzeppelin/contracts-v5/utils/introspection/IERC165.sol:IERC165',
       'IExtendedResolver',
-      'IBatchReverser',
+      'INameReverser',
     ],
   })
 
@@ -107,18 +112,20 @@ describe('L1ReverseResolver', () => {
     it('addr() on namespace', async () => {
       const F = await loadFixture(fixture)
       const kp: KnownProfile = {
-        name: F.reverseName,
+        name: F.reverseNamespace,
         addresses: [
+          { coinType: COIN_TYPE_ETH, value: F.reverseResolver.address },
           { coinType: l2CoinType, value: F.reverseRegistrar.address },
         ],
       }
-      const [res] = makeResolutions(kp)
-      res.expect(
-        await F.reverseResolver.read.resolve([
-          dnsEncodeName(kp.name),
-          res.call,
-        ]),
-      )
+      for (const res of makeResolutions(kp)) {
+        res.expect(
+          await F.reverseResolver.read.resolve([
+            dnsEncodeName(kp.name),
+            res.call,
+          ]),
+        )
+      }
     })
 
     it('name()', async () => {

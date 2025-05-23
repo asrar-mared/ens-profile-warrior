@@ -10,9 +10,9 @@ export async function deployDefaultReverseFixture() {
   )
   const defaultReverseResolver = await hre.viem.deployContract(
     'DefaultReverseResolver',
-    [F.ensRegistry.address],
+    [defaultReverseRegistrar.address],
   )
-  const defaultReverseNamespace = getReverseNamespace(EVM_BIT); // could be "reverse"
+  const defaultReverseNamespace = getReverseNamespace(EVM_BIT) // could be "reverse"
   await F.takeControl(defaultReverseNamespace)
   await F.ensRegistry.write.setRecord([
     namehash(defaultReverseNamespace),
@@ -22,7 +22,7 @@ export async function deployDefaultReverseFixture() {
   ])
   return {
     ...F,
-	defaultReverseNamespace,
+    defaultReverseNamespace,
     defaultReverseRegistrar,
     defaultReverseResolver,
   }

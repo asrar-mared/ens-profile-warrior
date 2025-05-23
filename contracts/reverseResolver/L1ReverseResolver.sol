@@ -2,28 +2,40 @@
 pragma solidity ^0.8.17;
 
 import {Ownable} from "@openzeppelin/contracts-v5/access/Ownable.sol";
+import {ERC165} from "@openzeppelin/contracts-v5/utils/introspection/ERC165.sol";
 import {GatewayFetchTarget, IGatewayVerifier} from "@unruggable/gateways/contracts/GatewayFetchTarget.sol";
 import {GatewayFetcher, GatewayRequest} from "@unruggable/gateways/contracts/GatewayFetcher.sol";
-import {AbstractReverseResolver} from "./AbstractReverseResolver.sol";
-import {ENS} from "../registry/ENS.sol";
-import {IStandaloneReverseRegistrar} from "../reverseRegistrar/IStandaloneReverseRegistrar.sol";
+import {IUniversalResolver} from "../universalResolver/IUniversalResolver.sol";
+import {IExtendedResolver} from "../resolvers/profiles/IExtendedResolver.sol";
 import {IAddressResolver} from "../resolvers/profiles/IAddressResolver.sol";
+import {IAddrResolver} from "../resolvers/profiles/IAddrResolver.sol";
 import {INameResolver} from "../resolvers/profiles/INameResolver.sol";
 import {NameCoder} from "../utils/NameCoder.sol";
-import {IBatchReverser} from "./IBatchReverser.sol";
-import {ENSIP19} from "../utils/ENSIP19.sol";
+import {INameReverser} from "./INameReverser.sol";
+import {ENSIP19, COIN_TYPE_ETH} from "../utils/ENSIP19.sol";
 
 /// @title L1 Reverse Resolver
 /// @notice Resolves reverse records for an L2 chain. Deployed on the L1 chain.
 contract L1ReverseResolver is
-    AbstractReverseResolver,
+    IExtendedResolver,
+    INameReverser,
     GatewayFetchTarget,
+    ERC165,
     Ownable
 {
     using GatewayFetcher for GatewayRequest;
 
     /// @notice Emitted when the gateway URLs are changed.
     event GatewayURLsChanged(string[] urls);
+
+    /// @notice Thrown when the name is not reachable in this resolver's namespace.
+    error UnreachableName(bytes name);
+
+    /// @notice Thrown when the resolver profile is unknown.
+    error UnsupportedResolverProfile(bytes4 selector);
+
+    /// @notice The UniveralResolver contract.
+    IUniversalResolver immutable ur;
 
     /// @notice The gateway verifier contract, unique to each L2 chain.
     IGatewayVerifier public immutable l2Verifier;
@@ -40,20 +52,31 @@ contract L1ReverseResolver is
     /// @notice Sets the initial state of the contract.
     ///
     /// @param _owner The owner of the contract, able to modify the gateway URLs.
-    /// @param ens The ENS registry contract.
+    /// @param _ur The UniveralResolver contract.
     /// @param verifier The gateway verifier contract, unique to each L2 chain.
     /// @param gateways The verifier gateway URLs.
     /// @param registrar The target registrar contract on the L2 chain.
     constructor(
         address _owner,
-        ENS ens,
+        IUniversalResolver _ur,
         IGatewayVerifier verifier,
         string[] memory gateways,
         address registrar
-    ) AbstractReverseResolver(ens) Ownable(_owner) {
+    ) Ownable(_owner) {
+        ur = _ur;
         l2Verifier = verifier;
         gatewayURLs = gateways;
         l2Registrar = registrar;
+    }
+
+    /// @inheritdoc ERC165
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view override returns (bool) {
+        return
+            interfaceId == type(IExtendedResolver).interfaceId ||
+            interfaceId == type(INameReverser).interfaceId ||
+            super.supportsInterface(interfaceId);
     }
 
     /// @notice Sets the gateway URLs.
@@ -62,6 +85,12 @@ contract L1ReverseResolver is
     function setGatewayURLs(string[] memory gateways) external onlyOwner {
         gatewayURLs = gateways;
         emit GatewayURLsChanged(gateways);
+    }
+
+    /// @dev The current Default Registrar.
+    function defaultReverser() public view returns (INameReverser reverser) {
+        (address resolver, , ) = ur.findResolver("\x07default\x07reverse\x00");
+        reverser = INameReverser(resolver);
     }
 
     /// @notice Resolves and verifies `name` records on the target L2 chain's registrar contract,
@@ -80,34 +109,47 @@ contract L1ReverseResolver is
         if (selector == INameResolver.name.selector) {
             (bytes memory a, ) = ENSIP19.parse(name);
             if (a.length != 20) revert UnreachableName(name);
-            address addr = address(bytes20(a));
-            GatewayRequest memory req = GatewayFetcher.newRequest(1);
-            req.setTarget(l2Registrar); // target L2 registrar
-            req.setSlot(NAMES_SLOT).push(addr).follow().readBytes(); // names[addr]
-            req.setOutput(0);
-            fetch(
-                l2Verifier,
-                req,
-                this.resolveNameCallback.selector,
-                abi.encode(addr),
-                gatewayURLs
-            );
+            resolveName(address(bytes20(a))); // reverts OffchainLookup
+        } else if (selector == IAddrResolver.addr.selector) {
+            (bool valid, ) = ENSIP19.parseNamespace(name, 0);
+            if (!valid) revert UnreachableName(name);
+            return abi.encode(address(this));
         } else if (selector == IAddressResolver.addr.selector) {
-            address resolver = registry.resolver(NameCoder.namehash(name, 0));
-            return
-                abi.encode(
-                    resolver == address(this)
-                        ? abi.encodePacked(l2Registrar)
-                        : new bytes(0)
-                );
+            (bool valid, uint256 coinType) = ENSIP19.parseNamespace(name, 0);
+            if (!valid) revert UnreachableName(name);
+            (, uint256 reqCoinType) = abi.decode(data[4:], (bytes32, uint256));
+            if (reqCoinType == COIN_TYPE_ETH) {
+                return abi.encode(abi.encodePacked(address(this)));
+            } else if (reqCoinType == coinType) {
+                return abi.encode(abi.encodePacked(l2Registrar));
+            } else {
+                return abi.encode("");
+            }
         } else {
             revert UnsupportedResolverProfile(selector);
         }
     }
 
-    /// @dev CCIP-Read callback for `resolve()` (step 2 of 2).
+    /// @inheritdoc INameReverser
+    function resolveName(
+        address addr
+    ) public view returns (string memory /*name*/) {
+        GatewayRequest memory req = GatewayFetcher.newRequest(1);
+        req.setTarget(l2Registrar); // target L2 registrar
+        req.setSlot(NAMES_SLOT).push(addr).follow().readBytes(); // names[addr]
+        req.setOutput(0);
+        fetch(
+            l2Verifier,
+            req,
+            this.resolveNameCallback.selector,
+            abi.encode(addr),
+            gatewayURLs
+        );
+    }
+
+    /// @dev CCIP-Read callback for `resolveName()` (step 2 of 2).
     /// @param values The outputs for `GatewayRequest` (1 name).
-    /// @param extraData The contextual data passed from `resolve()`.
+    /// @param extraData The contextual data passed from `resolveName()`.
     /// @return result The abi-encoded name for the given address.
     function resolveNameCallback(
         bytes[] memory values,
@@ -117,18 +159,18 @@ contract L1ReverseResolver is
         string memory name = string(values[0]);
         if (bytes(name).length == 0) {
             address addr = abi.decode(extraData, (address));
-            name = defaultRegistrar().nameForAddr(addr);
+            name = defaultReverser().resolveName(addr);
         }
         result = abi.encode(name);
     }
 
-    /// @inheritdoc IBatchReverser
+    /// @inheritdoc INameReverser
     function resolveNames(
         address[] memory addrs,
         uint8 perPage
     ) external view returns (string[] memory names) {
-        names = new string[](addrs.length);
-        _resolveNames(addrs, names, 0, perPage == 0 ? 255 : perPage);
+        names = defaultReverser().resolveNames(addrs, perPage);
+        _resolveNames(addrs, names, 0, perPage);
     }
 
     /// @dev Resolve the next page of names.
@@ -175,13 +217,11 @@ contract L1ReverseResolver is
             extraData,
             (address[], string[], uint256, uint8)
         );
-        IStandaloneReverseRegistrar rr = defaultRegistrar();
         for (uint256 i; i < values.length; i++) {
-            string memory name = string(values[i]);
-            if (bytes(name).length == 0) {
-                name = rr.nameForAddr(addrs[start + i]);
+            bytes memory v = values[i];
+            if (v.length > 0) {
+                names[start + i] = string(v);
             }
-            names[start + i] = name;
         }
         _resolveNames(addrs, names, start + values.length, perPage);
     }

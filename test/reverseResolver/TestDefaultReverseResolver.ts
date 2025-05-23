@@ -33,7 +33,7 @@ describe('DefaultReverseResolver', () => {
     interfaces: [
       '@openzeppelin/contracts-v5/utils/introspection/IERC165.sol:IERC165',
       'IExtendedResolver',
-      'IBatchReverser',
+      'INameReverser',
     ],
   })
 
