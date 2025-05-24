@@ -161,6 +161,29 @@ describe('L1ReverseResolver', () => {
     })
   })
 
+  describe('resolveName()', () => {
+    it('unset', async () => {
+      const F = await loadFixture(fixture)
+      await expect(
+        F.reverseResolver.read.resolveName([F.owner]),
+      ).resolves.toStrictEqual('')
+    })
+    it('specific', async () => {
+      const F = await loadFixture(fixture)
+      await F.reverseRegistrar.write.setName([testName])
+      await expect(
+        F.reverseResolver.read.resolveName([F.owner]),
+      ).resolves.toStrictEqual(testName)
+    })
+    it('default', async () => {
+      const F = await loadFixture(fixture)
+      await F.defaultReverseRegistrar.write.setName([testName])
+      await expect(
+        F.reverseResolver.read.resolveName([F.owner]),
+      ).resolves.toStrictEqual(testName)
+    })
+  })
+
   describe('resolveNames()', () => {
     it('empty', async () => {
       const F = await loadFixture(fixture)

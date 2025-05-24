@@ -109,7 +109,7 @@ contract L1ReverseResolver is
         if (selector == INameResolver.name.selector) {
             (bytes memory a, ) = ENSIP19.parse(name);
             if (a.length != 20) revert UnreachableName(name);
-            resolveName(address(bytes20(a))); // reverts OffchainLookup
+            _resolveName(address(bytes20(a)), true);
         } else if (selector == IAddrResolver.addr.selector) {
             (bool valid, ) = ENSIP19.parseNamespace(name, 0);
             if (!valid) revert UnreachableName(name);
@@ -133,7 +133,14 @@ contract L1ReverseResolver is
     /// @inheritdoc INameReverser
     function resolveName(
         address addr
-    ) public view returns (string memory /*name*/) {
+    ) external view returns (string memory /*name*/) {
+        _resolveName(addr, false);
+    }
+
+    /// @dev Resolve the name of an address.
+    /// @param addr The address to resolve.
+    /// @param wrap True if the result should be abi-encoded.
+    function _resolveName(address addr, bool wrap) internal view {
         GatewayRequest memory req = GatewayFetcher.newRequest(1);
         req.setTarget(l2Registrar); // target L2 registrar
         req.setSlot(NAMES_SLOT).push(addr).follow().readBytes(); // names[addr]
@@ -142,26 +149,28 @@ contract L1ReverseResolver is
             l2Verifier,
             req,
             this.resolveNameCallback.selector,
-            abi.encode(addr),
+            abi.encode(addr, wrap),
             gatewayURLs
         );
     }
 
     /// @dev CCIP-Read callback for `resolveName()` (step 2 of 2).
     /// @param values The outputs for `GatewayRequest` (1 name).
-    /// @param extraData The contextual data passed from `resolveName()`.
-    /// @return result The abi-encoded name for the given address.
+    /// @param extraData The contextual data passed from `_resolveName()`.
+    /// @return result The name or abi-encoded name for the given address.
     function resolveNameCallback(
         bytes[] memory values,
         uint8 /* exitCode */,
         bytes calldata extraData
     ) external view returns (bytes memory result) {
-        string memory name = string(values[0]);
-        if (bytes(name).length == 0) {
-            address addr = abi.decode(extraData, (address));
-            name = defaultReverser().resolveName(addr);
+        (address addr, bool wrap) = abi.decode(extraData, (address, bool));
+        result = values[0];
+        if (result.length == 0) {
+            result = bytes(defaultReverser().resolveName(addr));
         }
-        result = abi.encode(name);
+        if (wrap) {
+            result = abi.encode(result);
+        }
     }
 
     /// @inheritdoc INameReverser
@@ -173,7 +182,7 @@ contract L1ReverseResolver is
         _resolveNames(addrs, names, 0, perPage);
     }
 
-    /// @dev Resolve the next page of names.
+    /// @dev Resolve the names of the next page of addresses.
     function _resolveNames(
         address[] memory addrs,
         string[] memory names,
@@ -203,7 +212,7 @@ contract L1ReverseResolver is
     /// @dev CCIP-Read callback for `resolveNames()` (step 2 of 2+).
     ///      Recursive if there are still names to resolve.
     /// @param values The outputs for `GatewayRequest` (N names).
-    /// @param extraData The contextual data passed from `resolveNames()`.
+    /// @param extraData The contextual data passed from `_resolveNames()`.
     /// @return names The corresponding names.
     function resolveNamesCallback(
         bytes[] memory values,
