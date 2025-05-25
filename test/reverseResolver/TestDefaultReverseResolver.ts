@@ -19,12 +19,8 @@ const coinTypes = [COIN_TYPE_ETH, EVM_BIT, 0n, 1n]
 
 async function fixture() {
   const F = await deployDefaultReverseFixture()
-  const [wallet] = await hre.viem.getWalletClients()
   await F.defaultReverseRegistrar.write.setName([testName])
-  return {
-    ...F,
-    owner: wallet.account.address,
-  }
+  return F
 }
 
 describe('DefaultReverseResolver', () => {

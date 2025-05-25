@@ -95,7 +95,7 @@ library ENSIP19 {
         bytes memory name,
         uint256 offset
     ) internal pure returns (bool valid, uint256 coinType) {
-        (bytes32 labelHash, uint256 offset2) = NameCoder.readLabel(
+        (bytes32 labelHash, uint256 offsetTLD) = NameCoder.readLabel(
             name,
             offset
         );
@@ -106,16 +106,15 @@ library ENSIP19 {
         } else if (labelHash == bytes32(0)) {
             return (false, 0); // no slug
         } else {
-            bytes32 word;
-            (word, valid) = HexUtils.hexStringToBytes32(
+            (bytes32 word, bool validHex) = HexUtils.hexStringToBytes32(
                 name,
                 1 + offset,
-                offset2
+                offsetTLD
             );
-            if (!valid) return (false, 0); // invalid coinType
+            if (!validHex) return (false, 0); // invalid coinType or too long
             coinType = uint256(word);
         }
-        (labelHash, offset) = NameCoder.readLabel(name, offset2);
+        (labelHash, offset) = NameCoder.readLabel(name, offsetTLD);
         if (labelHash != keccak256(bytes(TLD_REVERSE))) return (false, 0); // invalid tld
         (labelHash, ) = NameCoder.readLabel(name, offset);
         if (labelHash != bytes32(0)) return (false, 0); // not tld
