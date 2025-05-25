@@ -78,11 +78,11 @@ describe('DefaultReverseResolver', () => {
 
   describe('edge cases', () => {
     for (const namespace of [
-      '3c.reverse',
-      '03c.reverse',
-      '000000000000000000000000000000000000000000000000000000000000003c.reverse',
-      '80000000.reverse',
-      '80000001.reverse',
+      '3c.reverse', // coinType(60)
+      '03c.reverse', // coinType(60)
+      '000000000000000000000000000000000000000000000000000000000000003c.reverse', // coinType(60)
+      '80000000.reverse', // default
+      '80000001.reverse', // chain(1)
     ]) {
       it(namespace, async () => {
         const F = await loadFixture(fixture)
@@ -102,7 +102,7 @@ describe('DefaultReverseResolver', () => {
   })
 
   describe('resolveNames()', () => {
-    const perPage = 0 // ignored
+    const perPage = 0 // ignored, has no effect
 
     it('empty', async () => {
       const F = await loadFixture(fixture)

@@ -137,7 +137,8 @@ contract L1ReverseResolver is
         _resolveName(addr, false);
     }
 
-    /// @dev Resolve the name of an address.
+    /// @dev Resolve one name to an address.
+    ///      This function executes over multiple steps (step 1 of 2).
     /// @param addr The address to resolve.
     /// @param wrap True if the result should be abi-encoded.
     function _resolveName(address addr, bool wrap) internal view {
@@ -182,7 +183,8 @@ contract L1ReverseResolver is
         _resolveNames(addrs, names, 0, perPage);
     }
 
-    /// @dev Resolve the names of the next page of addresses.
+    /// @dev Resolve the names for the next page of addresses.
+    ///      This function executes over multiple steps (step 1 of 2+).
     function _resolveNames(
         address[] memory addrs,
         string[] memory names,

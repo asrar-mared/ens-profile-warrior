@@ -14,12 +14,16 @@ export async function deployDefaultReverseFixture() {
   )
   const defaultReverseNamespace = getReverseNamespace(EVM_BIT) // could be "reverse"
   await F.takeControl(defaultReverseNamespace)
-  await F.ensRegistry.write.setRecord([
+  await F.ensRegistry.write.setResolver([
     namehash(defaultReverseNamespace),
-    defaultReverseRegistrar.address,
     defaultReverseResolver.address,
-    0n,
   ])
+  // await F.ensRegistry.write.setRecord([
+  //   namehash(defaultReverseNamespace),
+  //   defaultReverseRegistrar.address,
+  //   defaultReverseResolver.address,
+  //   0n,
+  // ])
   return {
     ...F,
     defaultReverseNamespace,
