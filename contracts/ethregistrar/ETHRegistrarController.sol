@@ -253,92 +253,35 @@ contract ETHRegistrarController is
         uint256 totalPrice = price.base + price.premium;
         if (msg.value < totalPrice) revert InsufficientValue();
 
-        bytes32 commitment = makeCommitment(registration);
-        uint256 commitmentTimestamp = commitments[commitment];
-
-        // Require an old enough commitment.
-        if (commitmentTimestamp + minCommitmentAge > block.timestamp)
-            revert CommitmentTooNew(
-                commitment,
-                commitmentTimestamp + minCommitmentAge,
-                block.timestamp
-            );
-
-        // If the commitment is too old, or the name is registered, stop
-        if (commitmentTimestamp + maxCommitmentAge <= block.timestamp) {
-            if (commitmentTimestamp == 0) revert CommitmentNotFound(commitment);
-            revert CommitmentTooOld(
-                commitment,
-                commitmentTimestamp + maxCommitmentAge,
-                block.timestamp
-            );
-        }
-
         if (!_available(registration.label, labelhash))
             revert NameNotAvailable(registration.label);
 
-        delete (commitments[commitment]);
-
-        bytes32 namehash = keccak256(abi.encodePacked(ETH_NODE, labelhash));
-        uint256 expires;
-
-        if (registration.resolver == address(0)) {
-            expires = base.register(
-                uint256(labelhash),
-                registration.owner,
-                registration.duration
-            );
-        } else {
-            expires = base.register(
-                uint256(labelhash),
-                address(this),
-                registration.duration
-            );
-
-            ens.setRecord(
-                namehash,
-                registration.owner,
-                registration.resolver,
-                0
-            );
-            if (registration.data.length > 0)
-                Resolver(registration.resolver).multicallWithNodeCheck(
-                    namehash,
-                    registration.data
-                );
-
-            base.transferFrom(
-                address(this),
-                registration.owner,
-                uint256(labelhash)
-            );
-
-            if (registration.reverseRecord == ReverseRecord.Ethereum)
-                reverseRegistrar.setNameForAddr(
-                    msg.sender,
-                    msg.sender,
-                    registration.resolver,
-                    string.concat(registration.label, ".eth")
-                );
-            else if (registration.reverseRecord == ReverseRecord.Default)
-                defaultReverseRegistrar.setNameForAddr(
-                    msg.sender,
-                    string.concat(registration.label, ".eth")
-                );
-        }
-
-        emit NameRegistered(
-            registration.label,
-            labelhash,
-            registration.owner,
-            price.base,
-            price.premium,
-            expires,
-            registration.referrer
-        );
+        _register(registration, labelhash, price);
 
         if (msg.value > totalPrice)
             payable(msg.sender).transfer(msg.value - totalPrice);
+    }
+
+    /// @notice Registers a name without payment, only for owner.
+    /// @dev Bypasses value and validity check (i.e. no payment, <3 chars).
+    ///
+    /// @param registration The registration to register.
+    /// @param registration.label The label of the name.
+    /// @param registration.owner The owner of the name.
+    /// @param registration.duration The duration of the registration.
+    /// @param registration.resolver The resolver for the name.
+    /// @param registration.data The data for the name.
+    /// @param registration.reverseRecord The reverse record for the name.
+    /// @param registration.referrer The referrer of the registration.
+    function registerWithoutPayment(
+        Registration calldata registration
+    ) public onlyOwner {
+        bytes32 labelhash = keccak256(bytes(registration.label));
+
+        if (!base.available(uint256(labelhash)))
+            revert NameNotAvailable(registration.label);
+
+        _register(registration, labelhash, IPriceOracle.Price(0, 0));
     }
 
     /// @notice Renews a name.
@@ -401,5 +344,92 @@ contract ETHRegistrarController is
         bytes32 labelhash
     ) internal view returns (bool) {
         return valid(label) && base.available(uint256(labelhash));
+    }
+
+    function _register(
+        Registration calldata registration,
+        bytes32 labelhash,
+        IPriceOracle.Price memory price
+    ) internal {
+        bytes32 commitment = makeCommitment(registration);
+        uint256 commitmentTimestamp = commitments[commitment];
+
+        // Require an old enough commitment.
+        if (commitmentTimestamp + minCommitmentAge > block.timestamp)
+            revert CommitmentTooNew(
+                commitment,
+                commitmentTimestamp + minCommitmentAge,
+                block.timestamp
+            );
+
+        // If the commitment is too old, or the name is registered, stop
+        if (commitmentTimestamp + maxCommitmentAge <= block.timestamp) {
+            if (commitmentTimestamp == 0) revert CommitmentNotFound(commitment);
+            revert CommitmentTooOld(
+                commitment,
+                commitmentTimestamp + maxCommitmentAge,
+                block.timestamp
+            );
+        }
+
+        delete (commitments[commitment]);
+
+        bytes32 namehash = keccak256(abi.encodePacked(ETH_NODE, labelhash));
+        uint256 expires;
+
+        if (registration.resolver == address(0)) {
+            expires = base.register(
+                uint256(labelhash),
+                registration.owner,
+                registration.duration
+            );
+        } else {
+            expires = base.register(
+                uint256(labelhash),
+                address(this),
+                registration.duration
+            );
+
+            ens.setRecord(
+                namehash,
+                registration.owner,
+                registration.resolver,
+                0
+            );
+            if (registration.data.length > 0)
+                Resolver(registration.resolver).multicallWithNodeCheck(
+                    namehash,
+                    registration.data
+                );
+
+            base.transferFrom(
+                address(this),
+                registration.owner,
+                uint256(labelhash)
+            );
+
+            if (registration.reverseRecord == ReverseRecord.Ethereum)
+                reverseRegistrar.setNameForAddr(
+                    msg.sender,
+                    msg.sender,
+                    registration.resolver,
+                    string.concat(registration.label, ".eth")
+                );
+            else if (registration.reverseRecord == ReverseRecord.Default)
+                defaultReverseRegistrar.setNameForAddr(
+                    msg.sender,
+                    string.concat(registration.label, ".eth")
+                );
+        }
+
+        emit NameRegistered(
+            registration.label,
+            labelhash,
+            registration.owner,
+            price.base,
+            price.premium,
+            expires,
+            registration.referrer
+        );
     }
 }

@@ -984,4 +984,134 @@ describe('ETHRegistrarController', () => {
       .write('setPrices', [otherAccount.address], { account: otherAccount })
       .toBeRevertedWithString('Ownable: caller is not the owner')
   })
+
+  it('allows owner to register a name without payment', async () => {
+    const {
+      ensRegistry,
+      ethRegistrarController,
+      baseRegistrar,
+      registrantAccount,
+      publicClient,
+    } = await loadFixture(fixture)
+
+    const label = 'newname'
+    const { args, params } = await commitName(
+      { ethRegistrarController },
+      {
+        label,
+        duration: REGISTRATION_TIME,
+        ownerAddress: registrantAccount.address,
+      },
+    )
+
+    await expect(ethRegistrarController)
+      .write('registerWithoutPayment', [args])
+      .toEmitEvent('NameRegistered')
+      .withArgs(
+        params.label,
+        labelhash(params.label),
+        params.ownerAddress,
+        0n,
+        0n,
+        expect.anyValue,
+        params.referrer,
+      )
+    const timestamp = await publicClient.getBlock().then((b) => b.timestamp)
+
+    await expect(
+      baseRegistrar.read.nameExpires([labelId(label)]),
+    ).resolves.toEqual(timestamp + params.duration)
+    await expect(
+      ensRegistry.read.owner([namehash(label + '.eth')]),
+    ).resolves.toEqualAddress(registrantAccount.address)
+    await expect(
+      baseRegistrar.read.ownerOf([labelId(label)]),
+    ).resolves.toEqualAddress(registrantAccount.address)
+  })
+
+  it('allows owner to register invalid name (2 chars)', async () => {
+    const {
+      ensRegistry,
+      ethRegistrarController,
+      baseRegistrar,
+      registrantAccount,
+      publicClient,
+    } = await loadFixture(fixture)
+
+    const label = 'l2'
+    const { args, params } = await commitName(
+      { ethRegistrarController },
+      {
+        label,
+        duration: REGISTRATION_TIME,
+        ownerAddress: registrantAccount.address,
+      },
+    )
+
+    await expect(ethRegistrarController)
+      .write('registerWithoutPayment', [args])
+      .toEmitEvent('NameRegistered')
+      .withArgs(
+        params.label,
+        labelhash(params.label),
+        params.ownerAddress,
+        0n,
+        0n,
+        expect.anyValue,
+        params.referrer,
+      )
+
+    const timestamp = await publicClient.getBlock().then((b) => b.timestamp)
+    await expect(
+      baseRegistrar.read.nameExpires([labelId(label)]),
+    ).resolves.toEqual(timestamp + params.duration)
+    await expect(
+      ensRegistry.read.owner([namehash(label + '.eth')]),
+    ).resolves.toEqualAddress(registrantAccount.address)
+    await expect(
+      baseRegistrar.read.ownerOf([labelId(label)]),
+    ).resolves.toEqualAddress(registrantAccount.address)
+  })
+  it('does not allow owner to register unavailable name', async () => {
+    const { ethRegistrarController, registrantAccount, otherAccount } =
+      await loadFixture(fixture)
+    const label = 'existingname'
+    await registerName(
+      { ethRegistrarController },
+      {
+        label,
+        duration: REGISTRATION_TIME,
+        ownerAddress: otherAccount.address,
+      },
+    )
+
+    const { args } = await commitName(
+      { ethRegistrarController },
+      {
+        label,
+        duration: REGISTRATION_TIME,
+        ownerAddress: registrantAccount.address,
+      },
+    )
+    await expect(ethRegistrarController)
+      .write('registerWithoutPayment', [args])
+      .toBeRevertedWithCustomError('NameNotAvailable')
+      .withArgs(label)
+  })
+  it('does not allow non-owner to register a name without payment', async () => {
+    const { ethRegistrarController, otherAccount } = await loadFixture(fixture)
+
+    const label = 'newname'
+    const { args } = await commitName(
+      { ethRegistrarController },
+      {
+        label,
+        duration: REGISTRATION_TIME,
+        ownerAddress: otherAccount.address,
+      },
+    )
+    await expect(ethRegistrarController)
+      .write('registerWithoutPayment', [args], { account: otherAccount })
+      .toBeRevertedWithString('Ownable: caller is not the owner')
+  })
 })
