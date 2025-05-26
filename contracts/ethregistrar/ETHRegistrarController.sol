@@ -43,9 +43,6 @@ contract ETHRegistrarController is
     // @notice The base registrar implementation for the eth TLD.
     BaseRegistrarImplementation immutable base;
 
-    /// @notice The price oracle for the eth TLD.
-    IPriceOracle public immutable prices;
-
     /// @notice The minimum time a commitment must exist to be valid.
     uint256 public immutable minCommitmentAge;
 
@@ -57,6 +54,9 @@ contract ETHRegistrarController is
 
     /// @notice The registrar for default.reverse. (i.e. fallback reverse for all EVM chains)
     IDefaultReverseRegistrar public immutable defaultReverseRegistrar;
+
+    /// @notice The price oracle for the eth TLD.
+    IPriceOracle public prices;
 
     /// @notice A mapping of commitments to their timestamp.
     mapping(bytes32 => uint256) public commitments;
@@ -164,6 +164,13 @@ contract ETHRegistrarController is
         maxCommitmentAge = _maxCommitmentAge;
         reverseRegistrar = _reverseRegistrar;
         defaultReverseRegistrar = _defaultReverseRegistrar;
+    }
+
+    /// @notice Sets the price oracle for this registrar controller.
+    ///
+    /// @param _prices The price oracle to set.
+    function setPrices(IPriceOracle _prices) public onlyOwner {
+        prices = _prices;
     }
 
     /// @notice Returns the price of a registration for the given label and duration.

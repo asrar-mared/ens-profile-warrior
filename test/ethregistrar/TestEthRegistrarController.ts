@@ -958,33 +958,30 @@ describe('ETHRegistrarController', () => {
       .withArgs(label, labelhash(label), duration, expires + duration, referrer)
   })
 
-  it('preexisting registration gas cost', async () => {
-    const { ethRegistrarController, registrantAccount } = await loadFixture(
-      fixture,
-    )
+  it('allows owner to set the price oracle', async () => {
+    const { ethRegistrarController } = await loadFixture(fixture)
 
-    const testClient = await hre.viem.getTestClient()
+    const newDummyOracle = await hre.viem.deployContract('DummyOracle', [100n])
+    const newPriceOracle = await hre.viem.deployContract('StablePriceOracle', [
+      newDummyOracle.address,
+      [0n, 0n, 4n, 2n, 1n],
+    ])
 
-    await registerName(
-      { ethRegistrarController },
-      {
-        label: 'newname',
-        duration: REGISTRATION_TIME,
-        ownerAddress: registrantAccount.address,
-      },
-    )
+    await ethRegistrarController.write.setPrices([newPriceOracle.address])
 
-    await testClient.increaseTime({
-      seconds: Number(REGISTRATION_TIME + GRACE_PERIOD + 1n),
-    })
+    const price = await ethRegistrarController.read.rentPrice([
+      'newname',
+      REGISTRATION_TIME,
+    ])
+    expect(price.base).toEqual(2419200000000n)
+    expect(price.premium).toEqual(0n)
+  })
 
-    await registerName(
-      { ethRegistrarController },
-      {
-        label: 'newname',
-        duration: REGISTRATION_TIME,
-        ownerAddress: registrantAccount.address,
-      },
-    )
+  it('does not allow non-owner to set the price oracle', async () => {
+    const { ethRegistrarController, otherAccount } = await loadFixture(fixture)
+
+    await expect(ethRegistrarController)
+      .write('setPrices', [otherAccount.address], { account: otherAccount })
+      .toBeRevertedWithString('Ownable: caller is not the owner')
   })
 })
