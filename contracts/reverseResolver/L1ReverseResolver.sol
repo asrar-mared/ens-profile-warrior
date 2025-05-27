@@ -15,7 +15,8 @@ import {INameReverser} from "./INameReverser.sol";
 import {ENSIP19, COIN_TYPE_ETH} from "../utils/ENSIP19.sol";
 
 /// @title L1 Reverse Resolver
-/// @notice Resolves reverse records for an L2 chain. Deployed on the L1 chain.
+/// @notice Resolves reverse records for EVM addresses via gateway to a L2ReverseRegistrar
+///         and queries the default resolver if the name was empty.
 contract L1ReverseResolver is
     IExtendedResolver,
     INameReverser,
@@ -50,6 +51,7 @@ contract L1ReverseResolver is
     /// @notice Storage slot for the names mapping in the target registrar contract.
     uint256 constant NAMES_SLOT = 0;
 
+    /// @notice The name of the default resolver.
     bytes constant DEFAULT_NAMESPACE = "\x07default\x07reverse\x00";
 
     /// @notice Sets the initial state of the contract.
@@ -118,20 +120,22 @@ contract L1ReverseResolver is
                 gatewayURLs
             );
         } else if (selector == IAddrResolver.addr.selector) {
-            (bool valid, ) = ENSIP19.parseNamespace(name, 0);
+            (bool valid, uint256 coinType) = ENSIP19.parseNamespace(name, 0);
             if (!valid) revert UnreachableName(name);
-            return abi.encode(this);
+            return
+                abi.encode(
+                    coinType == COIN_TYPE_ETH ? l2Registrar : address(0)
+                );
         } else if (selector == IAddressResolver.addr.selector) {
             (bool valid, uint256 coinType) = ENSIP19.parseNamespace(name, 0);
             if (!valid) revert UnreachableName(name);
             (, uint256 reqCoinType) = abi.decode(data[4:], (bytes32, uint256));
-            if (reqCoinType == COIN_TYPE_ETH) {
-                return abi.encode(abi.encodePacked(this));
-            } else if (reqCoinType == coinType) {
-                return abi.encode(abi.encodePacked(l2Registrar));
-            } else {
-                return abi.encode("");
-            }
+            return
+                abi.encode(
+                    reqCoinType == coinType
+                        ? abi.encodePacked(l2Registrar)
+                        : new bytes(0)
+                );
         } else {
             revert UnsupportedResolverProfile(selector);
         }

@@ -4,7 +4,6 @@ import { expect } from 'chai'
 import hre from 'hardhat'
 import { namehash, slice } from 'viem'
 import {
-  COIN_TYPE_ETH,
   EVM_BIT,
   getReverseName,
   getReverseNamespace,
@@ -114,8 +113,8 @@ describe('L1ReverseResolver', () => {
       const kp: KnownProfile = {
         name: F.chain.namespace,
         addresses: [
-          { coinType: COIN_TYPE_ETH, value: F.chain.resolver.address },
           { coinType: F.chain.coinType, value: F.chain.registrar.address },
+          { coinType: F.chain.coinType + 1n, value: '0x' },
         ],
       }
       for (const res of makeResolutions(kp)) {
@@ -198,7 +197,7 @@ describe('L1ReverseResolver', () => {
   describe('default on Namechain', async () => {
     async function replaceDefault(F: Awaited<ReturnType<typeof fixture>>) {
       // replace the default resolver with another L1ReverseResolver
-      // to ensure that the fallback can ccip-read correctly
+      // to ensure that the fallback supports ccip-read correctly
       // note: this invokes (2) separate gateway reads
       await F.ensRegistry.write.setResolver([
         namehash(F.defaultReverseNamespace),

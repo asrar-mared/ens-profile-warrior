@@ -4,14 +4,12 @@ pragma solidity ^0.8.17;
 import {ERC165} from "@openzeppelin/contracts-v5/utils/introspection/ERC165.sol";
 import {IStandaloneReverseRegistrar} from "../reverseRegistrar/IStandaloneReverseRegistrar.sol";
 import {IExtendedResolver} from "../resolvers/profiles/IExtendedResolver.sol";
-import {IAddressResolver} from "../resolvers/profiles/IAddressResolver.sol";
-import {IAddrResolver} from "../resolvers/profiles/IAddrResolver.sol";
 import {INameResolver} from "../resolvers/profiles/INameResolver.sol";
 import {INameReverser} from "./INameReverser.sol";
 import {ENSIP19, COIN_TYPE_ETH} from "../utils/ENSIP19.sol";
 
 /// @title Default Reverse Resolver
-/// @notice Resolves reverse records for EVM addresses to the default registrar. Deployed on the L1 chain.
+/// @notice Resolves reverse records for EVM addresses to the default registrar.
 contract DefaultReverseResolver is IExtendedResolver, INameReverser, ERC165 {
     /// @notice Thrown when the name is not reachable in this resolver's namespace.
     error UnreachableName(bytes name);
@@ -51,19 +49,6 @@ contract DefaultReverseResolver is IExtendedResolver, INameReverser, ERC165 {
             }
             address addr = address(bytes20(a));
             return abi.encode(defaultRegistrar.nameForAddr(addr));
-        } else if (selector == IAddrResolver.addr.selector) {
-            (bool valid, ) = ENSIP19.parseNamespace(name, 0);
-            if (!valid) revert UnreachableName(name);
-            return abi.encode(this);
-        } else if (selector == IAddressResolver.addr.selector) {
-            (bool valid, ) = ENSIP19.parseNamespace(name, 0);
-            if (!valid) revert UnreachableName(name);
-            (, uint256 reqCoinType) = abi.decode(data[4:], (bytes32, uint256));
-            if (reqCoinType == COIN_TYPE_ETH) {
-                return abi.encode(abi.encodePacked(this));
-            } else {
-                return abi.encode("");
-            }
         } else {
             revert UnsupportedResolverProfile(selector);
         }
