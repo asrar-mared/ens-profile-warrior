@@ -2,15 +2,6 @@
 pragma solidity ^0.8.0;
 
 interface INameReverser {
-    /// @notice Resolve one address to a name.
-    ///         Callers should enable EIP-3668.
-    /// @dev This function may execute over multiple steps.
-    /// @param addr The address to resolve.
-    /// @return name The corresponding name.
-    function resolveName(
-        address addr
-    ) external view returns (string memory name);
-
     /// @notice Resolve multiple addresses to names.
     ///         Callers should enable EIP-3668.
     /// @dev This function may execute over multiple steps.

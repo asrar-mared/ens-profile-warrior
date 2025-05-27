@@ -35,6 +35,10 @@ contract DefaultReverseResolver is IExtendedResolver, INameReverser, ERC165 {
             super.supportsInterface(interfaceId);
     }
 
+    /// @notice Callers should enable EIP-3668.
+    /// @dev This function may execute over multiple steps.
+    /// @param name The name to resolve, in normalised and DNS-encoded form.
+    /// @param data The resolution data, as specified in ENSIP-10.
     function resolve(
         bytes calldata name,
         bytes calldata data
@@ -45,17 +49,18 @@ contract DefaultReverseResolver is IExtendedResolver, INameReverser, ERC165 {
             if (a.length != 20 || !ENSIP19.isEVMCoinType(coinType)) {
                 revert UnreachableName(name);
             }
-            return abi.encode(resolveName(address(bytes20(a))));
+            address addr = address(bytes20(a));
+            return abi.encode(defaultRegistrar.nameForAddr(addr));
         } else if (selector == IAddrResolver.addr.selector) {
             (bool valid, ) = ENSIP19.parseNamespace(name, 0);
             if (!valid) revert UnreachableName(name);
-            return abi.encode(address(this));
+            return abi.encode(this);
         } else if (selector == IAddressResolver.addr.selector) {
             (bool valid, ) = ENSIP19.parseNamespace(name, 0);
             if (!valid) revert UnreachableName(name);
             (, uint256 reqCoinType) = abi.decode(data[4:], (bytes32, uint256));
             if (reqCoinType == COIN_TYPE_ETH) {
-                return abi.encode(abi.encodePacked(address(this)));
+                return abi.encode(abi.encodePacked(this));
             } else {
                 return abi.encode("");
             }
@@ -65,18 +70,13 @@ contract DefaultReverseResolver is IExtendedResolver, INameReverser, ERC165 {
     }
 
     /// @inheritdoc INameReverser
-    function resolveName(address addr) public view returns (string memory) {
-        return defaultRegistrar.nameForAddr(addr);
-    }
-
-    /// @inheritdoc INameReverser
     function resolveNames(
         address[] memory addrs,
         uint8 /*perPage*/
     ) external view returns (string[] memory names) {
         names = new string[](addrs.length);
         for (uint256 i; i < addrs.length; i++) {
-            names[i] = resolveName(addrs[i]);
+            names[i] = defaultRegistrar.nameForAddr(addrs[i]);
         }
     }
 }

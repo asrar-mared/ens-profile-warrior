@@ -70,9 +70,9 @@ const func: DeployFunction = async function (hre) {
   const { deployer } = await hre.viem.getNamedClients()
   const publicClient = await hre.viem.getPublicClient()
 
-  const ensRegistryAddress = await hre.viem
-    .getContract('ENSRegistry')
-    .then((c) => c.address)
+  const universalResolverAddress = await hre.viem
+    .getContract('UniversalResolver')
+    .then((c) => c.address) // NOTE: this should be the proxy, not the impl
 
   const targetsForChain = targets[publicClient.chain.id as keyof typeof targets]
   const owner = owners[publicClient.chain.id as keyof typeof owners]
@@ -89,7 +89,7 @@ const func: DeployFunction = async function (hre) {
   )) {
     await hre.viem.deploy(
       'L1ReverseResolver',
-      [owner, ensRegistryAddress, verifier, gateways, target],
+      [owner, universalResolverAddress, verifier, gateways, target],
       {
         alias: `${chainName}L1ReverseResolver`,
         client: deployer,
