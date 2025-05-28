@@ -17,6 +17,7 @@ contract DefaultReverseResolver is IExtendedResolver, INameReverser, ERC165 {
     /// @notice Thrown when the resolver profile is unknown.
     error UnsupportedResolverProfile(bytes4 selector);
 
+    /// @notice The default reverse registrar contract.
     IStandaloneReverseRegistrar public immutable defaultRegistrar;
 
     constructor(IStandaloneReverseRegistrar registrar) {

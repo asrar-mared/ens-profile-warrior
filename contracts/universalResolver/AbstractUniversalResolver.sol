@@ -42,7 +42,12 @@ abstract contract AbstractUniversalResolver is
         batchGateways = gateways;
     }
 
-    /// @inheritdoc IUniversalResolver
+    /// @dev Find the resolver address for `name`.
+    ///      Does not perform any validity checks.
+    /// @param name The name to search.
+    /// @return resolver The resolver responsible for this name, or `address(0)` if none.
+    /// @return node The namehash of name corresponding to the resolver.
+    /// @return offset The byte-offset into `name` of the name corresponding to the resolver.
     function findResolver(
         bytes memory name
     )

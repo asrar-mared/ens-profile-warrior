@@ -28,16 +28,6 @@ interface IUniversalResolver {
     /// @dev Error selector: `0x01800152`
     error HttpError(uint16 status, string message);
 
-    /// @dev Find the resolver address for `name`.
-    ///      Does not perform any validity checks.
-    /// @param name The name to search.
-    /// @return resolver The resolver responsible for this name, or `address(0)` if none.
-    /// @return node The namehash of name corresponding to the resolver.
-    /// @return offset The byte-offset into `name` of the name corresponding to the resolver.
-    function findResolver(
-        bytes memory name
-    ) external view returns (address resolver, bytes32 node, uint256 offset);
-
     /// @notice Performs ENS name resolution for the supplied name and resolution data.
     /// @notice Callers should enable EIP-3668.
     /// @param name The name to resolve, in normalised and DNS-encoded form.

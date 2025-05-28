@@ -19,7 +19,7 @@ const owners = {
 type ResolverDeployment = {
   chain: number
   verifier: Address
-  target: Address
+  registrar: Address
   gateways: string[]
 }
 
@@ -28,13 +28,13 @@ const targets = {
     Base: {
       chain: baseSepolia.id,
       verifier: '0x2a5c43a0aa33c6ca184ac0eadf0a117109c9d6ae',
-      target: '0x00000BeEF055f7934784D6d81b6BC86665630dbA',
+      registrar: '0x00000BeEF055f7934784D6d81b6BC86665630dbA',
       gateways: ['https://lb.drpc.org/gateway/unruggable?network=base-sepolia'],
     },
     Optimism: {
       chain: optimismSepolia.id,
       verifier: '0x9fc09f6683ea8e8ad0fae3317e39e57582469707',
-      target: '0x00000BeEF055f7934784D6d81b6BC86665630dbA',
+      registrar: '0x00000BeEF055f7934784D6d81b6BC86665630dbA',
       gateways: [
         'https://lb.drpc.org/gateway/unruggable?network=optimism-sepolia',
       ],
@@ -42,7 +42,7 @@ const targets = {
     Arbitrum: {
       chain: arbitrumSepolia.id,
       verifier: '0x5e2a4f6c4cc16b27424249eedb15326207c9ee44',
-      target: '0x00000BeEF055f7934784D6d81b6BC86665630dbA',
+      registrar: '0x00000BeEF055f7934784D6d81b6BC86665630dbA',
       gateways: [
         'https://lb.drpc.org/gateway/unruggable?network=arbitrum-sepolia',
       ],
@@ -50,7 +50,7 @@ const targets = {
     Scroll: {
       chain: scrollSepolia.id,
       verifier: '0xd126DD79133D3aaf0248E858323Cd10C04c5E43d',
-      target: '0x00000BeEF055f7934784D6d81b6BC86665630dbA',
+      registrar: '0x00000BeEF055f7934784D6d81b6BC86665630dbA',
       gateways: [
         'https://lb.drpc.org/gateway/unruggable?network=scroll-sepolia',
       ],
@@ -58,7 +58,7 @@ const targets = {
     Linea: {
       chain: lineaSepolia.id,
       verifier: '0x6AD2BbEE28e780717dF146F59c2213E0EB9CA573',
-      target: '0x00000BeEF055f7934784D6d81b6BC86665630dbA',
+      registrar: '0x00000BeEF055f7934784D6d81b6BC86665630dbA',
       gateways: [
         'https://lb.drpc.org/gateway/unruggable?network=linea-sepolia',
       ],
@@ -70,9 +70,9 @@ const func: DeployFunction = async function (hre) {
   const { deployer } = await hre.viem.getNamedClients()
   const publicClient = await hre.viem.getPublicClient()
 
-  const universalResolverAddress = await hre.viem
-    .getContract('UniversalResolver')
-    .then((c) => c.address) // NOTE: this should be the proxy, not the impl
+  const defaultReverseRegistrar = await hre.viem
+    .getContract('DefaultReverseRegistrar')
+    .then((c) => c.address)
 
   const targetsForChain = targets[publicClient.chain.id as keyof typeof targets]
   const owner = owners[publicClient.chain.id as keyof typeof owners]
@@ -84,12 +84,12 @@ const func: DeployFunction = async function (hre) {
   // there should always be an owner specified when there are targets
   if (!owner) throw new Error(`No owner for chain ${publicClient.chain.id}`)
 
-  for (const [chainName, { verifier, target, gateways }] of Object.entries(
+  for (const [chainName, { registrar, verifier, gateways }] of Object.entries(
     targetsForChain,
   )) {
     await hre.viem.deploy(
       'L1ReverseResolver',
-      [owner, universalResolverAddress, verifier, gateways, target],
+      [owner, defaultReverseRegistrar, registrar, verifier, gateways],
       {
         alias: `${chainName}L1ReverseResolver`,
         client: deployer,
