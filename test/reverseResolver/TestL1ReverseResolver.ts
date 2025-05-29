@@ -4,6 +4,7 @@ import { expect } from 'chai'
 import hre from 'hardhat'
 import { namehash, slice } from 'viem'
 import {
+  chainFromCoinType,
   EVM_BIT,
   getReverseName,
   getReverseNamespace,
@@ -43,6 +44,7 @@ async function fixture() {
     'L1ReverseResolver',
     [
       F.owner,
+      l2CoinType,
       F.defaultReverseRegistrar.address,
       reverseRegistrar.address,
       verifierAddress,
@@ -78,33 +80,35 @@ describe('L1ReverseResolver', () => {
     ],
   })
 
-  it('unsupported profile', async () => {
+  it('coinType()', async () => {
     const F = await loadFixture(fixture)
-    const kp: KnownProfile = {
-      name: getReverseName(F.owner),
-      texts: [{ key: 'dne', value: 'abc' }],
-    }
-    const [res] = makeResolutions(kp)
-    await expect(F.reverseResolver)
-      .read('resolve', [dnsEncodeName(kp.name), res.call])
-      .toBeRevertedWithCustomError('UnsupportedResolverProfile')
-      .withArgs(slice(res.call, 0, 4))
+    await expect(F.reverseResolver.read.coinType()).resolves.toStrictEqual(
+      l2CoinType,
+    )
   })
 
-  it('unset', async () => {
+  it('chainId()', async () => {
     const F = await loadFixture(fixture)
-    const kp: KnownProfile = {
-      name: getReverseName(F.owner, l2CoinType),
-      primary: { name: '' },
-    }
-    const [res] = makeResolutions(kp)
-    res.expect(
-      await F.reverseResolver.read.resolve([dnsEncodeName(kp.name), res.call]),
+    await expect(F.reverseResolver.read.chainId()).resolves.toStrictEqual(
+      chainFromCoinType(l2CoinType),
     )
   })
 
   describe('resolve()', () => {
-    it('addr() on namespace', async () => {
+    it('unsupported profile', async () => {
+      const F = await loadFixture(fixture)
+      const kp: KnownProfile = {
+        name: getReverseName(F.owner),
+        texts: [{ key: 'dne', value: 'abc' }],
+      }
+      const [res] = makeResolutions(kp)
+      await expect(F.reverseResolver)
+        .read('resolve', [dnsEncodeName(kp.name), res.call])
+        .toBeRevertedWithCustomError('UnsupportedResolverProfile')
+        .withArgs(slice(res.call, 0, 4))
+    })
+
+    it('addr("{coinType}.reverse") = registrar', async () => {
       const F = await loadFixture(fixture)
       const kp: KnownProfile = {
         name: F.reverseNamespace,
@@ -121,6 +125,21 @@ describe('L1ReverseResolver', () => {
           ]),
         )
       }
+    })
+
+    it('unset name()', async () => {
+      const F = await loadFixture(fixture)
+      const kp: KnownProfile = {
+        name: getReverseName(F.owner, l2CoinType),
+        primary: { name: '' },
+      }
+      const [res] = makeResolutions(kp)
+      res.expect(
+        await F.reverseResolver.read.resolve([
+          dnsEncodeName(kp.name),
+          res.call,
+        ]),
+      )
     })
 
     it('name()', async () => {

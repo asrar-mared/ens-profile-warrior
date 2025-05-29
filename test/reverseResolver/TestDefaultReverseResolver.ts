@@ -4,6 +4,7 @@ import { expect } from 'chai'
 import hre from 'hardhat'
 import { slice } from 'viem'
 import {
+  chainFromCoinType,
   COIN_TYPE_ETH,
   EVM_BIT,
   shortCoin,
@@ -33,20 +34,53 @@ describe('DefaultReverseResolver', () => {
     ],
   })
 
-  it('unsupported profile', async () => {
+  it('coinType()', async () => {
     const F = await loadFixture(fixture)
-    const kp: KnownProfile = {
-      name: getReverseName(F.owner),
-      texts: [{ key: 'dne', value: 'abc' }],
-    }
-    const [res] = makeResolutions(kp)
-    await expect(F.defaultReverseResolver)
-      .read('resolve', [dnsEncodeName(kp.name), res.call])
-      .toBeRevertedWithCustomError('UnsupportedResolverProfile')
-      .withArgs(slice(res.call, 0, 4))
+    await expect(
+      F.defaultReverseResolver.read.coinType(),
+    ).resolves.toStrictEqual(EVM_BIT)
+  })
+
+  it('chainId()', async () => {
+    const F = await loadFixture(fixture)
+    await expect(
+      F.defaultReverseResolver.read.chainId(),
+    ).resolves.toStrictEqual(chainFromCoinType(EVM_BIT))
   })
 
   describe('resolve()', () => {
+    it('unsupported profile', async () => {
+      const F = await loadFixture(fixture)
+      const kp: KnownProfile = {
+        name: getReverseName(F.owner),
+        texts: [{ key: 'dne', value: 'abc' }],
+      }
+      const [res] = makeResolutions(kp)
+      await expect(F.defaultReverseResolver)
+        .read('resolve', [dnsEncodeName(kp.name), res.call])
+        .toBeRevertedWithCustomError('UnsupportedResolverProfile')
+        .withArgs(slice(res.call, 0, 4))
+    })
+
+    it('addr("default.reverse") = registrar', async () => {
+      const F = await loadFixture(fixture)
+      const kp: KnownProfile = {
+        name: F.defaultReverseNamespace,
+        addresses: [
+          { coinType: EVM_BIT, value: F.defaultReverseRegistrar.address },
+          { coinType: EVM_BIT + 1n, value: '0x' },
+        ],
+      }
+      for (const res of makeResolutions(kp)) {
+        res.expect(
+          await F.defaultReverseResolver.read.resolve([
+            dnsEncodeName(kp.name),
+            res.call,
+          ]),
+        )
+      }
+    })
+
     for (const coinType of coinTypes) {
       it(shortCoin(coinType), async () => {
         const F = await loadFixture(fixture)

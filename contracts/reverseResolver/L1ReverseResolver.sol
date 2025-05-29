@@ -1,82 +1,57 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
+import {AbstractReverseResolver} from "./AbstractReverseResolver.sol";
 import {Ownable} from "@openzeppelin/contracts-v5/access/Ownable.sol";
-import {ERC165} from "@openzeppelin/contracts-v5/utils/introspection/ERC165.sol";
 import {GatewayFetchTarget, IGatewayVerifier} from "@unruggable/gateways/contracts/GatewayFetchTarget.sol";
 import {GatewayFetcher, GatewayRequest} from "@unruggable/gateways/contracts/GatewayFetcher.sol";
 import {IStandaloneReverseRegistrar} from "../reverseRegistrar/IStandaloneReverseRegistrar.sol";
-import {IExtendedResolver} from "../resolvers/profiles/IExtendedResolver.sol";
-import {IAddressResolver} from "../resolvers/profiles/IAddressResolver.sol";
-import {IAddrResolver} from "../resolvers/profiles/IAddrResolver.sol";
-import {INameResolver} from "../resolvers/profiles/INameResolver.sol";
 import {INameReverser} from "./INameReverser.sol";
-import {ENSIP19, COIN_TYPE_ETH} from "../utils/ENSIP19.sol";
 
 /// @title L1 Reverse Resolver
-/// @notice Resolves reverse records for EVM addresses via gateway to a L2ReverseRegistrar
-///         and queries the default resolver if the name was empty.
+/// @notice Reverses an EVM address using the first non-null response from the following sources:
+///         1. `L2ReverseRegistrar` on L2 chain via Unruggable Gateway
+///         2. `IStandaloneReverseRegistrar` for "default.reverse"
 contract L1ReverseResolver is
-    IExtendedResolver,
-    INameReverser,
+    AbstractReverseResolver,
     GatewayFetchTarget,
-    ERC165,
     Ownable
 {
     using GatewayFetcher for GatewayRequest;
 
+    /// @notice The reverse registrar contract for "default.reverse".
+    IStandaloneReverseRegistrar public immutable defaultRegistrar;
+
+    /// @notice The reverse registrar address on the L2 chain.
+    address public immutable l2Registrar;
+
+    /// @notice Storage slot for the names mapping in `L2ReverseRegistrar`.
+    uint256 constant NAMES_SLOT = 0;
+
+    /// @notice The verifier contract for the L2 chain.
+    IGatewayVerifier public gatewayVerifier;
+
+    /// @notice Gateway URLs for the verifier contract.
+    string[] public gatewayURLs;
+
+    /// @notice Emitted when the gateway verifier is changed.
+    event GatewayVerifierChanged(address verifier);
+
     /// @notice Emitted when the gateway URLs are changed.
     event GatewayURLsChanged(string[] urls);
 
-    /// @notice Thrown when the name is not reachable in this resolver's namespace.
-    error UnreachableName(bytes name);
-
-    /// @notice Thrown when the resolver profile is unknown.
-    error UnsupportedResolverProfile(bytes4 selector);
-
-    /// @notice The default reverse registrar contract.
-    IStandaloneReverseRegistrar public immutable defaultRegistrar;
-
-    /// @notice The target registrar contract on the L2 chain.
-    address public immutable l2Registrar;
-
-    /// @notice The gateway verifier contract, unique to each L2 chain.
-    IGatewayVerifier public immutable l2Verifier;
-
-    /// @notice The verifier gateway URLs.
-    string[] public gatewayURLs;
-
-    /// @notice Storage slot for the names mapping in the target registrar contract.
-    uint256 constant NAMES_SLOT = 0;
-
-    /// @notice Sets the initial state of the contract.
-    ///
-    /// @param _owner The owner of the contract, able to modify the gateway URLs.
-    /// @param _defaultRegistrar The default reverse registrar contract.
-    /// @param _l2Verifier The gateway verifier contract, unique to each L2 chain.
-    /// @param gateways The verifier gateway URLs.
-    /// @param _l2Registrar The target registrar contract on the L2 chain.
     constructor(
         address _owner,
+        uint256 coinType,
         IStandaloneReverseRegistrar _defaultRegistrar,
         address _l2Registrar,
-        IGatewayVerifier _l2Verifier,
+        IGatewayVerifier verifier,
         string[] memory gateways
-    ) Ownable(_owner) {
+    ) Ownable(_owner) AbstractReverseResolver(coinType, _l2Registrar) {
         defaultRegistrar = _defaultRegistrar;
         l2Registrar = _l2Registrar;
-        l2Verifier = _l2Verifier;
+        gatewayVerifier = verifier;
         gatewayURLs = gateways;
-    }
-
-    /// @inheritdoc ERC165
-    function supportsInterface(
-        bytes4 interfaceId
-    ) public view override returns (bool) {
-        return
-            interfaceId == type(IExtendedResolver).interfaceId ||
-            interfaceId == type(INameReverser).interfaceId ||
-            super.supportsInterface(interfaceId);
     }
 
     /// @notice Set gateway URLs.
@@ -86,54 +61,24 @@ contract L1ReverseResolver is
         emit GatewayURLsChanged(gateways);
     }
 
-    /// @notice Resolves and verifies `name` records on the target L2 chain's registrar contract,
-    ///         or falls back to the default resolver if the name is not found.
-    ///         Also supports `addr` calls for the L2 chain's reverse namespace,
-    ///         which resolves to the target L2 chain's registrar contract.
-    /// @notice Callers should enable EIP-3668.
-    /// @dev This function may execute over multiple steps.
-    /// @param name The name to resolve, in normalised and DNS-encoded form.
-    /// @param data The resolution data, as specified in ENSIP-10.
-    function resolve(
-        bytes calldata name,
-        bytes calldata data
-    ) external view returns (bytes memory) {
-        bytes4 selector = bytes4(data);
-        if (selector == INameResolver.name.selector) {
-            (bytes memory a, ) = ENSIP19.parse(name);
-            if (a.length != 20) revert UnreachableName(name);
-            _resolveName(address(bytes20(a)));
-        } else if (selector == IAddrResolver.addr.selector) {
-            (bool valid, uint256 coinType) = ENSIP19.parseNamespace(name, 0);
-            if (!valid) revert UnreachableName(name);
-            return
-                abi.encode(
-                    coinType == COIN_TYPE_ETH ? l2Registrar : address(0)
-                );
-        } else if (selector == IAddressResolver.addr.selector) {
-            (bool valid, uint256 coinType) = ENSIP19.parseNamespace(name, 0);
-            if (!valid) revert UnreachableName(name);
-            (, uint256 reqCoinType) = abi.decode(data[4:], (bytes32, uint256));
-            return
-                abi.encode(
-                    reqCoinType == coinType
-                        ? abi.encodePacked(l2Registrar)
-                        : new bytes(0)
-                );
-        } else {
-            revert UnsupportedResolverProfile(selector);
-        }
+    /// @notice Set the verifier contract.
+    /// @param verifier The new verifier contract.
+    function setGatewayVerifier(address verifier) external onlyOwner {
+        gatewayVerifier = IGatewayVerifier(verifier);
+        emit GatewayVerifierChanged(verifier);
     }
 
-    /// @dev Resolve one address to a name.
-    ///      This function executes over multiple steps (step 1 of 2).
-    function _resolveName(address addr) internal view {
+    /// @inheritdoc AbstractReverseResolver
+    /// @dev This function executes over multiple steps (step 1 of 2).
+    function _resolveName(
+        address addr
+    ) internal view override returns (string memory) {
         GatewayRequest memory req = GatewayFetcher.newRequest(1);
         req.setTarget(l2Registrar); // target L2 registrar
         req.setSlot(NAMES_SLOT).push(addr).follow().readBytes(); // names[addr]
         req.setOutput(0);
         fetch(
-            l2Verifier,
+            gatewayVerifier,
             req,
             this.resolveNameCallback.selector,
             abi.encode(addr),
@@ -162,7 +107,7 @@ contract L1ReverseResolver is
     function resolveNames(
         address[] memory addrs,
         uint8 perPage
-    ) external view returns (string[] memory names) {
+    ) external view override returns (string[] memory names) {
         names = new string[](addrs.length);
         _resolveNames(addrs, names, 0, perPage);
     }
@@ -186,7 +131,7 @@ contract L1ReverseResolver is
             req.setOutput(uint8(i));
         }
         fetch(
-            l2Verifier,
+            gatewayVerifier,
             req,
             this.resolveNamesCallback.selector,
             abi.encode(addrs, names, start, perPage),
@@ -194,11 +139,11 @@ contract L1ReverseResolver is
         );
     }
 
-    /// @dev CCIP-Read callback for `resolveNames()` (step 2 of 2).
-    ///      Recursive if there are still names to resolve.
+    /// @dev CCIP-Read callback for `_resolveNames()` (step 2 of 2).
+    ///      Recursive if there are still addresses to resolve.
     /// @param values The outputs for `GatewayRequest` (N names).
     /// @param extraData The contextual data passed from `_resolveNames()`.
-    /// @return names The corresponding names.
+    /// @return names The resolved names.
     function resolveNamesCallback(
         bytes[] memory values,
         uint8 /* exitCode */,

@@ -9,6 +9,7 @@ import {
   scrollSepolia,
   sepolia,
 } from 'viem/chains'
+import { coinTypeFromChain } from '../../test/fixtures/ensip19.js'
 
 const owners = {
   [sepolia.id]: '0x343431e9CEb7C19cC8d3eA0EE231bfF82B584910',
@@ -84,12 +85,20 @@ const func: DeployFunction = async function (hre) {
   // there should always be an owner specified when there are targets
   if (!owner) throw new Error(`No owner for chain ${publicClient.chain.id}`)
 
-  for (const [chainName, { registrar, verifier, gateways }] of Object.entries(
-    targetsForChain,
-  )) {
+  for (const [
+    chainName,
+    { chain, registrar, verifier, gateways },
+  ] of Object.entries(targetsForChain)) {
     await hre.viem.deploy(
       'L1ReverseResolver',
-      [owner, defaultReverseRegistrar, registrar, verifier, gateways],
+      [
+        owner,
+        coinTypeFromChain(chain),
+        defaultReverseRegistrar,
+        registrar,
+        verifier,
+        gateways,
+      ],
       {
         alias: `${chainName}L1ReverseResolver`,
         client: deployer,

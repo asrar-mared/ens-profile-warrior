@@ -2,12 +2,12 @@
 pragma solidity ^0.8.0;
 
 interface INameReverser {
-    /// @notice Resolve multiple addresses to names.
+    /// @notice Resolve multiple EVM addresses to names.
     ///         Callers should enable EIP-3668.
     /// @dev This function may execute over multiple steps.
     /// @param addrs The addresses to resolve.
     /// @param perPage The maximum number of addresses to resolve per call.
-    /// @return names The corresponding names.
+    /// @return names The resolved names.
     function resolveNames(
         address[] memory addrs,
         uint8 perPage
