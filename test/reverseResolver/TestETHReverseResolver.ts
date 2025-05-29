@@ -37,7 +37,7 @@ async function fixture() {
     reverseRegistrar,
     reverseResolver,
     claimV1,
-  } as const
+  }
   async function claimV1(owner: Address, resolver = shapeshift.address) {
     await F.ensRegistry.write.setSubnodeRecord([
       namehash(reverseNamespace),
@@ -50,7 +50,7 @@ async function fixture() {
 }
 
 function nthName(i: number) {
-  return String.fromCodePoint(65 + i)
+  return String.fromCodePoint(65 + i) // A, B, C, ...
 }
 
 type SetterFn = (
@@ -123,7 +123,15 @@ const permutations: {
 Object.entries(sources).forEach(([source, setters], i) => {
   permutations.push(
     ...Object.entries(setters).flatMap(([setter, fn]) =>
-      permutations.map((v) => [...v, { source, setter, fn, name: nthName(i) }]),
+      permutations.map((v) => [
+        ...v,
+        {
+          source,
+          setter,
+          fn,
+          name: setter.startsWith('set') ? nthName(i) : '', // convention
+        },
+      ]),
     ),
   )
 })
@@ -186,12 +194,11 @@ describe('ETHReverseResolver', () => {
     })
 
     for (const setters of permutations.sort((a, b) => a.length - b.length)) {
-      // convention: key starts with "set" implies success
-      const name = setters.find((x) => x.setter.startsWith('set'))?.name ?? ''
-      const title = setters
-        .map((x) => `${x.source}(${x.setter}:"${x.name}")`)
+      const name = setters.find((x) => x.name)?.name ?? ''
+      const desc = setters
+        .map((x) => `${x.source}(${x.setter}${x.name ? `:"${name}"` : ''})`)
         .join(' + ')
-      it(`${title || 'unset'} = "${name}"`, async () => {
+      it(`${desc || 'unset'} = ${name ? `"${name}"` : '<empty>'}`, async () => {
         const F = await loadFixture(fixture)
         const [wallet] = await hre.viem.getWalletClients()
         for (const { fn, name } of setters) {
@@ -230,7 +237,7 @@ describe('ETHReverseResolver', () => {
         }
         await expect(
           F.reverseResolver.read.resolveNames([
-            wallets.slice(0, 4).map((x) => x.account.address),
+            wallets.slice(0, setters.length + 1).map((x) => x.account.address),
             perPage,
           ]),
         ).resolves.toStrictEqual([nthName(0), nthName(1), nthName(2), ''])

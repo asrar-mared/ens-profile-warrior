@@ -106,7 +106,7 @@ describe('DefaultReverseResolver', () => {
     }
   })
 
-  describe('edge cases', () => {
+  describe('namespace edge cases', () => {
     for (const namespace of [
       '3c.reverse', // coinType(60)
       '03c.reverse', // coinType(60)

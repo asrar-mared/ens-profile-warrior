@@ -26,7 +26,7 @@ abstract contract AbstractReverseResolver is
     uint256 public immutable coinType;
 
     /// @notice The address returned by `addr(coinType)` for the resolver.
-    address immutable registrar;
+    address private immutable registrar;
 
     constructor(uint256 _coinType, address _registrar) {
         coinType = _coinType;
@@ -49,6 +49,8 @@ abstract contract AbstractReverseResolver is
     }
 
     /// @dev Resolve one address to a name.
+    ///      If this reverts `OffchainLookup`, it must return an abi-encoded result since
+    ///      it is invoked during `resolve()`.
     function _resolveName(
         address addr
     ) internal view virtual returns (string memory name);
@@ -98,14 +100,18 @@ abstract contract AbstractReverseResolver is
         }
     }
 
-    /// @inheritdoc INameReverser
-    function resolveNames(
-        address[] memory addrs,
-        uint8 /*perPage*/
-    ) external view virtual returns (string[] memory names) {
-        names = new string[](addrs.length);
-        for (uint256 i; i < addrs.length; i++) {
-            names[i] = _resolveName(addrs[i]);
-        }
-    }
+    // `INameReverser.resolveNames()` is not implemented here because it causes
+    // an incorrect "Unreachable code" compiler warning if `_resolveName()` reverts.
+    // https://github.com/ethereum/solidity/issues/15426#issuecomment-2917868211
+    //
+    // /// @inheritdoc INameReverser
+    // function resolveNames(
+    //     address[] memory addrs,
+    //     uint8 /*perPage*/
+    // ) external view returns (string[] memory names) {
+    //     names = new string[](addrs.length);
+    //     for (uint256 i; i < addrs.length; i++) {
+    //         names[i] = _resolveName(addrs[i]);
+    //     }
+    // }
 }

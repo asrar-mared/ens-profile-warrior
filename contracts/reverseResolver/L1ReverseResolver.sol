@@ -107,7 +107,7 @@ contract L1ReverseResolver is
     function resolveNames(
         address[] memory addrs,
         uint8 perPage
-    ) external view override returns (string[] memory names) {
+    ) external view returns (string[] memory names) {
         names = new string[](addrs.length);
         _resolveNames(addrs, names, 0, perPage);
     }

@@ -3,6 +3,7 @@ pragma solidity ^0.8.17;
 
 import {AbstractReverseResolver} from "./AbstractReverseResolver.sol";
 import {IStandaloneReverseRegistrar} from "../reverseRegistrar/IStandaloneReverseRegistrar.sol";
+import {INameReverser} from "./INameReverser.sol";
 import {EVM_BIT} from "../utils/ENSIP19.sol";
 
 /// @title Default Reverse Resolver
@@ -22,5 +23,16 @@ contract DefaultReverseResolver is AbstractReverseResolver {
         address addr
     ) internal view override returns (string memory name) {
         name = defaultRegistrar.nameForAddr(addr);
+    }
+
+    /// @inheritdoc INameReverser
+    function resolveNames(
+        address[] memory addrs,
+        uint8 /*perPage*/
+    ) external view returns (string[] memory names) {
+        names = new string[](addrs.length);
+        for (uint256 i; i < addrs.length; i++) {
+            names[i] = _resolveName(addrs[i]);
+        }
     }
 }
