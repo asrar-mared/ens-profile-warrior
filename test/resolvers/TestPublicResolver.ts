@@ -1144,7 +1144,7 @@ describe('PublicResolver', () => {
       await publicResolver.write.setAddr([targetNode, ensRegistry.address])
 
       const supportsInterfaceArtifact = await hre.artifacts.readArtifact(
-        'IERC165',
+        '@openzeppelin/contracts/interfaces/IERC165.sol:IERC165',
       )
       const supportsInterfaceId = createInterfaceId(
         supportsInterfaceArtifact.abi,
@@ -1164,7 +1164,7 @@ describe('PublicResolver', () => {
       await publicResolver.write.setAddr([targetNode, accounts[0].address])
 
       const supportsInterfaceArtifact = await hre.artifacts.readArtifact(
-        'IERC165',
+        '@openzeppelin/contracts/interfaces/IERC165.sol:IERC165',
       )
       const supportsInterfaceId = createInterfaceId(
         supportsInterfaceArtifact.abi,
