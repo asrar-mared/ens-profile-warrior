@@ -14,6 +14,12 @@ abstract contract AbstractReverseResolver is
     INameReverser,
     ERC165
 {
+    /// @notice The coin type for the resolver.
+    uint256 public immutable coinType;
+
+    /// @notice The address returned by `addr(coinType)` for the resolver.
+    address private immutable registrar;
+
     /// @notice `resolve()` was called with a profile other than `name()` or `addr(*)`.
     /// @dev Error selector: `0x7b1c461b`
     error UnsupportedResolverProfile(bytes4 selector);
@@ -21,12 +27,6 @@ abstract contract AbstractReverseResolver is
     /// @notice `name` is not a valid DNS-encoded ENSIP-19 reverse name or namespace.
     /// @dev Error selector: `0x5fe9a5df`
     error UnreachableName(bytes name);
-
-    /// @notice The coin type for the resolver.
-    uint256 public immutable coinType;
-
-    /// @notice The address returned by `addr(coinType)` for the resolver.
-    address private immutable registrar;
 
     constructor(uint256 _coinType, address _registrar) {
         coinType = _coinType;
