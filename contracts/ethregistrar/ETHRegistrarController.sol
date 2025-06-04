@@ -2,8 +2,8 @@
 pragma solidity ~0.8.17;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
-import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
 import {BaseRegistrarImplementation} from "./BaseRegistrarImplementation.sol";
 import {StringUtils} from "../utils/StringUtils.sol";
@@ -18,11 +18,10 @@ import {ERC20Recoverable} from "../utils/ERC20Recoverable.sol";
 contract ETHRegistrarController is
     Ownable,
     IETHRegistrarController,
-    IERC165,
+    ERC165,
     ERC20Recoverable
 {
     using StringUtils for *;
-    using Address for address;
 
     /// @notice The minimum duration for a registration.
     uint256 public constant MIN_REGISTRATION_DURATION = 28 days;
@@ -253,6 +252,29 @@ contract ETHRegistrarController is
         if (!_available(registration.label, labelhash))
             revert NameNotAvailable(registration.label);
 
+        bytes32 commitment = makeCommitment(registration);
+        uint256 commitmentTimestamp = commitments[commitment];
+
+        // Require an old enough commitment.
+        if (commitmentTimestamp + minCommitmentAge > block.timestamp)
+            revert CommitmentTooNew(
+                commitment,
+                commitmentTimestamp + minCommitmentAge,
+                block.timestamp
+            );
+
+        // If the commitment is too old, or the name is registered, stop
+        if (commitmentTimestamp + maxCommitmentAge <= block.timestamp) {
+            if (commitmentTimestamp == 0) revert CommitmentNotFound(commitment);
+            revert CommitmentTooOld(
+                commitment,
+                commitmentTimestamp + maxCommitmentAge,
+                block.timestamp
+            );
+        }
+
+        delete (commitments[commitment]);
+
         _register(registration, labelhash, price);
 
         if (msg.value > totalPrice)
@@ -316,10 +338,10 @@ contract ETHRegistrarController is
     /// @inheritdoc IERC165
     function supportsInterface(
         bytes4 interfaceID
-    ) external pure returns (bool) {
+    ) public view override returns (bool) {
         return
-            interfaceID == type(IERC165).interfaceId ||
-            interfaceID == type(IETHRegistrarController).interfaceId;
+            interfaceID == type(IETHRegistrarController).interfaceId ||
+            super.supportsInterface(interfaceID);
     }
 
     /* Internal functions */
@@ -348,29 +370,6 @@ contract ETHRegistrarController is
         bytes32 labelhash,
         IPriceOracle.Price memory price
     ) internal {
-        bytes32 commitment = makeCommitment(registration);
-        uint256 commitmentTimestamp = commitments[commitment];
-
-        // Require an old enough commitment.
-        if (commitmentTimestamp + minCommitmentAge > block.timestamp)
-            revert CommitmentTooNew(
-                commitment,
-                commitmentTimestamp + minCommitmentAge,
-                block.timestamp
-            );
-
-        // If the commitment is too old, or the name is registered, stop
-        if (commitmentTimestamp + maxCommitmentAge <= block.timestamp) {
-            if (commitmentTimestamp == 0) revert CommitmentNotFound(commitment);
-            revert CommitmentTooOld(
-                commitment,
-                commitmentTimestamp + maxCommitmentAge,
-                block.timestamp
-            );
-        }
-
-        delete (commitments[commitment]);
-
         bytes32 namehash = keccak256(abi.encodePacked(ETH_NODE, labelhash));
         uint256 expires;
 

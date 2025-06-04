@@ -995,14 +995,12 @@ describe('ETHRegistrarController', () => {
     } = await loadFixture(fixture)
 
     const label = 'newname'
-    const { args, params } = await commitName(
-      { ethRegistrarController },
-      {
-        label,
-        duration: REGISTRATION_TIME,
-        ownerAddress: registrantAccount.address,
-      },
-    )
+    const params = await getDefaultRegistrationOptions({
+      label,
+      duration: REGISTRATION_TIME,
+      ownerAddress: registrantAccount.address,
+    })
+    const args = getRegisterNameParameters(params)
 
     await expect(ethRegistrarController)
       .write('registerWithoutPayment', [args])
@@ -1039,14 +1037,12 @@ describe('ETHRegistrarController', () => {
     } = await loadFixture(fixture)
 
     const label = 'l2'
-    const { args, params } = await commitName(
-      { ethRegistrarController },
-      {
-        label,
-        duration: REGISTRATION_TIME,
-        ownerAddress: registrantAccount.address,
-      },
-    )
+    const params = await getDefaultRegistrationOptions({
+      label,
+      duration: REGISTRATION_TIME,
+      ownerAddress: registrantAccount.address,
+    })
+    const args = getRegisterNameParameters(params)
 
     await expect(ethRegistrarController)
       .write('registerWithoutPayment', [args])
@@ -1085,14 +1081,12 @@ describe('ETHRegistrarController', () => {
       },
     )
 
-    const { args } = await commitName(
-      { ethRegistrarController },
-      {
-        label,
-        duration: REGISTRATION_TIME,
-        ownerAddress: registrantAccount.address,
-      },
-    )
+    const params = await getDefaultRegistrationOptions({
+      label,
+      duration: REGISTRATION_TIME,
+      ownerAddress: registrantAccount.address,
+    })
+    const args = getRegisterNameParameters(params)
     await expect(ethRegistrarController)
       .write('registerWithoutPayment', [args])
       .toBeRevertedWithCustomError('NameNotAvailable')
@@ -1102,14 +1096,12 @@ describe('ETHRegistrarController', () => {
     const { ethRegistrarController, otherAccount } = await loadFixture(fixture)
 
     const label = 'newname'
-    const { args } = await commitName(
-      { ethRegistrarController },
-      {
-        label,
-        duration: REGISTRATION_TIME,
-        ownerAddress: otherAccount.address,
-      },
-    )
+    const params = await getDefaultRegistrationOptions({
+      label,
+      duration: REGISTRATION_TIME,
+      ownerAddress: otherAccount.address,
+    })
+    const args = getRegisterNameParameters(params)
     await expect(ethRegistrarController)
       .write('registerWithoutPayment', [args], { account: otherAccount })
       .toBeRevertedWithString('Ownable: caller is not the owner')
