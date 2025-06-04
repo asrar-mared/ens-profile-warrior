@@ -11,9 +11,7 @@ import {Resolver} from "../resolvers/Resolver.sol";
 import {ENS} from "../registry/ENS.sol";
 import {IReverseRegistrar} from "../reverseRegistrar/IReverseRegistrar.sol";
 import {IDefaultReverseRegistrar} from "../reverseRegistrar/IDefaultReverseRegistrar.sol";
-import {ReverseClaimer} from "../reverseRegistrar/ReverseClaimer.sol";
 import {IETHRegistrarController, IPriceOracle} from "./IETHRegistrarController.sol";
-import {INameWrapper} from "../wrapper/INameWrapper.sol";
 import {ERC20Recoverable} from "../utils/ERC20Recoverable.sol";
 
 /// @dev A registrar controller for registering and renewing names at fixed cost.
@@ -21,8 +19,7 @@ contract ETHRegistrarController is
     Ownable,
     IETHRegistrarController,
     IERC165,
-    ERC20Recoverable,
-    ReverseClaimer
+    ERC20Recoverable
 {
     using StringUtils for *;
     using Address for address;
@@ -150,7 +147,7 @@ contract ETHRegistrarController is
         IReverseRegistrar _reverseRegistrar,
         IDefaultReverseRegistrar _defaultReverseRegistrar,
         ENS _ens
-    ) ReverseClaimer(_ens, msg.sender) {
+    ) {
         if (_maxCommitmentAge <= _minCommitmentAge)
             revert MaxCommitmentAgeTooLow();
 
