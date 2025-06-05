@@ -1,18 +1,18 @@
-import { execute, artifacts } from '@rocketh';
-import type { Address } from 'viem';
+import { execute, artifacts } from '@rocketh'
+import type { Address } from 'viem'
 
 export default execute(
   async ({ deploy, namedAccounts, network }) => {
-    const { deployer } = namedAccounts;
+    const { deployer } = namedAccounts
 
-    let oracleAddress: Address = '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419';
+    let oracleAddress: Address = '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419'
     if (network.name !== 'mainnet') {
       const dummyOracle = await deploy('DummyOracle', {
         account: deployer,
         artifact: artifacts.DummyOracle,
         args: [160000000000n],
-      });
-      oracleAddress = dummyOracle.address;
+      })
+      oracleAddress = dummyOracle.address
     }
 
     await deploy('ExponentialPremiumPriceOracle', {
@@ -24,11 +24,11 @@ export default execute(
         100000000000000000000000000n,
         21n,
       ],
-    });
+    })
   },
   {
     id: 'price-oracle',
     tags: ['ethregistrar', 'ExponentialPremiumPriceOracle', 'DummyOracle'],
     dependencies: ['registry'],
-  }
-);
+  },
+)

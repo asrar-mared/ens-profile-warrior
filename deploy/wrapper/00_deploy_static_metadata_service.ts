@@ -1,28 +1,28 @@
-import { execute, artifacts } from '@rocketh';
+import { execute, artifacts } from '@rocketh'
 
 export default execute(
   async ({ deploy, namedAccounts, network }) => {
-    const { deployer } = namedAccounts;
+    const { deployer } = namedAccounts
 
     let metadataHost =
-      process.env.METADATA_HOST || 'ens-metadata-service.appspot.com';
+      process.env.METADATA_HOST || 'ens-metadata-service.appspot.com'
 
     if (network.name === 'localhost') {
-      metadataHost = 'http://localhost:8080';
+      metadataHost = 'http://localhost:8080'
     }
 
-    const metadataUrl = `${metadataHost}/name/0x{id}`;
+    const metadataUrl = `${metadataHost}/name/0x{id}`
 
     await deploy('StaticMetadataService', {
       account: deployer,
       artifact: artifacts.StaticMetadataService,
       args: [metadataUrl],
-    });
+    })
   },
   {
     id: 'metadata',
     tags: ['wrapper', 'StaticMetadataService'],
     // technically not a dep, but we want to make sure it's deployed first for the consistent address
     dependencies: ['BaseRegistrarImplementation'],
-  }
-);
+  },
+)

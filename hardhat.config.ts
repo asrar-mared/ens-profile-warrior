@@ -23,9 +23,11 @@ const config: HardhatUserConfig = {
     hardhat: {
       type: 'http',
       allowUnlimitedContractSize: false,
-      forking: process.env.FORKING_ENABLED ? {
-        url: `https://mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
-      } : undefined,
+      forking: process.env.FORKING_ENABLED
+        ? {
+            url: `https://mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
+          }
+        : undefined,
     },
     localhost: {
       type: 'http',

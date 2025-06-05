@@ -1,7 +1,7 @@
 // ------------------------------------------------------------------------------------------------
 // Typed Config
 // ------------------------------------------------------------------------------------------------
-import { UserConfig } from 'rocketh';
+import { UserConfig } from 'rocketh'
 
 export const config = {
   accounts: {
@@ -31,21 +31,21 @@ export const config = {
       tags: ['legacy', 'use_root'],
     },
   },
-} as const satisfies UserConfig;
+} as const satisfies UserConfig
 
 // ------------------------------------------------------------------------------------------------
 // Imports and Re-exports
 // ------------------------------------------------------------------------------------------------
 // We regroup all what is needed for the deploy scripts
 // so that they just need to import this file
-import '@rocketh/deploy'; // provides the deploy function
-import '@rocketh/read-execute'; // provides read, execute functions
-import '@rocketh/proxy'; // provides proxy deployment functions
+import '@rocketh/deploy' // provides the deploy function
+import '@rocketh/read-execute' // provides read, execute functions
+import '@rocketh/proxy' // provides proxy deployment functions
 
 // ------------------------------------------------------------------------------------------------
 // we re-export the artifacts, so they are easily available from the alias
-import artifacts from './generated/artifacts.js';
-export { artifacts };
+import artifacts from './generated/artifacts.js'
+export { artifacts }
 
 // ------------------------------------------------------------------------------------------------
 // while not necessary, we also converted the execution function type to know about the named accounts
@@ -54,7 +54,7 @@ import {
   execute as _execute,
   loadAndExecuteDeployments,
   type NamedAccountExecuteFunction,
-} from 'rocketh';
+} from 'rocketh'
 
-const execute = _execute as NamedAccountExecuteFunction<typeof config.accounts>;
-export { execute, loadAndExecuteDeployments };
+const execute = _execute as NamedAccountExecuteFunction<typeof config.accounts>
+export { execute, loadAndExecuteDeployments }

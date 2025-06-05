@@ -1,11 +1,11 @@
-import { execute, artifacts } from '@rocketh';
+import { execute, artifacts } from '@rocketh'
 
 export default execute(
   async ({ deploy, get, namedAccounts }) => {
-    const { deployer } = namedAccounts;
+    const { deployer } = namedAccounts
 
-    const registry = await get('ENSRegistry');
-    const dnssec = await get('DNSSECImpl');
+    const registry = await get('ENSRegistry')
+    const dnssec = await get('DNSSECImpl')
 
     await deploy('OffchainDNSResolver', {
       account: deployer,
@@ -15,10 +15,10 @@ export default execute(
         dnssec.address,
         'https://dnssec-oracle.ens.domains/',
       ],
-    });
+    })
   },
   {
     tags: ['OffchainDNSResolver'],
     dependencies: ['registry', 'dnssec-oracle'],
-  }
-);
+  },
+)
