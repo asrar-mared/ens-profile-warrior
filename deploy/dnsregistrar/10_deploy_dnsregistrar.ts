@@ -1,49 +1,61 @@
-import type { DeployFunction } from 'hardhat-deploy/types.js'
-import { zeroAddress } from 'viem'
+import { execute, artifacts } from '@rocketh';
+import { zeroAddress } from 'viem';
 
-const func: DeployFunction = async function (hre) {
-  const { viem } = hre
+export default execute(
+  async ({ deploy, get, getOrNull, read, execute, namedAccounts }) => {
+    const { deployer, owner } = namedAccounts;
 
-  const { owner } = await viem.getNamedClients()
+    const registry = await get('ENSRegistry');
+    const dnssec = await get('DNSSECImpl');
+    const resolver = await get('OffchainDNSResolver');
+    const oldregistrar = await getOrNull('DNSRegistrar');
+    const root = await get('Root');
+    const publicSuffixList = await get('SimplePublicSuffixList');
 
-  const registry = await viem.getContract('ENSRegistry')
-  const dnssec = await viem.getContract('DNSSECImpl')
-  const resolver = await viem.getContract('OffchainDNSResolver')
-  const oldregistrar = await viem.getContractOrNull('DNSRegistrar')
-  const root = await viem.getContract('Root')
+    const dnsRegistrar = await deploy('DNSRegistrar', {
+      account: deployer,
+      artifact: artifacts.DNSRegistrar,
+      args: [
+        oldregistrar?.address || zeroAddress,
+        resolver.address,
+        dnssec.address,
+        publicSuffixList.address,
+        registry.address,
+      ],
+    });
 
-  const publicSuffixList = await viem.getContract('SimplePublicSuffixList')
+    if (!dnsRegistrar.newlyDeployed) {
+      return;
+    }
 
-  const deployment = await viem.deploy('DNSRegistrar', [
-    oldregistrar?.address || zeroAddress,
-    resolver.address,
-    dnssec.address,
-    publicSuffixList.address,
-    registry.address,
-  ])
+    console.log('DNSRegistrar deployed successfully');
 
-  const rootOwner = await root.read.owner()
+    // Set DNSRegistrar as controller of Root
+    const rootOwner = await read(root, {
+      functionName: 'owner',
+    });
 
-  if (owner !== undefined && rootOwner === owner.address) {
-    const hash = await root.write.setController([deployment.address, true], {
-      account: owner.account,
-    })
-    console.log(`Set DNSRegistrar as controller of Root (${hash})`)
-    await viem.waitForTransactionSuccess(hash)
-  } else {
-    console.log(
-      `${owner.address} is not the owner of the root; you will need to call setController('${deployment.address}', true) manually`,
-    )
+    if (rootOwner === owner) {
+      await execute(root, {
+        functionName: 'setController',
+        args: [dnsRegistrar.address, true],
+        account: owner,
+      });
+      console.log('Set DNSRegistrar as controller of Root');
+    } else {
+      console.log(
+        `${owner} is not the owner of the root; you will need to call setController('${dnsRegistrar.address}', true) manually`
+      );
+    }
+  },
+  {
+    tags: ['DNSRegistrar'],
+    dependencies: [
+      'registry',
+      'dnssec-oracle',
+      'OffchainDNSResolver',
+      'Root',
+      'setupRoot',
+    ],
   }
-}
-
-func.tags = ['DNSRegistrar']
-func.dependencies = [
-  'registry',
-  'dnssec-oracle',
-  'OffchainDNSResolver',
-  'Root',
-  'setupRoot',
-]
-
-export default func
+);

@@ -1,26 +1,37 @@
-import type { DeployFunction } from 'hardhat-deploy/types.js'
+import { execute, artifacts } from '@rocketh';
 
-const func: DeployFunction = async function (hre) {
-  const { deployments, viem } = hre
-  const { deploy } = deployments
+export default execute(
+  async ({ deploy, get, execute: executeContract, namedAccounts }) => {
+    const { deployer, owner } = namedAccounts;
 
-  const { deployer, owner } = await viem.getNamedClients()
+    const registrar = await get('BaseRegistrarImplementation');
+    const wrapper = await get('NameWrapper');
 
-  const registrar = await viem.getContract('BaseRegistrarImplementation')
-  const wrapper = await viem.getContract('NameWrapper')
+    const migrationHelper = await deploy('MigrationHelper', {
+      account: deployer,
+      artifact: artifacts.MigrationHelper,
+      args: [registrar.address, wrapper.address],
+    });
 
-  await viem.deploy('MigrationHelper', [registrar.address, wrapper.address])
+    if (!migrationHelper.newlyDeployed) {
+      return;
+    }
 
-  if (owner !== undefined && owner.address !== deployer.address) {
-    const migrationHelper = await viem.getContract('MigrationHelper')
-    const hash = await migrationHelper.write.transferOwnership([owner.address])
-    console.log(`Transfer ownership to ${owner.address} (tx: ${hash})...`)
-    await viem.waitForTransactionSuccess(hash)
+    console.log('MigrationHelper deployed successfully');
+
+    // Transfer ownership to owner if different from deployer
+    if (owner !== deployer) {
+      await executeContract(migrationHelper, {
+        functionName: 'transferOwnership',
+        args: [owner],
+        account: deployer,
+      });
+      console.log(`Transferred ownership to ${owner}`);
+    }
+  },
+  {
+    id: 'migration-helper',
+    tags: ['utils', 'MigrationHelper'],
+    dependencies: ['BaseRegistrarImplementation', 'NameWrapper'],
   }
-}
-
-func.id = 'migration-helper'
-func.tags = ['utils', 'MigrationHelper']
-func.dependencies = ['BaseRegistrarImplementation', 'NameWrapper']
-
-export default func
+);

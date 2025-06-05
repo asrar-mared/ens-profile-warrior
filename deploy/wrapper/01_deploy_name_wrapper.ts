@@ -1,72 +1,79 @@
-import type { DeployFunction } from 'hardhat-deploy/types.js'
-import { namehash, zeroAddress } from 'viem'
-import { getInterfaceId } from '../../test/fixtures/createInterfaceId.js'
+import { execute, artifacts } from '@rocketh';
+import { namehash, zeroAddress } from 'viem';
+import { getInterfaceId } from '../../test/fixtures/createInterfaceId.js';
 
-const func: DeployFunction = async function (hre) {
-  const { network, viem } = hre
+export default execute(
+  async ({ deploy, get, read, execute, namedAccounts, network }) => {
+    const { deployer, owner } = namedAccounts;
 
-  const { deployer, owner } = await viem.getNamedClients()
+    const registry = await get('ENSRegistry');
+    const registrar = await get('BaseRegistrarImplementation');
+    const metadata = await get('StaticMetadataService');
 
-  const registry = await viem.getContract('ENSRegistry', owner)
-  const registrar = await viem.getContract('BaseRegistrarImplementation', owner)
-  const metadata = await viem.getContract('StaticMetadataService', owner)
+    const nameWrapper = await deploy('NameWrapper', {
+      account: deployer,
+      artifact: artifacts.NameWrapper,
+      args: [registry.address, registrar.address, metadata.address],
+    });
 
-  const nameWrapperDeployment = await viem.deploy('NameWrapper', [
-    registry.address,
-    registrar.address,
-    metadata.address,
-  ])
-  if (!nameWrapperDeployment.newlyDeployed) return
+    if (!nameWrapper.newlyDeployed) {
+      return;
+    }
 
-  const nameWrapper = await viem.getContract('NameWrapper')
+    console.log('NameWrapper deployed successfully');
 
-  if (owner.address !== deployer.address) {
-    const hash = await nameWrapper.write.transferOwnership([owner.address])
-    console.log(
-      `Transferring ownership of NameWrapper to ${owner.address} (tx: ${hash})...`,
-    )
-    await viem.waitForTransactionSuccess(hash)
+    if (owner !== deployer) {
+      await execute(nameWrapper, {
+        functionName: 'transferOwnership',
+        args: [owner],
+        account: deployer,
+      });
+      console.log(`Transferred ownership of NameWrapper to ${owner}`);
+    }
+
+    // Only attempt to make controller etc changes directly on testnets
+    if (network.name === 'mainnet') {
+      return;
+    }
+
+    await execute(registrar, {
+      functionName: 'addController',
+      args: [nameWrapper.address],
+      account: owner,
+    });
+    console.log('Added NameWrapper as controller on registrar');
+
+    // Get interface ID for INameWrapper
+    const interfaceId = await getInterfaceId('INameWrapper');
+    const resolver = await read(registry, {
+      functionName: 'resolver',
+      args: [namehash('eth')],
+    });
+
+    if (resolver === zeroAddress) {
+      console.log(
+        `No resolver set for .eth; not setting interface ${interfaceId} for NameWrapper`,
+      );
+      return;
+    }
+
+    // Set interface ID on the resolver
+    const resolverContract = await get('OwnedResolver');
+    await execute(resolverContract, {
+      functionName: 'setInterface',
+      args: [namehash('eth'), interfaceId, nameWrapper.address],
+      account: owner,
+    });
+    console.log(`Set NameWrapper interface ID ${interfaceId} on .eth resolver`);
+  },
+  {
+    id: 'name-wrapper',
+    tags: ['wrapper', 'NameWrapper'],
+    dependencies: [
+      'StaticMetadataService',
+      'registry',
+      'ReverseRegistrar',
+      'OwnedResolver',
+    ],
   }
-
-  // Only attempt to make controller etc changes directly on testnets
-  if (network.name === 'mainnet') return
-
-  const addControllerHash = await registrar.write.addController([
-    nameWrapper.address,
-  ])
-  console.log(
-    `Adding NameWrapper as controller on registrar (tx: ${addControllerHash})...`,
-  )
-  await viem.waitForTransactionSuccess(addControllerHash)
-
-  const interfaceId = await getInterfaceId('INameWrapper')
-  const resolver = await registry.read.resolver([namehash('eth')])
-  if (resolver === zeroAddress) {
-    console.log(
-      `No resolver set for .eth; not setting interface ${interfaceId} for NameWrapper`,
-    )
-    return
-  }
-
-  const resolverContract = await viem.getContractAt('OwnedResolver', resolver)
-  const setInterfaceHash = await resolverContract.write.setInterface([
-    namehash('eth'),
-    interfaceId,
-    nameWrapper.address,
-  ])
-  console.log(
-    `Setting NameWrapper interface ID ${interfaceId} on .eth resolver (tx: ${setInterfaceHash})...`,
-  )
-  await viem.waitForTransactionSuccess(setInterfaceHash)
-}
-
-func.id = 'name-wrapper'
-func.tags = ['wrapper', 'NameWrapper']
-func.dependencies = [
-  'StaticMetadataService',
-  'registry',
-  'ReverseRegistrar',
-  'OwnedResolver',
-]
-
-export default func
+);

@@ -1,54 +1,60 @@
-import type { DeployFunction } from 'hardhat-deploy/types.js'
-import { labelhash, namehash } from 'viem'
+import { execute, artifacts } from '@rocketh';
+import { namehash, labelhash } from 'viem';
 
-const func: DeployFunction = async function (hre) {
-  const { network, viem } = hre
+export default execute(
+  async ({ deploy, get, execute: executeContract, namedAccounts, network }) => {
+    const { deployer, owner } = namedAccounts;
 
-  const { deployer, owner } = await viem.getNamedClients()
+    const registry = await get('ENSRegistry');
 
-  const registry = await viem.getContract('ENSRegistry')
+    const reverseRegistrar = await deploy('ReverseRegistrar', {
+      account: deployer,
+      artifact: artifacts.ReverseRegistrar,
+      args: [registry.address],
+    });
 
-  const reverseRegistrarDeployment = await viem.deploy('ReverseRegistrar', [
-    registry.address,
-  ])
-  if (!reverseRegistrarDeployment.newlyDeployed) return
+    if (!reverseRegistrar.newlyDeployed) {
+      return;
+    }
 
-  const reverseRegistrar = await viem.getContract('ReverseRegistrar')
+    console.log('ReverseRegistrar deployed successfully');
 
-  if (owner.address !== deployer.address) {
-    const hash = await reverseRegistrar.write.transferOwnership([owner.address])
-    console.log(
-      `Transferring ownership of ReverseRegistrar to ${owner.address} (tx: ${hash})...`,
-    )
-    await viem.waitForTransactionSuccess(hash)
+    // 1. Transfer ownership to owner if different from deployer
+    if (owner !== deployer) {
+      await executeContract(reverseRegistrar, {
+        functionName: 'transferOwnership',
+        args: [owner],
+        account: deployer,
+      });
+      console.log(`Transferred ownership of ReverseRegistrar to ${owner}`);
+    }
+
+    // Only attempt to make controller etc changes directly on testnets
+    if (network.name === 'mainnet') {
+      return;
+    }
+
+    const root = await get('Root');
+
+    // 2. Set owner of .reverse to owner using root contract
+    await executeContract(root, {
+      functionName: 'setSubnodeOwner',
+      args: [labelhash('reverse'), owner],
+      account: owner,
+    });
+    console.log('Set owner of .reverse to owner on root');
+
+    // 3. Set owner of .addr.reverse using registry directly
+    await executeContract(registry, {
+      functionName: 'setSubnodeOwner',
+      args: [namehash('reverse'), labelhash('addr'), reverseRegistrar.address],
+      account: owner,
+    });
+    console.log('Set owner of .addr.reverse to ReverseRegistrar on registry');
+  },
+  {
+    id: 'reverse-registrar',
+    tags: ['ReverseRegistrar'],
+    dependencies: ['root'],
   }
-
-  // Only attempt to make controller etc changes directly on testnets
-  if (network.name === 'mainnet') return
-
-  const root = await viem.getContract('Root')
-
-  const setReverseOwnerHash = await root.write.setSubnodeOwner(
-    [labelhash('reverse'), owner.address],
-    { account: owner.account },
-  )
-  console.log(
-    `Setting owner of .reverse to owner on root (tx: ${setReverseOwnerHash})...`,
-  )
-  await viem.waitForTransactionSuccess(setReverseOwnerHash)
-
-  const setAddrOwnerHash = await registry.write.setSubnodeOwner(
-    [namehash('reverse'), labelhash('addr'), reverseRegistrar.address],
-    { account: owner.account },
-  )
-  console.log(
-    `Setting owner of .addr.reverse to ReverseRegistrar on registry (tx: ${setAddrOwnerHash})...`,
-  )
-  await viem.waitForTransactionSuccess(setAddrOwnerHash)
-}
-
-func.id = 'reverse-registrar'
-func.tags = ['ReverseRegistrar']
-func.dependencies = ['root']
-
-export default func
+);

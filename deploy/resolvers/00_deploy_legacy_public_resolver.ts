@@ -1,23 +1,34 @@
-import type { DeployFunction } from 'hardhat-deploy/types.js'
+import { execute } from '@rocketh';
+import type { Abi } from 'viem';
+import legacyArtifactRaw from '../../deployments/archive/PublicResolver_mainnet_9412610.sol/PublicResolver_mainnet_9412610.json';
 
-const func: DeployFunction = async function (hre) {
-  const { deployments, network, viem } = hre
+const legacyArtifact = {
+  ...legacyArtifactRaw,
+  metadata: '{}',
+  abi: legacyArtifactRaw.abi as Abi,
+};
 
-  const registry = await viem.getContract('ENSRegistry')
+export default execute(
+  async ({ deploy, get, namedAccounts, network }) => {
+    const { deployer } = namedAccounts;
 
-  if (!network.tags.legacy) {
-    return
+    const registry = await get('ENSRegistry');
+
+    if (!network.tags?.legacy) {
+      return;
+    }
+
+    await deploy('LegacyPublicResolver', {
+      account: deployer,
+      artifact: legacyArtifact,
+      args: [registry.address],
+    });
+
+    console.log('LegacyPublicResolver deployed successfully');
+  },
+  {
+    id: 'legacy-resolver',
+    tags: ['resolvers', 'LegacyPublicResolver'],
+    dependencies: ['registry', 'wrapper'],
   }
-
-  await viem.deploy('LegacyPublicResolver', [registry.address], {
-    artifact: await deployments.getArtifact('PublicResolver_mainnet_9412610'),
-  })
-
-  return true
-}
-
-func.id = 'legacy-resolver'
-func.tags = ['resolvers', 'LegacyPublicResolver']
-func.dependencies = ['registry', 'wrapper']
-
-export default func
+);

@@ -1,31 +1,42 @@
-import type { DeployFunction } from 'hardhat-deploy/types.js'
-import { namehash } from 'viem'
+import { execute, artifacts } from '@rocketh';
+import { namehash } from 'viem';
 
-const func: DeployFunction = async function (hre) {
-  const { viem } = hre
+export default execute(
+  async ({ deploy, get, read, execute: executeContract, namedAccounts }) => {
+    const { deployer, owner } = namedAccounts;
 
-  const { owner } = await viem.getNamedClients()
+    const ethOwnedResolver = await deploy('OwnedResolver', {
+      account: deployer,
+      artifact: artifacts.OwnedResolver,
+    });
 
-  const ethOwnedResolver = await viem.deploy('OwnedResolver', [])
+    if (!ethOwnedResolver.newlyDeployed) {
+      return;
+    }
 
-  if (!ethOwnedResolver.newlyDeployed) return
+    console.log('OwnedResolver deployed successfully');
 
-  const registry = await viem.getContract('ENSRegistry')
-  const registrar = await viem.getContract('BaseRegistrarImplementation')
+    const registry = await get('ENSRegistry');
+    const registrar = await get('BaseRegistrarImplementation');
 
-  const setResolverHash = await registrar.write.setResolver(
-    [ethOwnedResolver.address],
-    { account: owner.account },
-  )
-  await viem.waitForTransactionSuccess(setResolverHash)
+    // Set resolver on registrar to OwnedResolver
+    await executeContract(registrar, {
+      functionName: 'setResolver',
+      args: [ethOwnedResolver.address],
+      account: owner,
+    });
+    console.log('Set resolver on registrar to OwnedResolver');
 
-  const resolver = await registry.read.resolver([namehash('eth')])
-  console.log(`set resolver for .eth to ${resolver}`)
-  if (!ethOwnedResolver.newlyDeployed) return
-}
-
-func.id = 'eth-owned-resolver'
-func.tags = ['resolvers', 'OwnedResolver', 'EthOwnedResolver']
-func.dependencies = ['Registry']
-
-export default func
+    // Verify resolver is set for .eth
+    const resolver = await read(registry, {
+      functionName: 'resolver',
+      args: [namehash('eth')],
+    });
+    console.log(`Set resolver for .eth to ${resolver}`);
+  },
+  {
+    id: 'eth-owned-resolver',
+    tags: ['resolvers', 'OwnedResolver', 'EthOwnedResolver'],
+    dependencies: ['BaseRegistrarImplementation'],
+  }
+);

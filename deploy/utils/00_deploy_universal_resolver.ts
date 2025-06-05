@@ -1,34 +1,43 @@
-import type { DeployFunction } from 'hardhat-deploy/types.js'
+import { execute, artifacts } from '@rocketh';
 
-const func: DeployFunction = async function (hre) {
-  const { deployer, owner } = await hre.viem.getNamedClients()
+export default execute(
+  async ({ deploy, get, execute: executeContract, namedAccounts }) => {
+    const { deployer, owner } = namedAccounts;
 
-  const registry = await hre.viem.getContract('ENSRegistry')
-  const batchGatewayURLs: string[] = JSON.parse(
-    process.env.BATCH_GATEWAY_URLS || '[]',
-  )
+    const registry = await get('ENSRegistry');
+    const batchGatewayURLs: string[] = JSON.parse(
+      process.env.BATCH_GATEWAY_URLS || '[]',
+    );
 
-  if (batchGatewayURLs.length === 0) {
-    throw new Error('UniversalResolver: No batch gateway URLs provided')
+    if (batchGatewayURLs.length === 0) {
+      throw new Error('UniversalResolver: No batch gateway URLs provided');
+    }
+
+    const universalResolver = await deploy('UniversalResolver', {
+      account: deployer,
+      artifact: artifacts.UniversalResolver,
+      args: [registry.address, batchGatewayURLs],
+    });
+
+    if (!universalResolver.newlyDeployed) {
+      return;
+    }
+
+    console.log('UniversalResolver deployed successfully');
+
+    // Transfer ownership to owner if different from deployer
+    if (owner !== deployer) {
+      await executeContract(universalResolver, {
+        functionName: 'transferOwnership',
+        args: [owner],
+        account: deployer,
+      });
+      console.log(`Transferred ownership to ${owner}`);
+    }
+  },
+  {
+    id: 'universal-resolver',
+    tags: ['utils', 'UniversalResolver'],
+    dependencies: ['registry'],
   }
-
-  await hre.viem.deploy('UniversalResolver', [
-    registry.address,
-    batchGatewayURLs,
-  ])
-
-  if (owner !== undefined && owner.address !== deployer.address) {
-    const universalResolver = await hre.viem.getContract('UniversalResolver')
-    const hash = await universalResolver.write.transferOwnership([
-      owner.address,
-    ])
-    console.log(`Transfer ownership to ${owner.address} (tx: ${hash})...`)
-    await hre.viem.waitForTransactionSuccess(hash)
-  }
-}
-
-func.id = 'universal-resolver'
-func.tags = ['utils', 'UniversalResolver']
-func.dependencies = ['registry']
-
-export default func
+);

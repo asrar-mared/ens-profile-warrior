@@ -1,47 +1,64 @@
-import type { DeployFunction } from 'hardhat-deploy/types.js'
-import { namehash, zeroAddress, type Address } from 'viem'
-import { createInterfaceId } from '../../test/fixtures/createInterfaceId.js'
+import { execute, artifacts } from '@rocketh';
+import { namehash, zeroAddress, type Address } from 'viem';
+import { createInterfaceId } from '../../test/fixtures/createInterfaceId.js';
 
-const func: DeployFunction = async function (hre) {
-  const { deployments, network, viem } = hre
+export default execute(
+  async ({ deploy, get, read, execute: executeContract, namedAccounts, network }) => {
+    const { deployer } = namedAccounts;
 
-  const registry = await viem.getContract('ENSRegistry')
-  const controller = await viem.getContract('ETHRegistrarController')
+    const registry = await get('ENSRegistry');
+    const controller = await get('ETHRegistrarController');
 
-  const bulkRenewal = await viem.deploy('StaticBulkRenewal', [
-    controller.address,
-  ])
+    const bulkRenewal = await deploy('StaticBulkRenewal', {
+      account: deployer,
+      artifact: artifacts.StaticBulkRenewal,
+      args: [controller.address],
+    });
 
-  // Only attempt to make resolver etc changes directly on testnets
-  if (network.name === 'mainnet') return
+    if (!bulkRenewal.newlyDeployed) {
+      return;
+    }
 
-  const artifact = await deployments.getArtifact('IBulkRenewal')
-  const interfaceId = createInterfaceId(artifact.abi)
+    console.log('StaticBulkRenewal deployed successfully');
 
-  const resolver = await registry.read.resolver([namehash('eth')])
-  if (resolver === zeroAddress) {
-    console.log(
-      `No resolver set for .eth; not setting interface ${interfaceId} for BulkRenewal`,
-    )
-    return
+    // Only attempt to make resolver etc changes directly on testnets
+    if (network.name === 'mainnet') {
+      return;
+    }
+
+    const interfaceId = createInterfaceId(artifacts.IBulkRenewal.abi);
+    
+    const resolver = await read(registry, {
+      functionName: 'resolver',
+      args: [namehash('eth')],
+    });
+
+    if (resolver === zeroAddress) {
+      console.log(
+        `No resolver set for .eth; not setting interface ${interfaceId} for BulkRenewal`,
+      );
+      return;
+    }
+
+    // Set interface on the resolver - assuming the resolver is the OwnedResolver
+    // In practice, this would need to check if the resolver supports the setInterface function
+    const ownedResolver = await get('OwnedResolver');
+    
+    // Only set interface if the resolver is actually the OwnedResolver we deployed
+    if (resolver === ownedResolver.address) {
+      await executeContract(ownedResolver, {
+        functionName: 'setInterface',
+        args: [namehash('eth'), interfaceId, bulkRenewal.address as Address],
+        account: deployer,
+      });
+      console.log(`Set BulkRenewal interface ID ${interfaceId} on .eth resolver`);
+    } else {
+      console.log(`Resolver at ${resolver} is not our OwnedResolver, skipping interface setup`);
+    }
+  },
+  {
+    id: 'bulk-renewal',
+    tags: ['BulkRenewal'],
+    dependencies: ['registry'],
   }
-
-  const ethOwnedResolver = await viem.getContract('OwnedResolver')
-  const setInterfaceHash = await ethOwnedResolver.write.setInterface([
-    namehash('eth'),
-    interfaceId,
-    bulkRenewal.address as Address,
-  ])
-  console.log(
-    `Setting BulkRenewal interface ID ${interfaceId} on .eth resolver (tx: ${setInterfaceHash})...`,
-  )
-  await viem.waitForTransactionSuccess(setInterfaceHash)
-
-  return true
-}
-
-func.id = 'bulk-renewal'
-func.tags = ['BulkRenewal']
-func.dependencies = ['registry']
-
-export default func
+);
