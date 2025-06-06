@@ -3,10 +3,12 @@ import { expect } from 'chai'
 import hre from 'hardhat'
 import {
   Address,
+  encodeAbiParameters,
   encodeFunctionData,
   hexToBigInt,
   labelhash,
   namehash,
+  parseAbiParameters,
   zeroAddress,
   zeroHash,
 } from 'viem'
@@ -18,6 +20,7 @@ import {
   getRegisterNameParameters,
   registerName,
 } from '../fixtures/registerName.js'
+import { toNameId } from '../fixtures/utils.js'
 
 const REGISTRATION_TIME = 28n * DAY
 const BUFFERED_REGISTRATION_COST = REGISTRATION_TIME + 3n * DAY
@@ -86,6 +89,7 @@ async function fixture() {
     'ETHRegistrarController',
     [
       baseRegistrar.address,
+      nameWrapper.address,
       priceOracle.address,
       600n,
       86400n,
@@ -96,6 +100,8 @@ async function fixture() {
   )
 
   await baseRegistrar.write.addController([ethRegistrarController.address])
+  await baseRegistrar.write.addController([nameWrapper.address])
+  await nameWrapper.write.setController([ethRegistrarController.address, true])
   await reverseRegistrar.write.setController([
     ethRegistrarController.address,
     true,
@@ -136,6 +142,7 @@ async function fixture() {
     defaultReverseRegistrar,
     callData,
     publicClient,
+    nameWrapper,
     ...accounts,
   }
 }
@@ -603,48 +610,61 @@ describe('ETHRegistrarController', () => {
     ).resolves.toEqual(balanceBefore + price)
   })
 
-  // it('wrapped names can renew', async () => {
-  //   const { baseRegistrar, ethRegistrarController, ownerAccount } =
-  //     await loadFixture(fixture)
+  it('should allow wrapped names to renew', async () => {
+    const {
+      baseRegistrar,
+      ethRegistrarController,
+      nameWrapper,
+      publicResolver,
+      ownerAccount,
+    } = await loadFixture(fixture)
 
-  //   const label = 'newname'
-  //   const tokenId = labelId(label)
-  //   const nodehash = namehash(`${label}.eth`)
-  //   const duration = 86400n
-  //   // this is to allow user to register without namewrapped
-  //   await baseRegistrar.write.addController([ownerAccount.address])
-  //   await baseRegistrar.write.register([
-  //     tokenId,
-  //     ownerAccount.address,
-  //     duration,
-  //   ])
+    const label = 'newname'
+    const name = `${label}.eth`
+    await registerName(
+      {
+        ethRegistrarController,
+      },
+      {
+        label,
+        duration: REGISTRATION_TIME,
+        ownerAddress: ownerAccount.address,
+      },
+    )
 
-  //   await expect(
-  //     nameWrapper.read.ownerOf([hexToBigInt(nodehash)]),
-  //   ).resolves.toEqual(zeroAddress)
-  //   await expect(baseRegistrar.read.ownerOf([tokenId])).resolves.toEqualAddress(
-  //     ownerAccount.address,
-  //   )
+    await baseRegistrar.write.safeTransferFrom([
+      ownerAccount.address,
+      nameWrapper.address,
+      labelId(label),
+      encodeAbiParameters(
+        parseAbiParameters('string, address, uint16, address'),
+        [label, ownerAccount.address, 0, publicResolver.address],
+      ),
+    ])
 
-  //   const expires = await baseRegistrar.read.nameExpires([tokenId])
-  //   const { base: price } = await ethRegistrarController.read.rentPrice([
-  //     label,
-  //     duration,
-  //   ])
-  //   await ethRegistrarController.write.renew([label, duration, zeroAddress], {
-  //     value: price,
-  //   })
+    await expect(
+      nameWrapper.read.ownerOf([toNameId(name)]),
+    ).resolves.toEqualAddress(ownerAccount.address)
 
-  //   await expect(baseRegistrar.read.ownerOf([tokenId])).resolves.toEqualAddress(
-  //     ownerAccount.address,
-  //   )
-  //   await expect(
-  //     nameWrapper.read.ownerOf([hexToBigInt(nodehash)]),
-  //   ).resolves.toEqual(zeroAddress)
+    const registrarExpiryBefore = await baseRegistrar.read.nameExpires([
+      labelId(label),
+    ])
+    const [, , wrapperExpiryBefore] = await nameWrapper.read.getData([
+      toNameId(name),
+    ])
 
-  //   const newExpires = await baseRegistrar.read.nameExpires([tokenId])
-  //   expect(newExpires - expires).toEqual(duration)
-  // })
+    await ethRegistrarController.write.renew(
+      [label, REGISTRATION_TIME, zeroHash],
+      { value: REGISTRATION_TIME },
+    )
+
+    await expect(
+      baseRegistrar.read.nameExpires([labelId(label)]),
+    ).resolves.toEqual(registrarExpiryBefore + REGISTRATION_TIME)
+    await expect(
+      nameWrapper.read.getData([toNameId(name)]),
+    ).resolves.toHaveProperty(2, wrapperExpiryBefore + REGISTRATION_TIME)
+  })
 
   it('should require sufficient value for a renewal', async () => {
     const { ethRegistrarController } = await loadFixture(fixture)

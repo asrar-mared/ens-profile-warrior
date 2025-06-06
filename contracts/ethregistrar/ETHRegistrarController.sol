@@ -6,6 +6,7 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 import {BaseRegistrarImplementation} from "./BaseRegistrarImplementation.sol";
+import {INameWrapper} from "../wrapper/INameWrapper.sol";
 import {StringUtils} from "../utils/StringUtils.sol";
 import {Resolver} from "../resolvers/Resolver.sol";
 import {ENS} from "../registry/ENS.sol";
@@ -38,6 +39,9 @@ contract ETHRegistrarController is
 
     // @notice The base registrar implementation for the eth TLD.
     BaseRegistrarImplementation immutable base;
+
+    /// @notice The name wrapper.
+    INameWrapper public immutable nameWrapper;
 
     /// @notice The minimum time a commitment must exist to be valid.
     uint256 public immutable minCommitmentAge;
@@ -132,6 +136,7 @@ contract ETHRegistrarController is
     /// @notice Constructor for the ETHRegistrarController.
     ///
     /// @param _base The base registrar implementation for the eth TLD.
+    /// @param _nameWrapper The name wrapper.
     /// @param _prices The price oracle for the eth TLD.
     /// @param _minCommitmentAge The minimum time a commitment must exist to be valid.
     /// @param _maxCommitmentAge The maximum time a commitment can exist to be valid.
@@ -140,6 +145,7 @@ contract ETHRegistrarController is
     /// @param _ens The ENS registry.
     constructor(
         BaseRegistrarImplementation _base,
+        INameWrapper _nameWrapper,
         IPriceOracle _prices,
         uint256 _minCommitmentAge,
         uint256 _maxCommitmentAge,
@@ -155,6 +161,7 @@ contract ETHRegistrarController is
 
         ens = _ens;
         base = _base;
+        nameWrapper = _nameWrapper;
         prices = _prices;
         minCommitmentAge = _minCommitmentAge;
         maxCommitmentAge = _maxCommitmentAge;
@@ -322,7 +329,7 @@ contract ETHRegistrarController is
         );
         if (msg.value < price.base) revert InsufficientValue();
 
-        uint256 expires = base.renew(uint256(labelhash), duration);
+        uint256 expires = nameWrapper.renew(uint256(labelhash), duration);
 
         emit NameRenewed(label, labelhash, price.base, expires, referrer);
 

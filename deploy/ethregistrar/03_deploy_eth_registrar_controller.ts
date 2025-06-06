@@ -15,15 +15,20 @@ const func: DeployFunction = async function (hre) {
     owner,
   )
   const reverseRegistrar = await viem.getContract('ReverseRegistrar', owner)
+  const defaultReverseRegistrar = await viem.getContract(
+    'DefaultReverseRegistrar',
+    owner,
+  )
   const nameWrapper = await viem.getContract('NameWrapper', owner)
 
   const controllerDeployment = await viem.deploy('ETHRegistrarController', [
     registrar.address,
+    nameWrapper.address,
     priceOracle.address,
-    60n,
+    600n,
     86400n,
     reverseRegistrar.address,
-    nameWrapper.address,
+    defaultReverseRegistrar.address,
     registry.address,
   ])
   if (!controllerDeployment.newlyDeployed) return
@@ -41,6 +46,14 @@ const func: DeployFunction = async function (hre) {
   // Only attempt to make controller etc changes directly on testnets
   if (network.name === 'mainnet') return
 
+  const registrarAddControllerHash = await registrar.write.addController([
+    controller.address,
+  ])
+  console.log(
+    `Adding ETHRegistrarController as a controller of BaseRegistrarImplementation (tx: ${registrarAddControllerHash})...`,
+  )
+  await viem.waitForTransactionSuccess(registrarAddControllerHash)
+
   const nameWrapperSetControllerHash = await nameWrapper.write.setController([
     controller.address,
     true,
@@ -56,6 +69,16 @@ const func: DeployFunction = async function (hre) {
     `Adding ETHRegistrarController as a controller of ReverseRegistrar (tx: ${reverseRegistrarSetControllerHash})...`,
   )
   await viem.waitForTransactionSuccess(reverseRegistrarSetControllerHash)
+
+  const defaultReverseRegistrarSetControllerHash =
+    await defaultReverseRegistrar.write.setController([
+      controller.address,
+      true,
+    ])
+  console.log(
+    `Adding ETHRegistrarController as a controller of DefaultReverseRegistrar (tx: ${defaultReverseRegistrarSetControllerHash})...`,
+  )
+  await viem.waitForTransactionSuccess(defaultReverseRegistrarSetControllerHash)
 
   const artifact = await deployments.getArtifact('IETHRegistrarController')
   const interfaceId = createInterfaceId(artifact.abi)
@@ -85,6 +108,7 @@ func.dependencies = [
   'ENSRegistry',
   'ExponentialPremiumPriceOracle',
   'ReverseRegistrar',
+  'DefaultReverseRegistrar',
   'NameWrapper',
   'OwnedResolver',
 ]
