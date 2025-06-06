@@ -8,7 +8,6 @@ import {
   type AbiFunction,
 } from 'viem'
 
-
 /**
  * @description Gets the interface ABI that would be used in Solidity
  *
@@ -21,10 +20,12 @@ const getSolidityReferenceInterfaceAbi = async (
   interfaceName: keyof ArtifactsMap,
 ) => {
   const artifact = await hre.artifacts.readArtifact(interfaceName as string)
-  
+
   // For interfaces, the artifact ABI contains only the functions explicitly defined in the interface
   // This is exactly what we need for calculating the interface ID
-  return artifact.abi.filter((item): item is AbiFunction => item.type === 'function')
+  return artifact.abi.filter(
+    (item): item is AbiFunction => item.type === 'function',
+  )
 }
 
 export const createInterfaceId = <iface extends Abi>(iface: iface) => {

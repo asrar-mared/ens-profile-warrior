@@ -1,6 +1,6 @@
-import packet from 'dns-packet';
-import { execute, artifacts } from '@rocketh';
-import type { Hex } from 'viem';
+import packet from 'dns-packet'
+import { execute, artifacts } from '@rocketh'
+import type { Hex } from 'viem'
 
 const realAnchors = [
   {
@@ -33,7 +33,7 @@ const realAnchors = [
       ),
     },
   },
-];
+]
 
 const dummyAnchor = {
   name: '.',
@@ -46,102 +46,102 @@ const dummyAnchor = {
     digestType: 253,
     digest: new Buffer('', 'hex'),
   },
-};
+}
 
 function encodeAnchors(anchors: any[]): Hex {
   return `0x${anchors
     .map((anchor) => {
-      return packet.answer.encode(anchor).toString('hex');
+      return packet.answer.encode(anchor).toString('hex')
     })
-    .join('')}`;
+    .join('')}`
 }
 
 export default execute(
   async ({ deploy, get, read, execute, namedAccounts, network }) => {
-    const { deployer } = namedAccounts;
+    const { deployer } = namedAccounts
 
-    const anchors = realAnchors.slice();
+    const anchors = realAnchors.slice()
     let algorithms: Record<number, string> = {
       5: 'RSASHA1Algorithm',
       7: 'RSASHA1Algorithm',
       8: 'RSASHA256Algorithm',
       13: 'P256SHA256Algorithm',
-    };
+    }
     const digests: Record<number, string> = {
       1: 'SHA1Digest',
       2: 'SHA256Digest',
-    };
+    }
 
     if (network.tags?.test) {
-      anchors.push(dummyAnchor);
-      algorithms[253] = 'DummyAlgorithm';
-      algorithms[254] = 'DummyAlgorithm';
-      digests[253] = 'DummyDigest';
+      anchors.push(dummyAnchor)
+      algorithms[253] = 'DummyAlgorithm'
+      algorithms[254] = 'DummyAlgorithm'
+      digests[253] = 'DummyDigest'
     }
 
     const dnssec = await deploy('DNSSECImpl', {
       account: deployer,
       artifact: artifacts.DNSSECImpl,
       args: [encodeAnchors(anchors)],
-    });
+    })
 
     if (!dnssec.newlyDeployed) {
-      return;
+      return
     }
 
-    console.log('DNSSECImpl deployed successfully');
+    console.log('DNSSECImpl deployed successfully')
 
-    const transactionPromises: Promise<any>[] = [];
+    const transactionPromises: Promise<any>[] = []
 
     // Set algorithms
     for (const [id, alg] of Object.entries(algorithms)) {
-      const deployedAlgorithm = await get(alg);
+      const deployedAlgorithm = await get(alg)
       const currentAlgorithmAddress = await read(dnssec, {
         functionName: 'algorithms',
         args: [parseInt(id)],
-      });
+      })
 
       if (deployedAlgorithm.address !== currentAlgorithmAddress) {
         const txPromise = execute(dnssec, {
           functionName: 'setAlgorithm',
           args: [parseInt(id), deployedAlgorithm.address],
           account: deployer,
-        });
-        transactionPromises.push(txPromise);
-        console.log(`Queued algorithm ${id} to ${alg}`);
+        })
+        transactionPromises.push(txPromise)
+        console.log(`Queued algorithm ${id} to ${alg}`)
       }
     }
 
     // Set digests
     for (const [id, digest] of Object.entries(digests)) {
-      const deployedDigest = await get(digest);
+      const deployedDigest = await get(digest)
       const currentDigestAddress = await read(dnssec, {
         functionName: 'digests',
         args: [parseInt(id)],
-      });
+      })
 
       if (deployedDigest.address !== currentDigestAddress) {
         const txPromise = execute(dnssec, {
           functionName: 'setDigest',
           args: [parseInt(id), deployedDigest.address],
           account: deployer,
-        });
-        transactionPromises.push(txPromise);
-        console.log(`Queued digest ${id} to ${digest}`);
+        })
+        transactionPromises.push(txPromise)
+        console.log(`Queued digest ${id} to ${digest}`)
       }
     }
 
     if (transactionPromises.length > 0) {
       console.log(
         `Waiting on ${transactionPromises.length} transactions setting DNSSEC parameters`,
-      );
-      await Promise.all(transactionPromises);
+      )
+      await Promise.all(transactionPromises)
     }
 
-    console.log('DNSSEC oracle configuration completed');
+    console.log('DNSSEC oracle configuration completed')
   },
   {
     tags: ['dnssec-oracle'],
     dependencies: ['dnssec-algorithms', 'dnssec-digests'],
-  }
-);
+  },
+)
