@@ -4,6 +4,7 @@ pragma solidity ^0.8.17;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {ERC165Checker} from "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
+
 import {IUniversalResolver} from "./IUniversalResolver.sol";
 import {CCIPBatcher} from "../ccipRead/CCIPBatcher.sol";
 import {IExtendedResolver} from "../resolvers/profiles/IExtendedResolver.sol";
@@ -29,11 +30,11 @@ abstract contract AbstractUniversalResolver is
 
     /// @inheritdoc ERC165
     function supportsInterface(
-        bytes4 interfaceID
+        bytes4 interfaceId
     ) public view virtual override(ERC165) returns (bool) {
         return
-            type(IUniversalResolver).interfaceId == interfaceID ||
-            super.supportsInterface(interfaceID);
+            type(IUniversalResolver).interfaceId == interfaceId ||
+            super.supportsInterface(interfaceId);
     }
 
     /// @dev Set the default batch gateways, see: `resolve()` and `reverse()`.
@@ -195,30 +196,18 @@ abstract contract AbstractUniversalResolver is
         ResolverInfo memory info = requireResolver(NameCoder.encode(primary));
         _resolveBatch(
             info,
-            _forwardCalls(info.node, args.coinType),
+            _oneCall(
+                args.coinType == COIN_TYPE_ETH
+                    ? abi.encodeCall(IAddrResolver.addr, (info.node))
+                    : abi.encodeCall(
+                        IAddressResolver.addr,
+                        (info.node, args.coinType)
+                    )
+            ),
             args.gateways,
             this.reverseAddressCallback.selector,
             abi.encode(args.lookupAddress, primary, infoRev.resolver)
         );
-    }
-
-    /// @dev Create forward resolution calls.
-    ///      (Separate function because of stack too deep.)
-    function _forwardCalls(
-        bytes32 node,
-        uint256 coinType
-    ) internal pure returns (bytes[] memory calls) {
-        bool useFallback = ENSIP19.chainFromCoinType(coinType) > 0;
-        calls = new bytes[](useFallback ? 2 : 1);
-        calls[0] = coinType == COIN_TYPE_ETH
-            ? abi.encodeCall(IAddrResolver.addr, (node))
-            : abi.encodeCall(IAddressResolver.addr, (node, coinType));
-        if (useFallback) {
-            calls[1] = abi.encodeCall(
-                IAddressResolver.addr,
-                (node, COIN_TYPE_DEFAULT)
-            );
-        }
     }
 
     /// @dev CCIP-Read callback for `reverseNameCallback()` (step 3 of 3).
@@ -247,41 +236,19 @@ abstract contract AbstractUniversalResolver is
             extraData,
             (bytes, string, address)
         );
+        bytes memory v = _requireResponse(lookups[0]);
         bytes memory primaryAddress;
-        if (lookups.length == 2) {
-            if (
-                (lookups[0].flags & FLAGS_ANY_ERROR) == 0 ||
-                (lookups[1].flags & FLAGS_ANY_ERROR) != 0 // if both fail, revert with first error
-            ) {
-                primaryAddress = _decodeAddress(lookups[0]);
-            }
-            if (primaryAddress.length == 0) {
-                primaryAddress = _decodeAddress(lookups[1]);
-            }
-        } else {
-            primaryAddress = _decodeAddress(lookups[0]);
+        bytes4 selector = bytes4(lookups[0].call);
+        if (selector == IAddrResolver.addr.selector) {
+            address addr = abi.decode(v, (address));
+            primaryAddress = abi.encodePacked(addr);
+        } else if (selector == IAddressResolver.addr.selector) {
+            primaryAddress = abi.decode(v, (bytes));
         }
         if (!BytesUtils.equals(reverseAddress, primaryAddress)) {
             revert ReverseAddressMismatch(primary, primaryAddress);
         }
         resolver = info.resolver;
-    }
-
-    /// @dev Decode address (`addr()` or `addr(coinType)`).
-    ///      Ignore `addr() = address(0)`.
-    function _decodeAddress(
-        Lookup memory lu
-    ) internal pure returns (bytes memory a) {
-        bytes memory v = _requireResponse(lu);
-        bytes4 selector = bytes4(lu.call);
-        if (selector == IAddrResolver.addr.selector) {
-            address addr = abi.decode(v, (address));
-            if (addr != address(0)) {
-                a = abi.encodePacked(addr);
-            }
-        } else if (selector == IAddressResolver.addr.selector) {
-            a = abi.decode(v, (bytes));
-        }
     }
 
     /// @dev Perform multiple resolver calls in parallel using batch gateway.
