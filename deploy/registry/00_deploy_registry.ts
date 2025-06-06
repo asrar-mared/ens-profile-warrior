@@ -1,79 +1,85 @@
-import type { DeployFunction } from 'hardhat-deploy/types.js'
-import { zeroAddress, zeroHash } from 'viem'
+import { execute, artifacts } from '@rocketh';
+import { zeroAddress, zeroHash } from 'viem';
 
-const func: DeployFunction = async function (hre) {
-  const { deployments, network, viem } = hre
-  const { run } = deployments
+export default execute(
+  async ({ deploy, get, read, execute: executeContract, namedAccounts, network }) => {
+    const { deployer, owner } = namedAccounts;
 
-  const { deployer, owner } = await viem.getNamedClients()
+    if (network.tags?.legacy) {
+      const legacyRegistry = await deploy('LegacyENSRegistry', {
+        account: owner,
+        artifact: artifacts.ENSRegistry,
+      });
 
-  if (network.tags.legacy) {
-    const contract = await viem.deploy('LegacyENSRegistry', [], {
-      client: owner,
-      artifact: await deployments.getArtifact('ENSRegistry'),
-    })
+      if (legacyRegistry.newlyDeployed) {
+        // Set owner of root node to owner
+        await executeContract(legacyRegistry, {
+          functionName: 'setOwner',
+          args: [zeroHash, owner],
+          account: owner,
+        });
+        console.log('Set owner of root node to owner on legacy registry');
 
-    const legacyRegistry = await viem.getContract('LegacyENSRegistry', owner)
+        // NOTE: The original hardhat-deploy implementation called a 'legacy-registry-names' task here,
+        // but this task does not exist anywhere in the codebase.
+        // Keeping the original code commented for reference:
+        //
+        // if (process.env.npm_package_name !== '@ensdomains/ens-contracts') {
+        //   console.log('Running legacy registry scripts...')
+        //   await run('legacy-registry-names', {
+        //     deletePreviousDeployments: false,
+        //     resetMemory: false,
+        //   })
+        // }
+        //
 
-    const setRootHash = await legacyRegistry.write.setOwner(
-      [zeroHash, owner.address],
-      {
-        gas: 1000000n,
-      },
-    )
-    console.log(`Setting owner of root node to owner (tx: ${setRootHash})`)
-    await viem.waitForTransactionSuccess(setRootHash)
+        // Revert root ownership
+        await executeContract(legacyRegistry, {
+          functionName: 'setOwner',
+          args: [zeroHash, zeroAddress],
+          account: owner,
+        });
+        console.log('Unset owner of root node on legacy registry');
+      }
 
-    if (process.env.npm_package_name !== '@ensdomains/ens-contracts') {
-      console.log('Running legacy registry scripts...')
-      await run('legacy-registry-names', {
-        deletePreviousDeployments: false,
-        resetMemory: false,
-      })
+      await deploy('ENSRegistry', {
+        account: deployer,
+        artifact: artifacts.ENSRegistryWithFallback,
+        args: [legacyRegistry.address],
+      });
+    } else {
+      await deploy('ENSRegistry', {
+        account: deployer,
+        artifact: artifacts.ENSRegistry,
+      });
     }
 
-    const revertRootHash = await legacyRegistry.write.setOwner([
-      zeroHash,
-      zeroAddress,
-    ])
-    console.log(`Unsetting owner of root node (tx: ${revertRootHash})`)
-    await viem.waitForTransactionSuccess(revertRootHash)
+    if (!network.tags?.use_root) {
+      const registry = await get('ENSRegistry');
+      const rootOwner = await read(registry, {
+        functionName: 'owner',
+        args: [zeroHash],
+      });
 
-    await viem.deploy('ENSRegistry', [contract.address], {
-      artifact: await deployments.getArtifact('ENSRegistryWithFallback'),
-    })
-  } else {
-    await viem.deploy('ENSRegistry', [], {
-      artifact: await deployments.getArtifact('ENSRegistry'),
-    })
-  }
-
-  if (!network.tags.use_root) {
-    const registry = await viem.getContract('ENSRegistry')
-    const rootOwner = await registry.read.owner([zeroHash])
-    switch (rootOwner) {
-      case deployer.address:
-        const hash = await registry.write.setOwner([zeroHash, owner.address], {
-          account: deployer.account,
-        })
-        console.log(
-          `Setting final owner of root node on registry (tx:${hash})...`,
-        )
-        await viem.waitForTransactionSuccess(hash)
-        break
-      case owner.address:
-        break
-      default:
-        console.log(
-          `WARNING: ENS registry root is owned by ${rootOwner}; cannot transfer to owner`,
-        )
+      switch (rootOwner) {
+        case deployer:
+          await executeContract(registry, {
+            functionName: 'setOwner',
+            args: [zeroHash, owner],
+            account: deployer,
+          });
+          console.log('Set final owner of root node on registry to owner');
+          break;
+        case owner:
+          console.log('Root node already owned by owner');
+          break;
+        default:
+          console.log(`WARNING: ENS registry root is owned by ${rootOwner}; cannot transfer to owner`);
+      }
     }
+  },
+  {
+    id: 'ens',
+    tags: ['registry', 'ENSRegistry'],
   }
-
-  return true
-}
-
-func.id = 'ens'
-func.tags = ['registry', 'ENSRegistry']
-
-export default func
+);
