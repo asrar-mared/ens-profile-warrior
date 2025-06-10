@@ -54,11 +54,12 @@ async function fixture() {
   ])
   const controller = await hre.viem.deployContract('ETHRegistrarController', [
     baseRegistrar.address,
+    nameWrapper.address,
     priceOracle.address,
     600n,
     86400n,
     zeroAddress,
-    nameWrapper.address,
+    zeroAddress,
     ensRegistry.address,
   ])
 
