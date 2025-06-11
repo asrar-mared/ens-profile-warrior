@@ -78,7 +78,22 @@ library ENSIP19 {
         bool valid;
         (addressBytes, valid) = HexUtils.hexToBytes(name, 1, offset);
         if (!valid || addressBytes.length == 0) return ("", 0); // addressBytes not 1+ hex
-        (bytes32 labelHash, uint256 offset2) = NameCoder.readLabel(
+        (valid, coinType) = parseNamespace(name, offset);
+        if (!valid) return ("", 0); // invalid namespace
+    }
+
+    /// @dev Parse Reverse Namespace into Coin Type.
+    ///      Matches: /^([0-9a-f]{1,64}|addr|default)\.reverse$/.
+    ///      Reverts `DNSDecodingFailed`.
+    /// @param name The DNS-encoded name.
+    /// @param offset The offset to begin parsing.
+    /// @return valid True if a valid reverse namespace.
+    /// @return coinType The coin type.
+    function parseNamespace(
+        bytes memory name,
+        uint256 offset
+    ) internal pure returns (bool valid, uint256 coinType) {
+        (bytes32 labelHash, uint256 offsetTLD) = NameCoder.readLabel(
             name,
             offset
         );
@@ -87,20 +102,20 @@ library ENSIP19 {
         } else if (labelHash == keccak256(bytes(SLUG_DEFAULT))) {
             coinType = COIN_TYPE_DEFAULT;
         } else if (labelHash == bytes32(0)) {
-            return ("", 0); // no slug
+            return (false, 0); // no slug
         } else {
-            bytes32 word;
-            (word, valid) = HexUtils.hexStringToBytes32(
+            (bytes32 word, bool validHex) = HexUtils.hexStringToBytes32(
                 name,
                 1 + offset,
-                offset2
+                offsetTLD
             );
-            if (!valid) return ("", 0); // invalid coinType
+            if (!validHex) return (false, 0); // invalid coinType or too long
             coinType = uint256(word);
         }
-        (labelHash, offset) = NameCoder.readLabel(name, offset2);
-        if (labelHash != keccak256(bytes(TLD_REVERSE))) return ("", 0); // invalid tld
+        (labelHash, offset) = NameCoder.readLabel(name, offsetTLD);
+        if (labelHash != keccak256(bytes(TLD_REVERSE))) return (false, 0); // invalid tld
         (labelHash, ) = NameCoder.readLabel(name, offset);
-        if (labelHash != bytes32(0)) return ("", 0); // not tld
+        if (labelHash != bytes32(0)) return (false, 0); // not tld
+        valid = true;
     }
 }

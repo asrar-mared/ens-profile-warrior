@@ -6,6 +6,7 @@ import {
   COIN_TYPE_ETH,
   COIN_TYPE_DEFAULT,
   getReverseName,
+  getReverseNamespace,
   isEVMCoinType,
   shortCoin,
 } from '../fixtures/ensip19.js'
@@ -48,6 +49,21 @@ describe('ENSIP19', () => {
             shortCoin(coinType),
           ).resolves.toStrictEqual(getReverseName(addr, coinType))
         }
+      })
+    }
+  })
+
+  describe('parseNamespace()', () => {
+    for (const coinType of coinTypes) {
+      it(shortCoin(coinType), async () => {
+        const F = await loadFixture(fixture)
+        await expect(
+          F.read.parseNamespace([
+            dnsEncodeName(getReverseNamespace(coinType)),
+            0n,
+          ]),
+          shortCoin(coinType),
+        ).resolves.toStrictEqual([true, coinType])
       })
     }
   })

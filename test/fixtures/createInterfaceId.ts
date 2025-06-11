@@ -118,6 +118,8 @@ const getSolidityReferenceInterfaceAbi = async (
     content
       // Remove comments - single and multi-line
       .replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '')
+      // Remove structs and enums
+      .replaceAll(/((enum)|(struct)) \w+ {[^{]*?}/g, '')
       // Match only the interface block + nested curly braces
       .match(`interface ${interfaceName} .*?{(?:\{??[^{]*?})+`)![0]
       // Remove the interface keyword and the interface name

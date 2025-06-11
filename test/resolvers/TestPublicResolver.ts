@@ -1,7 +1,7 @@
-import hre from 'hardhat'
+import { shouldSupportInterfaces } from '@ensdomains/hardhat-chai-matchers-viem/behaviour'
 import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
 import { expect } from 'chai'
-import { shouldSupportInterfaces } from '@ensdomains/hardhat-chai-matchers-viem/behaviour'
+import hre from 'hardhat'
 import {
   type Address,
   type Hash,
@@ -18,8 +18,8 @@ import {
 import { createInterfaceId } from '../fixtures/createInterfaceId.js'
 import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
 import {
-  COIN_TYPE_ETH,
   COIN_TYPE_DEFAULT,
+  COIN_TYPE_ETH,
   shortCoin,
 } from '../fixtures/ensip19.js'
 
@@ -95,7 +95,7 @@ describe('PublicResolver', () => {
   shouldSupportInterfaces({
     contract: () => loadFixture(fixture).then((F) => F.publicResolver),
     interfaces: [
-      'IERC165',
+      '@openzeppelin/contracts/utils/introspection/IERC165.sol:IERC165',
       'IAddrResolver',
       'IAddressResolver',
       'IHasAddressResolver',
@@ -1277,7 +1277,7 @@ describe('PublicResolver', () => {
       await publicResolver.write.setAddr([targetNode, ensRegistry.address])
 
       const supportsInterfaceArtifact = await hre.artifacts.readArtifact(
-        'IERC165',
+        '@openzeppelin/contracts/utils/introspection/IERC165.sol:IERC165',
       )
       const supportsInterfaceId = createInterfaceId(
         supportsInterfaceArtifact.abi,
@@ -1297,7 +1297,7 @@ describe('PublicResolver', () => {
       await publicResolver.write.setAddr([targetNode, accounts[0].address])
 
       const supportsInterfaceArtifact = await hre.artifacts.readArtifact(
-        'IERC165',
+        '@openzeppelin/contracts/utils/introspection/IERC165.sol:IERC165',
       )
       const supportsInterfaceId = createInterfaceId(
         supportsInterfaceArtifact.abi,

@@ -6,7 +6,7 @@ import { promisify } from 'util'
 import { task } from 'hardhat/config'
 import { Artifact } from 'hardhat/types'
 
-import { archivedDeploymentPath } from '../hardhat.config.cts'
+import { archivedDeploymentPath } from '../hardhat.config.cjs'
 
 const exec = promisify(_exec)
 

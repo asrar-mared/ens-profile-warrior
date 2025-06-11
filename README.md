@@ -167,6 +167,20 @@ bun run test
 bun run pub
 ```
 
+## L2 contracts
+
+The only contract in this repo deployed on L2s is `L2ReverseRegistrar` (and its dependency `UniversalSigValidator`).
+
+Anyone can deploy this contract onto any L2, however the contract has functionality which allows using one signature across multiple L2s.
+Given this functionality, and [EIP-191](https://eips.ethereum.org/EIPS/eip-191)'s requirement for the intended validator address in the signature, the contract address needs to stay the same between all networks.
+
+To allow for a unified contract address, a Safe and a helper CREATE3 contract are used in the deployment process. The contract can be deployed outside the process, but it means that it will lack the multi-chain signature functionality.
+
+Testnet Safe address: `0x343431e9CEb7C19cC8d3eA0EE231bfF82B584910`
+Mainnet Safe address: `0x353530FE74098903728Ddb66Ecdb70f52e568eC1`
+
+## Release flow
+
 ### Deployment
 
 ```

@@ -44,7 +44,7 @@ type KnownOrigin = 'on' | 'off' | 'batch'
 
 type AddressRecord = {
   coinType: bigint
-  encodedAddress: Hex
+  value: Hex
   origin?: KnownOrigin
 }
 
@@ -77,7 +77,7 @@ export type KnownProfile = {
 export type KnownReverse = {
   title: string
   expectError?: boolean
-  encodedAddress: Hex
+  address: Hex
   coinType: bigint
   expectPrimary?: boolean
 }
@@ -97,26 +97,22 @@ export type KnownBundle = Expected & {
   unbundle: (data: Hex) => readonly Hex[]
 }
 
-export function bundleCalls(calls: KnownResolution[]): KnownBundle {
-  if (calls.length == 1) {
+export function bundleCalls(resolutions: KnownResolution[]): KnownBundle {
+  if (resolutions.length == 1) {
     return {
-      call: calls[0].call,
-      answer: calls[0].answer,
+      ...resolutions[0],
       unbundle: (x) => [x],
-      expect(answer) {
-        calls[0].expect(answer)
-      },
     }
   }
   return {
     call: encodeFunctionData({
       abi: RESOLVE_MULTICALL,
-      args: [calls.map((x) => x.call)],
+      args: [resolutions.map((x) => x.call)],
     }),
     answer: encodeFunctionResult({
       abi: RESOLVE_MULTICALL,
       // TODO: fix when we can use newer viem version
-      result: [calls.map((x) => x.answer)] as never,
+      result: [resolutions.map((x) => x.answer)] as never,
     }),
     unbundle: (data) =>
       decodeFunctionResult({
@@ -125,21 +121,21 @@ export function bundleCalls(calls: KnownResolution[]): KnownBundle {
       }),
     expect(answer) {
       const answers = this.unbundle(answer)
-      expect(answers).toHaveLength(calls.length)
-      calls.forEach((x, i) => x.expect(answers[i]))
+      expect(answers).toHaveLength(resolutions.length)
+      resolutions.forEach((x, i) => x.expect(answers[i]))
     },
   }
 }
 
 export function makeResolutions(p: KnownProfile): KnownResolution[] {
-  const v: KnownResolution[] = []
+  const resolutions: KnownResolution[] = []
   const node = namehash(p.name)
   if (p.addresses) {
     const functionName = 'addr'
-    for (const { coinType, encodedAddress, origin } of p.addresses) {
+    for (const { coinType, value: encodedAddress, origin } of p.addresses) {
       if (coinType === COIN_TYPE_ETH) {
         const abi = ADDR_ABI
-        v.push({
+        resolutions.push({
           desc: `${functionName}()`,
           origin,
           call: encodeFunctionData({
@@ -161,7 +157,7 @@ export function makeResolutions(p: KnownProfile): KnownResolution[] {
         })
       } else {
         const abi = PROFILE_ABI
-        v.push({
+        resolutions.push({
           desc: `${functionName}(${shortCoin(coinType)})`,
           origin,
           call: encodeFunctionData({
@@ -191,7 +187,7 @@ export function makeResolutions(p: KnownProfile): KnownResolution[] {
     const abi = PROFILE_ABI
     const functionName = 'text'
     for (const { key, value, origin } of p.texts) {
-      v.push({
+      resolutions.push({
         desc: `${functionName}(${key})`,
         origin,
         call: encodeFunctionData({
@@ -220,7 +216,7 @@ export function makeResolutions(p: KnownProfile): KnownResolution[] {
     const abi = PROFILE_ABI
     const functionName = 'name'
     const { name, origin } = p.primary
-    v.push({
+    resolutions.push({
       desc: `${functionName}()`,
       origin,
       call: encodeFunctionData({
@@ -246,7 +242,7 @@ export function makeResolutions(p: KnownProfile): KnownResolution[] {
   }
   if (p.errors) {
     for (const { call, answer } of p.errors) {
-      v.push({
+      resolutions.push({
         desc: `error(${call.slice(0, 10)})`,
         call,
         answer,
@@ -256,5 +252,5 @@ export function makeResolutions(p: KnownProfile): KnownResolution[] {
       })
     }
   }
-  return v
+  return resolutions
 }
