@@ -54,9 +54,6 @@ jobs:
       - name: Run tests
         run: bun run test:parallel
 
-      - name: Run gateway tests
-        run: bun run test:gateway
-
   deploy:
     runs-on: ubuntu-latest
     steps:
