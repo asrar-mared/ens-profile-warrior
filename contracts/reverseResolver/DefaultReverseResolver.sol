@@ -4,7 +4,7 @@ pragma solidity ^0.8.17;
 import {AbstractReverseResolver} from "./AbstractReverseResolver.sol";
 import {IStandaloneReverseRegistrar} from "../reverseRegistrar/IStandaloneReverseRegistrar.sol";
 import {INameReverser} from "./INameReverser.sol";
-import {EVM_BIT} from "../utils/ENSIP19.sol";
+import {COIN_TYPE_DEFAULT} from "../utils/ENSIP19.sol";
 
 /// @title Default Reverse Resolver
 /// @notice Reverses an EVM address using the `IStandaloneReverseRegistrar` for "default.reverse".
@@ -14,7 +14,7 @@ contract DefaultReverseResolver is AbstractReverseResolver {
 
     constructor(
         IStandaloneReverseRegistrar _defaultRegistrar
-    ) AbstractReverseResolver(EVM_BIT, address(_defaultRegistrar)) {
+    ) AbstractReverseResolver(COIN_TYPE_DEFAULT, address(_defaultRegistrar)) {
         defaultRegistrar = _defaultRegistrar;
     }
 

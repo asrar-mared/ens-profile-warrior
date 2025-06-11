@@ -3,20 +3,20 @@ import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpe
 import { expect } from 'chai'
 import hre from 'hardhat'
 import { slice } from 'viem'
+import { deployDefaultReverseFixture } from '../fixtures/deployDefaultReverseFixture.js'
+import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
 import {
   chainFromCoinType,
+  COIN_TYPE_DEFAULT,
   COIN_TYPE_ETH,
-  EVM_BIT,
-  shortCoin,
-  isEVMCoinType,
   getReverseName,
+  isEVMCoinType,
+  shortCoin,
 } from '../fixtures/ensip19.js'
 import { KnownProfile, makeResolutions } from '../universalResolver/utils.js'
-import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
-import { deployDefaultReverseFixture } from '../fixtures/deployDefaultReverseFixture.js'
 
 const testName = 'test.eth'
-const coinTypes = [COIN_TYPE_ETH, EVM_BIT, 0n, 1n]
+const coinTypes = [COIN_TYPE_ETH, COIN_TYPE_DEFAULT, 0n, 1n]
 
 async function fixture() {
   const F = await deployDefaultReverseFixture()
@@ -38,14 +38,14 @@ describe('DefaultReverseResolver', () => {
     const F = await loadFixture(fixture)
     await expect(
       F.defaultReverseResolver.read.coinType(),
-    ).resolves.toStrictEqual(EVM_BIT)
+    ).resolves.toStrictEqual(COIN_TYPE_DEFAULT)
   })
 
   it('chainId()', async () => {
     const F = await loadFixture(fixture)
     await expect(
       F.defaultReverseResolver.read.chainId(),
-    ).resolves.toStrictEqual(chainFromCoinType(EVM_BIT))
+    ).resolves.toStrictEqual(chainFromCoinType(COIN_TYPE_DEFAULT))
   })
 
   describe('resolve()', () => {
@@ -67,8 +67,11 @@ describe('DefaultReverseResolver', () => {
       const kp: KnownProfile = {
         name: F.defaultReverseNamespace,
         addresses: [
-          { coinType: EVM_BIT, value: F.defaultReverseRegistrar.address },
-          { coinType: EVM_BIT + 1n, value: '0x' },
+          {
+            coinType: COIN_TYPE_DEFAULT,
+            value: F.defaultReverseRegistrar.address,
+          },
+          { coinType: COIN_TYPE_DEFAULT + 1n, value: '0x' },
         ],
       }
       for (const res of makeResolutions(kp)) {

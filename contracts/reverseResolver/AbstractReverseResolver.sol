@@ -7,7 +7,7 @@ import {IAddressResolver} from "../resolvers/profiles/IAddressResolver.sol";
 import {IAddrResolver} from "../resolvers/profiles/IAddrResolver.sol";
 import {INameResolver} from "../resolvers/profiles/INameResolver.sol";
 import {INameReverser} from "./INameReverser.sol";
-import {ENSIP19, EVM_BIT, COIN_TYPE_ETH} from "../utils/ENSIP19.sol";
+import {ENSIP19, COIN_TYPE_DEFAULT, COIN_TYPE_ETH} from "../utils/ENSIP19.sol";
 
 abstract contract AbstractReverseResolver is
     IExtendedResolver,
@@ -73,7 +73,7 @@ abstract contract AbstractReverseResolver is
             if (
                 a.length != 20 ||
                 !(
-                    coinType == EVM_BIT
+                    coinType == COIN_TYPE_DEFAULT
                         ? ENSIP19.isEVMCoinType(ct)
                         : ct == coinType
                 )

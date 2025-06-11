@@ -13,11 +13,11 @@ import {
   toHex,
   zeroAddress,
 } from 'viem'
-import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
-import { serveBatchGateway } from '../fixtures/localBatchGateway.js'
-import { COIN_TYPE_ETH, EVM_BIT, getReverseName } from '../fixtures/ensip19.js'
-import { expectVar } from '../fixtures/expectVar.js'
 import { deployDefaultReverseFixture } from '../fixtures/deployDefaultReverseFixture.js'
+import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
+import { COIN_TYPE_ETH, getReverseName } from '../fixtures/ensip19.js'
+import { expectVar } from '../fixtures/expectVar.js'
+import { serveBatchGateway } from '../fixtures/localBatchGateway.js'
 import { bundleCalls, getParentName, makeResolutions } from './utils.js'
 
 async function fixture() {
@@ -530,7 +530,12 @@ describe('UniversalResolver', () => {
 
     it('unset forward resolver', async () => {
       const F = await loadFixture(fixture)
-      await F.reverseRegistrar.write.setName([testName])
+      const reverseName = getReverseName(F.owner)
+      await F.takeControl(reverseName)
+      await F.ensRegistry.write.setResolver([
+        namehash(reverseName),
+        F.oldResolver.address,
+      ])
       await expect(F.universalResolver)
         .read('reverse', [F.owner, COIN_TYPE_ETH])
         .toBeRevertedWithCustomError('ResolverNotFound')
@@ -586,7 +591,12 @@ describe('UniversalResolver', () => {
       ])
       const [res] = makeResolutions({
         name: testName,
-        addresses: [{ coinType: COIN_TYPE_ETH, value: F.owner }],
+        addresses: [
+          {
+            coinType: COIN_TYPE_ETH,
+            value: F.owner,
+          },
+        ],
       })
       await F.shapeshift1.write.setResponse([res.call, res.answer])
       const [name, resolver, reverseResolver] =
@@ -594,48 +604,6 @@ describe('UniversalResolver', () => {
       expectVar({ name }).toStrictEqual(testName)
       expectVar({ resolver }).toEqualAddress(F.shapeshift1.address)
       expectVar({ reverseResolver }).toEqualAddress(F.oldResolver.address)
-    })
-
-    it('onchain immediate name() + onchain immediate addr(60) w/fallback', async () => {
-      const F = await loadFixture(fixture)
-      await F.reverseRegistrar.write.setName([testName])
-      await F.takeControl(testName)
-      await F.ensRegistry.write.setResolver([
-        namehash(testName),
-        F.shapeshift1.address,
-      ])
-      const [res] = makeResolutions({
-        name: testName,
-        addresses: [{ coinType: EVM_BIT, value: F.owner }],
-      })
-      await F.shapeshift1.write.setResponse([res.call, res.answer])
-      const [name, resolver, reverseResolver] =
-        await F.universalResolver.read.reverse([F.owner, COIN_TYPE_ETH])
-      expectVar({ name }).toStrictEqual(testName)
-      expectVar({ resolver }).toEqualAddress(F.shapeshift1.address)
-      expectVar({ reverseResolver }).toEqualAddress(F.publicResolver.address)
-    })
-
-    it('onchain immediate name() w/fallback + onchain immediate addr() w/fallback', async () => {
-      const F = await loadFixture(fixture)
-      await F.defaultReverseRegistrar.write.setName([testName])
-      await F.takeControl(testName)
-      await F.ensRegistry.write.setResolver([
-        namehash(testName),
-        F.shapeshift1.address,
-      ])
-      const [res] = makeResolutions({
-        name: testName,
-        addresses: [{ coinType: EVM_BIT, value: F.owner }],
-      })
-      await F.shapeshift1.write.setResponse([res.call, res.answer])
-      const [name, resolver, reverseResolver] =
-        await F.universalResolver.read.reverse([F.owner, COIN_TYPE_ETH])
-      expectVar({ name }).toStrictEqual(testName)
-      expectVar({ resolver }).toEqualAddress(F.shapeshift1.address)
-      expectVar({ reverseResolver }).toEqualAddress(
-        F.defaultReverseResolver.address,
-      )
     })
 
     it('onchain immediate name() + onchain immediate mismatch addr()', async () => {

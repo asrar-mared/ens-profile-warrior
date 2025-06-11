@@ -1,25 +1,25 @@
 import { shouldSupportInterfaces } from '@ensdomains/hardhat-chai-matchers-viem/behaviour'
+import { serve } from '@namestone/ezccip/serve'
 import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
+import { Gateway, UncheckedRollup } from '@unruggable/gateways'
 import { expect } from 'chai'
+import { BrowserProvider } from 'ethers/providers'
 import hre from 'hardhat'
 import { namehash, slice } from 'viem'
+import { deployArtifact } from '../fixtures/deployArtifact.js'
+import { deployDefaultReverseFixture } from '../fixtures/deployDefaultReverseFixture.js'
+import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
 import {
   chainFromCoinType,
-  EVM_BIT,
+  COIN_TYPE_DEFAULT,
   getReverseName,
   getReverseNamespace,
 } from '../fixtures/ensip19.js'
-import { KnownProfile, makeResolutions } from '../universalResolver/utils.js'
-import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
-import { Gateway, UncheckedRollup } from '@unruggable/gateways'
-import { serve } from '@namestone/ezccip/serve'
-import { BrowserProvider } from 'ethers/providers'
-import { deployArtifact } from '../fixtures/deployArtifact.js'
 import { urgArtifact } from '../fixtures/externalArtifacts.js'
-import { deployDefaultReverseFixture } from '../fixtures/deployDefaultReverseFixture.js'
+import { KnownProfile, makeResolutions } from '../universalResolver/utils.js'
 
 const testName = 'test.eth'
-const l2CoinType = EVM_BIT | 12345n // any evm chain
+const l2CoinType = COIN_TYPE_DEFAULT | 12345n // any evm chain
 
 async function fixture() {
   const F = await deployDefaultReverseFixture()

@@ -1,7 +1,7 @@
 import hre from 'hardhat'
-import { deployRegistryFixture } from './deployRegistryFixture.js'
 import { namehash } from 'viem'
-import { EVM_BIT, getReverseNamespace } from './ensip19.js'
+import { deployRegistryFixture } from './deployRegistryFixture.js'
+import { COIN_TYPE_DEFAULT, getReverseNamespace } from './ensip19.js'
 
 export async function deployDefaultReverseFixture() {
   const F = await deployRegistryFixture()
@@ -12,7 +12,7 @@ export async function deployDefaultReverseFixture() {
     'DefaultReverseResolver',
     [defaultReverseRegistrar.address],
   )
-  const defaultReverseNamespace = getReverseNamespace(EVM_BIT) // could be "reverse"
+  const defaultReverseNamespace = getReverseNamespace(COIN_TYPE_DEFAULT) // could be "reverse"
   await F.takeControl(defaultReverseNamespace)
   await F.ensRegistry.write.setResolver([
     namehash(defaultReverseNamespace),
