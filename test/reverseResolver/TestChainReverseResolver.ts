@@ -41,7 +41,7 @@ async function fixture() {
     l2CoinType,
   ])
   const reverseResolver = await hre.viem.deployContract(
-    'L1ReverseResolver',
+    'ChainReverseResolver',
     [
       F.owner,
       l2CoinType,
@@ -70,7 +70,7 @@ async function fixture() {
   }
 }
 
-describe('L1ReverseResolver', () => {
+describe('ChainReverseResolver', () => {
   shouldSupportInterfaces({
     contract: () => loadFixture(fixture).then((F) => F.reverseResolver),
     interfaces: [

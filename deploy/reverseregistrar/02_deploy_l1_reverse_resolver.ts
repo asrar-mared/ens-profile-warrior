@@ -90,7 +90,7 @@ const func: DeployFunction = async function (hre) {
     { chain, registrar, verifier, gateways },
   ] of Object.entries(targetsForChain)) {
     await hre.viem.deploy(
-      'L1ReverseResolver',
+      'ChainReverseResolver',
       [
         owner,
         coinTypeFromChain(chain),
@@ -100,13 +100,13 @@ const func: DeployFunction = async function (hre) {
         gateways,
       ],
       {
-        alias: `${chainName}L1ReverseResolver`,
+        alias: `${chainName}ReverseResolver`,
         client: deployer,
       },
     )
   }
 }
 
-func.tags = ['L1ReverseResolver']
+func.tags = ['ChainReverseResolver']
 
 export default func

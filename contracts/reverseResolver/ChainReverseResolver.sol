@@ -8,11 +8,11 @@ import {GatewayFetcher, GatewayRequest} from "@unruggable/gateways/contracts/Gat
 import {IStandaloneReverseRegistrar} from "../reverseRegistrar/IStandaloneReverseRegistrar.sol";
 import {INameReverser} from "./INameReverser.sol";
 
-/// @title L1 Reverse Resolver
+/// @title Chain Reverse Resolver
 /// @notice Reverses an EVM address using the first non-null response from the following sources:
 ///         1. `L2ReverseRegistrar` on L2 chain via Unruggable Gateway
 ///         2. `IStandaloneReverseRegistrar` for "default.reverse"
-contract L1ReverseResolver is
+contract ChainReverseResolver is
     AbstractReverseResolver,
     GatewayFetchTarget,
     Ownable
