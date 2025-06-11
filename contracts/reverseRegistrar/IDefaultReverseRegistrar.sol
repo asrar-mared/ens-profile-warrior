@@ -20,4 +20,6 @@ interface IDefaultReverseRegistrar {
         string memory name,
         bytes memory signature
     ) external;
+
+    function setNameForAddr(address addr, string memory name) external;
 }

@@ -9,13 +9,15 @@ import {ERC165} from "@openzeppelin/contracts-v5/utils/introspection/ERC165.sol"
 import {IDefaultReverseRegistrar} from "./IDefaultReverseRegistrar.sol";
 import {StandaloneReverseRegistrar} from "./StandaloneReverseRegistrar.sol";
 import {SignatureUtils} from "./SignatureUtils.sol";
+import {Controllable} from "../root/Controllable.sol";
 
 /// @title Default Reverse Registrar
 /// @notice A default reverse registrar. Only one instance of this contract is deployed.
 contract DefaultReverseRegistrar is
     IDefaultReverseRegistrar,
     ERC165,
-    StandaloneReverseRegistrar
+    StandaloneReverseRegistrar,
+    Controllable
 {
     using SignatureUtils for bytes;
     using MessageHashUtils for bytes32;
@@ -45,6 +47,13 @@ contract DefaultReverseRegistrar is
 
         signature.validateSignatureWithExpiry(addr, message, signatureExpiry);
 
+        _setName(addr, name);
+    }
+
+    function setNameForAddr(
+        address addr,
+        string calldata name
+    ) external onlyController {
         _setName(addr, name);
     }
 

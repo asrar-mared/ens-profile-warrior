@@ -3,21 +3,24 @@ import { expect } from 'chai'
 import hre from 'hardhat'
 import {
   Address,
+  encodeAbiParameters,
   encodeFunctionData,
   hexToBigInt,
   labelhash,
   namehash,
+  parseAbiParameters,
   zeroAddress,
   zeroHash,
 } from 'viem'
-import { DAY, FUSES } from '../fixtures/constants.js'
+import { DAY } from '../fixtures/constants.js'
 import { getReverseName } from '../fixtures/ensip19.js'
 import {
   commitName,
   getDefaultRegistrationOptions,
-  getRegisterNameParameterArray,
+  getRegisterNameParameters,
   registerName,
 } from '../fixtures/registerName.js'
+import { toNameId } from '../fixtures/utils.js'
 
 const REGISTRATION_TIME = 28n * DAY
 const BUFFERED_REGISTRATION_COST = REGISTRATION_TIME + 3n * DAY
@@ -49,6 +52,10 @@ async function fixture() {
   const reverseRegistrar = await hre.viem.deployContract('ReverseRegistrar', [
     ensRegistry.address,
   ])
+  const defaultReverseRegistrar = await hre.viem.deployContract(
+    'DefaultReverseRegistrar',
+    [],
+  )
 
   await ensRegistry.write.setSubnodeOwner([
     zeroHash,
@@ -82,18 +89,24 @@ async function fixture() {
     'ETHRegistrarController',
     [
       baseRegistrar.address,
+      nameWrapper.address,
       priceOracle.address,
       600n,
       86400n,
       reverseRegistrar.address,
-      nameWrapper.address,
+      defaultReverseRegistrar.address,
       ensRegistry.address,
     ],
   )
 
-  await nameWrapper.write.setController([ethRegistrarController.address, true])
+  await baseRegistrar.write.addController([ethRegistrarController.address])
   await baseRegistrar.write.addController([nameWrapper.address])
+  await nameWrapper.write.setController([ethRegistrarController.address, true])
   await reverseRegistrar.write.setController([
+    ethRegistrarController.address,
+    true,
+  ])
+  await defaultReverseRegistrar.write.setController([
     ethRegistrarController.address,
     true,
   ])
@@ -122,13 +135,14 @@ async function fixture() {
     ensRegistry,
     baseRegistrar,
     reverseRegistrar,
-    nameWrapper,
     dummyOracle,
     priceOracle,
     ethRegistrarController,
     publicResolver,
+    defaultReverseRegistrar,
     callData,
     publicClient,
+    nameWrapper,
     ...accounts,
   }
 }
@@ -195,7 +209,7 @@ describe('ETHRegistrarController', () => {
     const timestamp = await publicClient.getBlock().then((b) => b.timestamp)
 
     await expect(ethRegistrarController)
-      .write('register', args, { value: BUFFERED_REGISTRATION_COST })
+      .write('register', [args], { value: BUFFERED_REGISTRATION_COST })
       .toEmitEvent('NameRegistered')
       .withArgs(
         params.label,
@@ -204,6 +218,7 @@ describe('ETHRegistrarController', () => {
         params.duration,
         0n,
         timestamp + params.duration,
+        params.referrer,
       )
 
     await expect(
@@ -226,7 +241,7 @@ describe('ETHRegistrarController', () => {
     )
 
     await expect(ethRegistrarController)
-      .write('register', args, { value: 0n })
+      .write('register', [args], { value: 0n })
       .toBeRevertedWithCustomError('InsufficientValue')
   })
 
@@ -242,7 +257,6 @@ describe('ETHRegistrarController', () => {
     const {
       ensRegistry,
       baseRegistrar,
-      nameWrapper,
       ethRegistrarController,
       callData,
       publicResolver,
@@ -263,7 +277,7 @@ describe('ETHRegistrarController', () => {
     const timestamp = await publicClient.getBlock().then((b) => b.timestamp)
 
     await expect(ethRegistrarController)
-      .write('register', args, { value: BUFFERED_REGISTRATION_COST })
+      .write('register', [args], { value: BUFFERED_REGISTRATION_COST })
       .toEmitEvent('NameRegistered')
       .withArgs(
         params.label,
@@ -272,6 +286,7 @@ describe('ETHRegistrarController', () => {
         params.duration,
         0n,
         timestamp + params.duration,
+        params.referrer,
       )
 
     await expect(
@@ -283,20 +298,17 @@ describe('ETHRegistrarController', () => {
       publicResolver.address,
     )
     await expect(ensRegistry.read.owner([nodehash])).resolves.toEqualAddress(
-      nameWrapper.address,
+      registrantAccount.address,
     )
     await expect(
       baseRegistrar.read.ownerOf([labelId('newconfigname')]),
-    ).resolves.toEqualAddress(nameWrapper.address)
+    ).resolves.toEqualAddress(registrantAccount.address)
     await expect(
       publicResolver.read.addr([nodehash]) as Promise<Address>,
     ).resolves.toEqualAddress(registrantAccount.address)
     await expect(publicResolver.read.text([nodehash, 'url'])).resolves.toEqual(
       'ethereum.com',
     )
-    await expect(
-      nameWrapper.read.ownerOf([hexToBigInt(nodehash)]),
-    ).resolves.toEqualAddress(registrantAccount.address)
   })
 
   it('should not permit new registrations with data and 0 resolver', async () => {
@@ -304,16 +316,15 @@ describe('ETHRegistrarController', () => {
       await loadFixture(fixture)
 
     await expect(ethRegistrarController)
-      .read(
-        'makeCommitment',
-        getRegisterNameParameterArray(
+      .read('makeCommitment', [
+        getRegisterNameParameters(
           await getDefaultRegistrationOptions({
             label: 'newconfigname',
             ownerAddress: registrantAccount.address,
             data: callData,
           }),
         ),
-      )
+      ])
       .toBeRevertedWithCustomError('ResolverRequiredWhenDataSupplied')
   })
 
@@ -333,7 +344,7 @@ describe('ETHRegistrarController', () => {
     )
 
     await expect(ethRegistrarController)
-      .write('register', args, { value: BUFFERED_REGISTRATION_COST })
+      .write('register', [args], { value: BUFFERED_REGISTRATION_COST })
       .toBeRevertedWithoutReason()
   })
 
@@ -353,7 +364,7 @@ describe('ETHRegistrarController', () => {
     )
 
     await expect(ethRegistrarController)
-      .write('register', args, { value: BUFFERED_REGISTRATION_COST })
+      .write('register', [args], { value: BUFFERED_REGISTRATION_COST })
       .toBeRevertedWithoutReason()
   })
 
@@ -379,7 +390,7 @@ describe('ETHRegistrarController', () => {
     )
 
     await expect(ethRegistrarController)
-      .write('register', args, { value: BUFFERED_REGISTRATION_COST })
+      .write('register', [args], { value: BUFFERED_REGISTRATION_COST })
       .toBeRevertedWithString(
         'multicall: All records must have a matching namehash',
       )
@@ -412,7 +423,7 @@ describe('ETHRegistrarController', () => {
     )
 
     await expect(ethRegistrarController)
-      .write('register', args, { value: BUFFERED_REGISTRATION_COST })
+      .write('register', [args], { value: BUFFERED_REGISTRATION_COST })
       .toBeRevertedWithString(
         'multicall: All records must have a matching namehash',
       )
@@ -439,7 +450,7 @@ describe('ETHRegistrarController', () => {
     const timestamp = await publicClient.getBlock().then((b) => b.timestamp)
 
     await expect(ethRegistrarController)
-      .write('register', args, { value: BUFFERED_REGISTRATION_COST })
+      .write('register', [args], { value: BUFFERED_REGISTRATION_COST })
       .toEmitEvent('NameRegistered')
       .withArgs(
         params.label,
@@ -448,6 +459,7 @@ describe('ETHRegistrarController', () => {
         params.duration,
         0n,
         timestamp + params.duration,
+        params.referrer,
       )
 
     const nodehash = namehash('newconfigname.eth')
@@ -466,7 +478,7 @@ describe('ETHRegistrarController', () => {
     const { ethRegistrarController, registrantAccount, otherAccount } =
       await loadFixture(fixture)
 
-    let { args, params } = await commitName(
+    let { args } = await commitName(
       { ethRegistrarController },
       {
         label: 'newname',
@@ -475,11 +487,11 @@ describe('ETHRegistrarController', () => {
       },
     )
 
-    args[1] = registrantAccount.address
+    args.owner = registrantAccount.address
 
     await expect(ethRegistrarController)
-      .write('register', args, { value: BUFFERED_REGISTRATION_COST })
-      .toBeRevertedWithCustomError('CommitmentTooOld')
+      .write('register', [args], { value: BUFFERED_REGISTRATION_COST })
+      .toBeRevertedWithCustomError('CommitmentNotFound')
   })
 
   it('should reject duplicate registrations', async () => {
@@ -508,7 +520,7 @@ describe('ETHRegistrarController', () => {
     )
 
     await expect(ethRegistrarController)
-      .write('register', args, { value: BUFFERED_REGISTRATION_COST })
+      .write('register', [args], { value: BUFFERED_REGISTRATION_COST })
       .toBeRevertedWithCustomError('NameNotAvailable')
       .withArgs(label)
   })
@@ -518,6 +530,7 @@ describe('ETHRegistrarController', () => {
       fixture,
     )
     const testClient = await hre.viem.getTestClient()
+    const publicClient = await hre.viem.getPublicClient()
 
     const { args, hash } = await commitName(
       { ethRegistrarController },
@@ -528,77 +541,36 @@ describe('ETHRegistrarController', () => {
       },
     )
 
+    const commitmentTimestamp = await ethRegistrarController.read.commitments([
+      hash,
+    ])
     const minCommitmentAge =
       await ethRegistrarController.read.minCommitmentAge()
     const maxCommitmentAge =
       await ethRegistrarController.read.maxCommitmentAge()
 
+    const timestampIncrease = maxCommitmentAge - minCommitmentAge + 1n
     await testClient.increaseTime({
-      seconds: Number(maxCommitmentAge - minCommitmentAge) + 1,
+      seconds: Number(timestampIncrease),
     })
+    const previousBlockTimestamp = await publicClient
+      .getBlock()
+      .then((b) => b.timestamp)
 
     await expect(ethRegistrarController)
-      .write('register', args, { value: BUFFERED_REGISTRATION_COST })
+      .write('register', [args], { value: BUFFERED_REGISTRATION_COST })
       .toBeRevertedWithCustomError('CommitmentTooOld')
-      .withArgs(hash)
-  })
-
-  it('should allow anyone to renew a name and change fuse expiry', async () => {
-    const {
-      baseRegistrar,
-      ethRegistrarController,
-      nameWrapper,
-      publicClient,
-      registrantAccount,
-    } = await loadFixture(fixture)
-    await registerName(
-      { ethRegistrarController },
-      {
-        label: 'newname',
-        duration: REGISTRATION_TIME,
-        ownerAddress: registrantAccount.address,
-      },
-    )
-
-    const nodehash = namehash('newname.eth')
-    const fuseExpiry = await nameWrapper.read
-      .getData([hexToBigInt(nodehash)])
-      .then((d) => d[2])
-    const expires = await baseRegistrar.read.nameExpires([labelId('newname')])
-    const balanceBefore = await publicClient.getBalance({
-      address: ethRegistrarController.address,
-    })
-
-    const duration = 86400n
-    const { base: price } = await ethRegistrarController.read.rentPrice([
-      'newname',
-      duration,
-    ])
-
-    await ethRegistrarController.write.renew(['newname', duration], {
-      value: price,
-    })
-
-    const newExpires = await baseRegistrar.read.nameExpires([
-      labelId('newname'),
-    ])
-    const newFuseExpiry = await nameWrapper.read
-      .getData([hexToBigInt(nodehash)])
-      .then((d) => d[2])
-
-    expect(newExpires - expires).toEqual(duration)
-    expect(newFuseExpiry - fuseExpiry).toEqual(duration)
-
-    await expect(
-      publicClient.getBalance({ address: ethRegistrarController.address }),
-    ).resolves.toEqual(balanceBefore + price)
+      .withArgs(
+        hash,
+        commitmentTimestamp + maxCommitmentAge,
+        previousBlockTimestamp + timestampIncrease,
+      )
   })
 
   it('should allow token owners to renew a name', async () => {
     const {
       baseRegistrar,
       ethRegistrarController,
-      nameWrapper,
       publicClient,
       registrantAccount,
     } = await loadFixture(fixture)
@@ -612,9 +584,6 @@ describe('ETHRegistrarController', () => {
     )
 
     const nodehash = namehash('newname.eth')
-    const fuseExpiry = await nameWrapper.read
-      .getData([hexToBigInt(nodehash)])
-      .then((d) => d[2])
     const expires = await baseRegistrar.read.nameExpires([labelId('newname')])
     const balanceBefore = await publicClient.getBalance({
       address: ethRegistrarController.address,
@@ -626,73 +595,82 @@ describe('ETHRegistrarController', () => {
       duration,
     ])
 
-    await ethRegistrarController.write.renew(['newname', duration], {
+    await ethRegistrarController.write.renew(['newname', duration, zeroHash], {
       value: price,
     })
 
     const newExpires = await baseRegistrar.read.nameExpires([
       labelId('newname'),
     ])
-    const newFuseExpiry = await nameWrapper.read
-      .getData([hexToBigInt(nodehash)])
-      .then((d) => d[2])
 
     expect(newExpires - expires).toEqual(duration)
-    expect(newFuseExpiry - fuseExpiry).toEqual(duration)
 
     await expect(
       publicClient.getBalance({ address: ethRegistrarController.address }),
     ).resolves.toEqual(balanceBefore + price)
   })
 
-  it('non wrapped names can renew', async () => {
-    const { nameWrapper, baseRegistrar, ethRegistrarController, ownerAccount } =
-      await loadFixture(fixture)
+  it('should allow wrapped names to renew', async () => {
+    const {
+      baseRegistrar,
+      ethRegistrarController,
+      nameWrapper,
+      publicResolver,
+      ownerAccount,
+    } = await loadFixture(fixture)
 
     const label = 'newname'
-    const tokenId = labelId(label)
-    const nodehash = namehash(`${label}.eth`)
-    const duration = 86400n
-    // this is to allow user to register without namewrapped
-    await baseRegistrar.write.addController([ownerAccount.address])
-    await baseRegistrar.write.register([
-      tokenId,
+    const name = `${label}.eth`
+    await registerName(
+      {
+        ethRegistrarController,
+      },
+      {
+        label,
+        duration: REGISTRATION_TIME,
+        ownerAddress: ownerAccount.address,
+      },
+    )
+
+    await baseRegistrar.write.safeTransferFrom([
       ownerAccount.address,
-      duration,
+      nameWrapper.address,
+      labelId(label),
+      encodeAbiParameters(
+        parseAbiParameters('string, address, uint16, address'),
+        [label, ownerAccount.address, 0, publicResolver.address],
+      ),
     ])
 
     await expect(
-      nameWrapper.read.ownerOf([hexToBigInt(nodehash)]),
-    ).resolves.toEqual(zeroAddress)
-    await expect(baseRegistrar.read.ownerOf([tokenId])).resolves.toEqualAddress(
-      ownerAccount.address,
-    )
+      nameWrapper.read.ownerOf([toNameId(name)]),
+    ).resolves.toEqualAddress(ownerAccount.address)
 
-    const expires = await baseRegistrar.read.nameExpires([tokenId])
-    const { base: price } = await ethRegistrarController.read.rentPrice([
-      label,
-      duration,
+    const registrarExpiryBefore = await baseRegistrar.read.nameExpires([
+      labelId(label),
     ])
-    await ethRegistrarController.write.renew([label, duration], {
-      value: price,
-    })
+    const [, , wrapperExpiryBefore] = await nameWrapper.read.getData([
+      toNameId(name),
+    ])
 
-    await expect(baseRegistrar.read.ownerOf([tokenId])).resolves.toEqualAddress(
-      ownerAccount.address,
+    await ethRegistrarController.write.renew(
+      [label, REGISTRATION_TIME, zeroHash],
+      { value: REGISTRATION_TIME },
     )
-    await expect(
-      nameWrapper.read.ownerOf([hexToBigInt(nodehash)]),
-    ).resolves.toEqual(zeroAddress)
 
-    const newExpires = await baseRegistrar.read.nameExpires([tokenId])
-    expect(newExpires - expires).toEqual(duration)
+    await expect(
+      baseRegistrar.read.nameExpires([labelId(label)]),
+    ).resolves.toEqual(registrarExpiryBefore + REGISTRATION_TIME)
+    await expect(
+      nameWrapper.read.getData([toNameId(name)]),
+    ).resolves.toHaveProperty(2, wrapperExpiryBefore + REGISTRATION_TIME)
   })
 
   it('should require sufficient value for a renewal', async () => {
     const { ethRegistrarController } = await loadFixture(fixture)
 
     await expect(ethRegistrarController)
-      .write('renew', ['newname', 86400n])
+      .write('renew', ['newname', 86400n, zeroHash])
       .toBeRevertedWithCustomError('InsufficientValue')
   })
 
@@ -715,7 +693,7 @@ describe('ETHRegistrarController', () => {
     ).resolves.toEqual(0n)
   })
 
-  it('should set the reverse record of the account', async () => {
+  it('should set the ethereum reverse record of the account', async () => {
     const {
       ethRegistrarController,
       publicResolver,
@@ -730,7 +708,7 @@ describe('ETHRegistrarController', () => {
         duration: REGISTRATION_TIME,
         ownerAddress: registrantAccount.address,
         resolverAddress: publicResolver.address,
-        shouldSetReverseRecord: true,
+        reverseRecord: 'ethereum',
       },
     )
 
@@ -741,9 +719,14 @@ describe('ETHRegistrarController', () => {
     ).resolves.toEqual('reverse.eth')
   })
 
-  it('should not set the reverse record of the account when set to false', async () => {
-    const { ethRegistrarController, publicResolver, registrantAccount } =
-      await loadFixture(fixture)
+  it('should set the default reverse record of the account', async () => {
+    const {
+      ethRegistrarController,
+      defaultReverseRegistrar,
+      publicResolver,
+      registrantAccount,
+      ownerAccount,
+    } = await loadFixture(fixture)
 
     await registerName(
       { ethRegistrarController },
@@ -752,80 +735,76 @@ describe('ETHRegistrarController', () => {
         duration: REGISTRATION_TIME,
         ownerAddress: registrantAccount.address,
         resolverAddress: publicResolver.address,
-        shouldSetReverseRecord: false,
+        reverseRecord: 'default',
+      },
+    )
+
+    await expect(
+      defaultReverseRegistrar.read.nameForAddr([ownerAccount.address]),
+    ).resolves.toEqual('reverse.eth')
+  })
+
+  it('should not set the reverse record of the account when set to false', async () => {
+    const {
+      ethRegistrarController,
+      defaultReverseRegistrar,
+      publicResolver,
+      ownerAccount,
+      registrantAccount,
+    } = await loadFixture(fixture)
+
+    await registerName(
+      { ethRegistrarController },
+      {
+        label: 'reverse',
+        duration: REGISTRATION_TIME,
+        ownerAddress: registrantAccount.address,
+        resolverAddress: publicResolver.address,
+        reverseRecord: 'none',
       },
     )
 
     await expect(
       publicResolver.read.name([
-        namehash(getReverseName(registrantAccount.address)),
+        namehash(getReverseName(ownerAccount.address)),
       ]),
+    ).resolves.toEqual('')
+    await expect(
+      defaultReverseRegistrar.read.nameForAddr([ownerAccount.address]),
     ).resolves.toEqual('')
   })
 
-  it('should auto wrap the name and set the ERC721 owner to the wrapper', async () => {
-    const {
-      ensRegistry,
-      baseRegistrar,
-      ethRegistrarController,
-      nameWrapper,
-      registrantAccount,
-    } = await loadFixture(fixture)
+  // it('should auto wrap the name and allow expiry to be set', async () => {
+  //   const {
+  //     publicClient,
+  //     ethRegistrarController,
+  //     nameWrapper,
+  //     registrantAccount,
+  //   } = await loadFixture(fixture)
 
-    const label = 'wrapper'
-    const name = label + '.eth'
-    await registerName(
-      { ethRegistrarController },
-      {
-        label,
-        duration: REGISTRATION_TIME,
-        ownerAddress: registrantAccount.address,
-      },
-    )
+  //   const label = 'fuses'
+  //   const name = label + '.eth'
 
-    await expect(
-      nameWrapper.read.ownerOf([hexToBigInt(namehash(name))]),
-    ).resolves.toEqualAddress(registrantAccount.address)
+  //   await registerName(
+  //     { ethRegistrarController },
+  //     {
+  //       label,
+  //       duration: REGISTRATION_TIME,
+  //       ownerAddress: registrantAccount.address,
+  //       ownerControlledFuses: 1,
+  //     },
+  //   )
 
-    await expect(
-      ensRegistry.read.owner([namehash(name)]),
-    ).resolves.toEqualAddress(nameWrapper.address)
-    await expect(
-      baseRegistrar.read.ownerOf([labelId(label)]),
-    ).resolves.toEqualAddress(nameWrapper.address)
-  })
+  //   const block = await publicClient.getBlock()
 
-  it('should auto wrap the name and allow fuses and expiry to be set', async () => {
-    const {
-      publicClient,
-      ethRegistrarController,
-      nameWrapper,
-      registrantAccount,
-    } = await loadFixture(fixture)
-
-    const label = 'fuses'
-    const name = label + '.eth'
-
-    await registerName(
-      { ethRegistrarController },
-      {
-        label,
-        duration: REGISTRATION_TIME,
-        ownerAddress: registrantAccount.address,
-        ownerControlledFuses: 1,
-      },
-    )
-
-    const block = await publicClient.getBlock()
-
-    const [, fuses, expiry] = await nameWrapper.read.getData([
-      hexToBigInt(namehash(name)),
-    ])
-    expect(fuses).toEqual(
-      FUSES.PARENT_CANNOT_CONTROL | FUSES.CANNOT_UNWRAP | FUSES.IS_DOT_ETH,
-    )
-    expect(expiry).toEqual(REGISTRATION_TIME + GRACE_PERIOD + block.timestamp)
-  })
+  //   const [, fuses, expiry] = await nameWrapper.read.getData([
+  //     hexToBigInt(namehash(name)),
+  //   ])
+  //   expect(fuses).toEqual(
+  //     FUSES.PARENT_CANNOT_CONTROL | FUSES.CANNOT_UNWRAP | FUSES.IS_DOT_ETH,
+  //   )
+  //   expect(expiry).toEqual(REGISTRATION_TIME + GRACE_PERIOD + block.timestamp)
+  // })
 
   it('approval should reduce gas for registration', async () => {
     const {
@@ -833,7 +812,6 @@ describe('ETHRegistrarController', () => {
       ensRegistry,
       baseRegistrar,
       ethRegistrarController,
-      nameWrapper,
       registrantAccount,
       publicResolver,
     } = await loadFixture(fixture)
@@ -856,12 +834,11 @@ describe('ETHRegistrarController', () => {
             args: [node, registrantAccount.address],
           }),
         ],
-        ownerControlledFuses: 1,
-        shouldSetReverseRecord: true,
+        reverseRecord: 'ethereum',
       },
     )
 
-    const gasA = await ethRegistrarController.estimateGas.register(args, {
+    const gasA = await ethRegistrarController.estimateGas.register([args], {
       value: BUFFERED_REGISTRATION_COST,
       account: registrantAccount,
     })
@@ -871,12 +848,12 @@ describe('ETHRegistrarController', () => {
       { account: registrantAccount },
     )
 
-    const gasB = await ethRegistrarController.estimateGas.register(args, {
+    const gasB = await ethRegistrarController.estimateGas.register([args], {
       value: BUFFERED_REGISTRATION_COST,
       account: registrantAccount,
     })
 
-    const hash = await ethRegistrarController.write.register(args, {
+    const hash = await ethRegistrarController.write.register([args], {
       value: BUFFERED_REGISTRATION_COST,
       account: registrantAccount,
     })
@@ -888,14 +865,11 @@ describe('ETHRegistrarController', () => {
     console.log('Gas saved:', gasA - receipt.gasUsed)
 
     await expect(
-      nameWrapper.read.ownerOf([hexToBigInt(node)]),
+      baseRegistrar.read.ownerOf([labelId(label)]),
     ).resolves.toEqualAddress(registrantAccount.address)
     await expect(ensRegistry.read.owner([node])).resolves.toEqualAddress(
-      nameWrapper.address,
+      registrantAccount.address,
     )
-    await expect(
-      baseRegistrar.read.ownerOf([labelId(label)]),
-    ).resolves.toEqualAddress(nameWrapper.address)
     await expect<Promise<Address>>(
       publicResolver.read.addr([node]),
     ).resolves.toEqualAddress(registrantAccount.address)
@@ -937,7 +911,219 @@ describe('ETHRegistrarController', () => {
     )
 
     await expect(ethRegistrarController)
-      .write('register', args, { value: BUFFERED_REGISTRATION_COST })
+      .write('register', [args], { value: BUFFERED_REGISTRATION_COST })
       .toBeRevertedWithoutReason()
+  })
+
+  it('should emit the referrer when a name is registered', async () => {
+    const {
+      ethRegistrarController,
+      registrantAccount,
+      otherAccount,
+      publicClient,
+    } = await loadFixture(fixture)
+
+    const timestamp = await publicClient.getBlock().then((b) => b.timestamp)
+
+    const referrer = namehash('referrer.eth')
+    const { args, params } = await commitName(
+      { ethRegistrarController },
+      {
+        label: 'newname',
+        duration: REGISTRATION_TIME,
+        ownerAddress: registrantAccount.address,
+        referrer,
+      },
+    )
+
+    await expect(ethRegistrarController)
+      .write('register', [args], { value: BUFFERED_REGISTRATION_COST })
+      .toEmitEvent('NameRegistered')
+      .withArgs(
+        params.label,
+        labelhash(params.label),
+        params.ownerAddress,
+        params.duration,
+        0n,
+        timestamp + params.duration,
+        referrer,
+      )
+  })
+
+  it('should emit the referrer when a name is renewed', async () => {
+    const {
+      baseRegistrar,
+      ethRegistrarController,
+      registrantAccount,
+      otherAccount,
+    } = await loadFixture(fixture)
+
+    const label = 'newname'
+    const referrer = namehash('referrer.eth')
+    const duration = 86400n
+    await registerName(
+      { ethRegistrarController },
+      {
+        label,
+        duration: REGISTRATION_TIME,
+        ownerAddress: registrantAccount.address,
+      },
+    )
+
+    const expires = await baseRegistrar.read.nameExpires([labelId(label)])
+
+    await expect(ethRegistrarController)
+      .write('renew', [label, duration, referrer], { value: duration })
+      .toEmitEvent('NameRenewed')
+      .withArgs(label, labelhash(label), duration, expires + duration, referrer)
+  })
+
+  it('allows owner to set the price oracle', async () => {
+    const { ethRegistrarController } = await loadFixture(fixture)
+
+    const newDummyOracle = await hre.viem.deployContract('DummyOracle', [100n])
+    const newPriceOracle = await hre.viem.deployContract('StablePriceOracle', [
+      newDummyOracle.address,
+      [0n, 0n, 4n, 2n, 1n],
+    ])
+
+    await ethRegistrarController.write.setPrices([newPriceOracle.address])
+
+    const price = await ethRegistrarController.read.rentPrice([
+      'newname',
+      REGISTRATION_TIME,
+    ])
+    expect(price.base).toEqual(2419200000000n)
+    expect(price.premium).toEqual(0n)
+  })
+
+  it('does not allow non-owner to set the price oracle', async () => {
+    const { ethRegistrarController, otherAccount } = await loadFixture(fixture)
+
+    await expect(ethRegistrarController)
+      .write('setPrices', [otherAccount.address], { account: otherAccount })
+      .toBeRevertedWithString('Ownable: caller is not the owner')
+  })
+
+  it('allows owner to register a name without payment', async () => {
+    const {
+      ensRegistry,
+      ethRegistrarController,
+      baseRegistrar,
+      registrantAccount,
+      publicClient,
+    } = await loadFixture(fixture)
+
+    const label = 'newname'
+    const params = await getDefaultRegistrationOptions({
+      label,
+      duration: REGISTRATION_TIME,
+      ownerAddress: registrantAccount.address,
+    })
+    const args = getRegisterNameParameters(params)
+
+    await expect(ethRegistrarController)
+      .write('registerWithoutPayment', [args])
+      .toEmitEvent('NameRegistered')
+      .withArgs(
+        params.label,
+        labelhash(params.label),
+        params.ownerAddress,
+        0n,
+        0n,
+        expect.anyValue,
+        params.referrer,
+      )
+    const timestamp = await publicClient.getBlock().then((b) => b.timestamp)
+
+    await expect(
+      baseRegistrar.read.nameExpires([labelId(label)]),
+    ).resolves.toEqual(timestamp + params.duration)
+    await expect(
+      ensRegistry.read.owner([namehash(label + '.eth')]),
+    ).resolves.toEqualAddress(registrantAccount.address)
+    await expect(
+      baseRegistrar.read.ownerOf([labelId(label)]),
+    ).resolves.toEqualAddress(registrantAccount.address)
+  })
+
+  it('allows owner to register invalid name (2 chars)', async () => {
+    const {
+      ensRegistry,
+      ethRegistrarController,
+      baseRegistrar,
+      registrantAccount,
+      publicClient,
+    } = await loadFixture(fixture)
+
+    const label = 'l2'
+    const params = await getDefaultRegistrationOptions({
+      label,
+      duration: REGISTRATION_TIME,
+      ownerAddress: registrantAccount.address,
+    })
+    const args = getRegisterNameParameters(params)
+
+    await expect(ethRegistrarController)
+      .write('registerWithoutPayment', [args])
+      .toEmitEvent('NameRegistered')
+      .withArgs(
+        params.label,
+        labelhash(params.label),
+        params.ownerAddress,
+        0n,
+        0n,
+        expect.anyValue,
+        params.referrer,
+      )
+
+    const timestamp = await publicClient.getBlock().then((b) => b.timestamp)
+    await expect(
+      baseRegistrar.read.nameExpires([labelId(label)]),
+    ).resolves.toEqual(timestamp + params.duration)
+    await expect(
+      ensRegistry.read.owner([namehash(label + '.eth')]),
+    ).resolves.toEqualAddress(registrantAccount.address)
+    await expect(
+      baseRegistrar.read.ownerOf([labelId(label)]),
+    ).resolves.toEqualAddress(registrantAccount.address)
+  })
+  it('does not allow owner to register unavailable name', async () => {
+    const { ethRegistrarController, registrantAccount, otherAccount } =
+      await loadFixture(fixture)
+    const label = 'existingname'
+    await registerName(
+      { ethRegistrarController },
+      {
+        label,
+        duration: REGISTRATION_TIME,
+        ownerAddress: otherAccount.address,
+      },
+    )
+
+    const params = await getDefaultRegistrationOptions({
+      label,
+      duration: REGISTRATION_TIME,
+      ownerAddress: registrantAccount.address,
+    })
+    const args = getRegisterNameParameters(params)
+    await expect(ethRegistrarController)
+      .write('registerWithoutPayment', [args])
+      .toBeRevertedWithCustomError('NameNotAvailable')
+      .withArgs(label)
+  })
+  it('does not allow non-owner to register a name without payment', async () => {
+    const { ethRegistrarController, otherAccount } = await loadFixture(fixture)
+
+    const label = 'newname'
+    const params = await getDefaultRegistrationOptions({
+      label,
+      duration: REGISTRATION_TIME,
+      ownerAddress: otherAccount.address,
+    })
+    const args = getRegisterNameParameters(params)
+    await expect(ethRegistrarController)
+      .write('registerWithoutPayment', [args], { account: otherAccount })
+      .toBeRevertedWithString('Ownable: caller is not the owner')
   })
 })
