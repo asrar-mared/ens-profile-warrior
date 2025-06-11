@@ -15,7 +15,6 @@ import {
   namehash,
   parseAbi,
   stringToHex,
-  zeroHash,
   type Hash,
   type Hex,
   type TransactionReceipt,
@@ -31,8 +30,9 @@ const safeConfig = {
   },
   mainnet: {
     safeAddress: '0x353530FE74098903728Ddb66Ecdb70f52e568eC1',
-    baseDeploymentSalt: zeroHash,
-    expectedDeploymentAddress: '0xF59bB3fD1047Be68736D1744c3b9D56eBF64b039',
+    baseDeploymentSalt:
+      '0xc68333947ff61550c9b629abed325e2244278524f8e5782579f1dd2ea46c0c4f',
+    expectedDeploymentAddress: '0x0000000000D8e504002cC26E3Ec46D81971C1664',
   },
 } as const
 
