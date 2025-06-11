@@ -42,6 +42,7 @@ const config = {
       saveDeployments: false,
       tags: ['test', 'legacy', 'use_root'],
       allowUnlimitedContractSize: false,
+      chainId: process.env.FORKING_ENABLED ? 1 : 31337,
       forking: {
         url: `https://mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
         enabled: !!process.env.FORKING_ENABLED,
