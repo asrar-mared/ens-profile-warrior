@@ -21,7 +21,7 @@ import {
 } from 'viem'
 import { base, baseSepolia } from 'viem/chains'
 
-const safeConfig = {
+export const safeConfig = {
   testnet: {
     safeAddress: '0x343431e9CEb7C19cC8d3eA0EE231bfF82B584910',
     baseDeploymentSalt:
