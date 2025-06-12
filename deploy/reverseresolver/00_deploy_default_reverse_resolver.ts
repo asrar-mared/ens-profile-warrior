@@ -51,6 +51,8 @@ const func: DeployFunction = async function (hre) {
     `Setting resolver of .reverse to DefaultReverseResolver on registry (tx: ${setResolverHash})...`,
   )
   await viem.waitForTransactionSuccess(setResolverHash)
+
+  return true
 }
 
 func.id = 'DefaultReverseResolver v1.0.0'

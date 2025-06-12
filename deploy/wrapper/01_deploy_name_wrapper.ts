@@ -58,6 +58,8 @@ const func: DeployFunction = async function (hre) {
     `Setting NameWrapper interface ID ${interfaceId} on .eth resolver (tx: ${setInterfaceHash})...`,
   )
   await viem.waitForTransactionSuccess(setInterfaceHash)
+
+  return true
 }
 
 func.id = 'NameWrapper v1.0.0'

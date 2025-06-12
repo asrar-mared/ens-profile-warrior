@@ -25,6 +25,8 @@ const func: DeployFunction = async function (hre) {
     console.log(`Transfer ownership to ${owner.address} (tx: ${hash})...`)
     await hre.viem.waitForTransactionSuccess(hash)
   }
+
+  return true
 }
 
 func.id = 'UniversalResolver v1.0.0'

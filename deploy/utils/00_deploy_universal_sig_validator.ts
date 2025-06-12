@@ -47,6 +47,8 @@ const func: DeployFunction = async function (hre) {
     throw new Error('UniversalSigValidator not deployed')
 
   console.log(`UniversalSigValidator deployed at ${usvAddress}`)
+
+  return true
 }
 
 func.id = 'UniversalSigValidator v1.0.0'

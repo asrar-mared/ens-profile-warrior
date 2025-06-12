@@ -108,6 +108,8 @@ const func: DeployFunction = async function (hre) {
     console.log(`Approving wrapper ${wrapperAddress} (tx: ${hash})...`)
     await viem.waitForTransactionSuccess(hash)
   }
+
+  return true
 }
 
 func.id = 'TestUnwrap v1.0.0'

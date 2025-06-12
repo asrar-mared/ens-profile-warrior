@@ -13,6 +13,8 @@ const func: DeployFunction = async function (hre) {
   const metadataUrl = `${metadataHost}/name/0x{id}`
 
   await viem.deploy('StaticMetadataService', [metadataUrl])
+
+  return true
 }
 
 func.id = 'StaticMetadataService v1.0.0'
