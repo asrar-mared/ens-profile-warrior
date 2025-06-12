@@ -6,7 +6,6 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 import {BaseRegistrarImplementation} from "./BaseRegistrarImplementation.sol";
-import {INameWrapper} from "../wrapper/INameWrapper.sol";
 import {StringUtils} from "../utils/StringUtils.sol";
 import {Resolver} from "../resolvers/Resolver.sol";
 import {ENS} from "../registry/ENS.sol";
