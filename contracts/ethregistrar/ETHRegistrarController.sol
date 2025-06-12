@@ -52,7 +52,7 @@ contract ETHRegistrarController is
     IDefaultReverseRegistrar public immutable defaultReverseRegistrar;
 
     /// @notice The price oracle for the eth TLD.
-    IPriceOracle public prices;
+    IPriceOracle public immutable prices;
 
     /// @notice A mapping of commitments to their timestamp.
     mapping(bytes32 => uint256) public commitments;
@@ -162,13 +162,6 @@ contract ETHRegistrarController is
         defaultReverseRegistrar = _defaultReverseRegistrar;
     }
 
-    /// @notice Sets the price oracle for this registrar controller.
-    ///
-    /// @param _prices The price oracle to set.
-    function setPrices(IPriceOracle _prices) public onlyOwner {
-        prices = _prices;
-    }
-
     /// @notice Returns the price of a registration for the given label and duration.
     ///
     /// @param label The label of the name.
@@ -275,32 +268,66 @@ contract ETHRegistrarController is
 
         delete (commitments[commitment]);
 
-        _register(registration, labelhash, price);
+        uint256 expires;
+
+        if (registration.resolver == address(0)) {
+            expires = base.register(
+                uint256(labelhash),
+                registration.owner,
+                registration.duration
+            );
+        } else {
+            expires = base.register(
+                uint256(labelhash),
+                address(this),
+                registration.duration
+            );
+
+            bytes32 namehash = keccak256(abi.encodePacked(ETH_NODE, labelhash));
+            ens.setRecord(
+                namehash,
+                registration.owner,
+                registration.resolver,
+                0
+            );
+            if (registration.data.length > 0)
+                Resolver(registration.resolver).multicallWithNodeCheck(
+                    namehash,
+                    registration.data
+                );
+
+            base.transferFrom(
+                address(this),
+                registration.owner,
+                uint256(labelhash)
+            );
+
+            if (registration.reverseRecord == ReverseRecord.Ethereum)
+                reverseRegistrar.setNameForAddr(
+                    msg.sender,
+                    msg.sender,
+                    registration.resolver,
+                    string.concat(registration.label, ".eth")
+                );
+            else if (registration.reverseRecord == ReverseRecord.Default)
+                defaultReverseRegistrar.setNameForAddr(
+                    msg.sender,
+                    string.concat(registration.label, ".eth")
+                );
+        }
+
+        emit NameRegistered(
+            registration.label,
+            labelhash,
+            registration.owner,
+            price.base,
+            price.premium,
+            expires,
+            registration.referrer
+        );
 
         if (msg.value > totalPrice)
             payable(msg.sender).transfer(msg.value - totalPrice);
-    }
-
-    /// @notice Registers a name without payment, only for owner.
-    /// @dev Bypasses value and validity check (i.e. no payment, <3 chars).
-    ///
-    /// @param registration The registration to register.
-    /// @param registration.label The label of the name.
-    /// @param registration.owner The owner of the name.
-    /// @param registration.duration The duration of the registration.
-    /// @param registration.resolver The resolver for the name.
-    /// @param registration.data The data for the name.
-    /// @param registration.reverseRecord The reverse record for the name.
-    /// @param registration.referrer The referrer of the registration.
-    function registerWithoutPayment(
-        Registration calldata registration
-    ) public onlyOwner {
-        bytes32 labelhash = keccak256(bytes(registration.label));
-
-        if (!base.available(uint256(labelhash)))
-            revert NameNotAvailable(registration.label);
-
-        _register(registration, labelhash, IPriceOracle.Price(0, 0));
     }
 
     /// @notice Renews a name.
@@ -363,69 +390,5 @@ contract ETHRegistrarController is
         bytes32 labelhash
     ) internal view returns (bool) {
         return valid(label) && base.available(uint256(labelhash));
-    }
-
-    function _register(
-        Registration calldata registration,
-        bytes32 labelhash,
-        IPriceOracle.Price memory price
-    ) internal {
-        bytes32 namehash = keccak256(abi.encodePacked(ETH_NODE, labelhash));
-        uint256 expires;
-
-        if (registration.resolver == address(0)) {
-            expires = base.register(
-                uint256(labelhash),
-                registration.owner,
-                registration.duration
-            );
-        } else {
-            expires = base.register(
-                uint256(labelhash),
-                address(this),
-                registration.duration
-            );
-
-            ens.setRecord(
-                namehash,
-                registration.owner,
-                registration.resolver,
-                0
-            );
-            if (registration.data.length > 0)
-                Resolver(registration.resolver).multicallWithNodeCheck(
-                    namehash,
-                    registration.data
-                );
-
-            base.transferFrom(
-                address(this),
-                registration.owner,
-                uint256(labelhash)
-            );
-
-            if (registration.reverseRecord == ReverseRecord.Ethereum)
-                reverseRegistrar.setNameForAddr(
-                    msg.sender,
-                    msg.sender,
-                    registration.resolver,
-                    string.concat(registration.label, ".eth")
-                );
-            else if (registration.reverseRecord == ReverseRecord.Default)
-                defaultReverseRegistrar.setNameForAddr(
-                    msg.sender,
-                    string.concat(registration.label, ".eth")
-                );
-        }
-
-        emit NameRegistered(
-            registration.label,
-            labelhash,
-            registration.owner,
-            price.base,
-            price.premium,
-            expires,
-            registration.referrer
-        );
     }
 }
