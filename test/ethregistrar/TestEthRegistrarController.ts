@@ -3,12 +3,10 @@ import { expect } from 'chai'
 import hre from 'hardhat'
 import {
   Address,
-  encodeAbiParameters,
   encodeFunctionData,
   hexToBigInt,
   labelhash,
   namehash,
-  parseAbiParameters,
   zeroAddress,
   zeroHash,
 } from 'viem'
@@ -20,7 +18,6 @@ import {
   getRegisterNameParameters,
   registerName,
 } from '../fixtures/registerName.js'
-import { toNameId } from '../fixtures/utils.js'
 
 const REGISTRATION_TIME = 28n * DAY
 const BUFFERED_REGISTRATION_COST = REGISTRATION_TIME + 3n * DAY
@@ -89,7 +86,6 @@ async function fixture() {
     'ETHRegistrarController',
     [
       baseRegistrar.address,
-      nameWrapper.address,
       priceOracle.address,
       600n,
       86400n,
@@ -100,8 +96,6 @@ async function fixture() {
   )
 
   await baseRegistrar.write.addController([ethRegistrarController.address])
-  await baseRegistrar.write.addController([nameWrapper.address])
-  await nameWrapper.write.setController([ethRegistrarController.address, true])
   await reverseRegistrar.write.setController([
     ethRegistrarController.address,
     true,
@@ -142,7 +136,6 @@ async function fixture() {
     defaultReverseRegistrar,
     callData,
     publicClient,
-    nameWrapper,
     ...accounts,
   }
 }
@@ -610,62 +603,6 @@ describe('ETHRegistrarController', () => {
     ).resolves.toEqual(balanceBefore + price)
   })
 
-  it('should allow wrapped names to renew', async () => {
-    const {
-      baseRegistrar,
-      ethRegistrarController,
-      nameWrapper,
-      publicResolver,
-      ownerAccount,
-    } = await loadFixture(fixture)
-
-    const label = 'newname'
-    const name = `${label}.eth`
-    await registerName(
-      {
-        ethRegistrarController,
-      },
-      {
-        label,
-        duration: REGISTRATION_TIME,
-        ownerAddress: ownerAccount.address,
-      },
-    )
-
-    await baseRegistrar.write.safeTransferFrom([
-      ownerAccount.address,
-      nameWrapper.address,
-      labelId(label),
-      encodeAbiParameters(
-        parseAbiParameters('string, address, uint16, address'),
-        [label, ownerAccount.address, 0, publicResolver.address],
-      ),
-    ])
-
-    await expect(
-      nameWrapper.read.ownerOf([toNameId(name)]),
-    ).resolves.toEqualAddress(ownerAccount.address)
-
-    const registrarExpiryBefore = await baseRegistrar.read.nameExpires([
-      labelId(label),
-    ])
-    const [, , wrapperExpiryBefore] = await nameWrapper.read.getData([
-      toNameId(name),
-    ])
-
-    await ethRegistrarController.write.renew(
-      [label, REGISTRATION_TIME, zeroHash],
-      { value: REGISTRATION_TIME },
-    )
-
-    await expect(
-      baseRegistrar.read.nameExpires([labelId(label)]),
-    ).resolves.toEqual(registrarExpiryBefore + REGISTRATION_TIME)
-    await expect(
-      nameWrapper.read.getData([toNameId(name)]),
-    ).resolves.toHaveProperty(2, wrapperExpiryBefore + REGISTRATION_TIME)
-  })
-
   it('should require sufficient value for a renewal', async () => {
     const { ethRegistrarController } = await loadFixture(fixture)
 
@@ -773,38 +710,6 @@ describe('ETHRegistrarController', () => {
       defaultReverseRegistrar.read.nameForAddr([ownerAccount.address]),
     ).resolves.toEqual('')
   })
-
-  // it('should auto wrap the name and allow expiry to be set', async () => {
-  //   const {
-  //     publicClient,
-  //     ethRegistrarController,
-  //     nameWrapper,
-  //     registrantAccount,
-  //   } = await loadFixture(fixture)
-
-  //   const label = 'fuses'
-  //   const name = label + '.eth'
-
-  //   await registerName(
-  //     { ethRegistrarController },
-  //     {
-  //       label,
-  //       duration: REGISTRATION_TIME,
-  //       ownerAddress: registrantAccount.address,
-  //       ownerControlledFuses: 1,
-  //     },
-  //   )
-
-  //   const block = await publicClient.getBlock()
-
-  //   const [, fuses, expiry] = await nameWrapper.read.getData([
-  //     hexToBigInt(namehash(name)),
-  //   ])
-  //   expect(fuses).toEqual(
-  //     FUSES.PARENT_CANNOT_CONTROL | FUSES.CANNOT_UNWRAP | FUSES.IS_DOT_ETH,
-  //   )
-  //   expect(expiry).toEqual(REGISTRATION_TIME + GRACE_PERIOD + block.timestamp)
-  // })
 
   it('approval should reduce gas for registration', async () => {
     const {

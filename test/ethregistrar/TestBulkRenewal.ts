@@ -55,7 +55,6 @@ async function fixture() {
   ])
   const controller = await hre.viem.deployContract('ETHRegistrarController', [
     baseRegistrar.address,
-    nameWrapper.address,
     priceOracle.address,
     600n,
     86400n,
@@ -66,8 +65,6 @@ async function fixture() {
 
   await baseRegistrar.write.addController([controller.address])
   await baseRegistrar.write.addController([accounts[0].address])
-  await baseRegistrar.write.addController([nameWrapper.address])
-  await nameWrapper.write.setController([controller.address, true])
 
   // Create the bulk renewal contract
   const bulkRenewal = await hre.viem.deployContract('BulkRenewal', [
