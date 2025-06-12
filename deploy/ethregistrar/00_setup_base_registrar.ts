@@ -33,6 +33,8 @@ const func: DeployFunction = async function (hre) {
     `Setting owner of eth node to registrar on root (tx: ${setSubnodeOwnerHash})...`,
   )
   await viem.waitForTransactionSuccess(setSubnodeOwnerHash)
+
+  return true
 }
 
 func.id = 'BaseRegistrarImplementation:setup v1.0.0'

@@ -11,6 +11,8 @@ const func: DeployFunction = async function (hre) {
     dnssec.address,
     'https://dnssec-oracle.ens.domains/',
   ])
+
+  return true
 }
 
 func.id = 'OffchainDNSResolver v1.0.0'

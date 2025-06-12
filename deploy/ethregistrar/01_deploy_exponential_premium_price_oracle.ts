@@ -16,6 +16,8 @@ const func: DeployFunction = async function (hre) {
     100000000000000000000000000n,
     21n,
   ])
+
+  return true
 }
 
 func.id = 'ExponentialPremiumPriceOracle v1.0.0'

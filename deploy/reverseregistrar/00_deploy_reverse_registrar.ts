@@ -45,6 +45,8 @@ const func: DeployFunction = async function (hre) {
     `Setting owner of .addr.reverse to ReverseRegistrar on registry (tx: ${setAddrOwnerHash})...`,
   )
   await viem.waitForTransactionSuccess(setAddrOwnerHash)
+
+  return true
 }
 
 func.id = 'ReverseRegistrar v1.0.0'

@@ -101,6 +101,8 @@ const func: DeployFunction = async function (hre) {
     `Setting ETHRegistrarController interface ID ${interfaceId} on .eth resolver (tx: ${setInterfaceHash})...`,
   )
   await viem.waitForTransactionSuccess(setInterfaceHash)
+
+  return true
 }
 
 func.id = 'ETHRegistrarController v3.0.0'

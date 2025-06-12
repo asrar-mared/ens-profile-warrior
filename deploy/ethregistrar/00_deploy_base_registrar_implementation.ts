@@ -10,11 +10,11 @@ const func: DeployFunction = async function (hre) {
 
   const registry = await viem.getContract('ENSRegistry')
 
-  const bri = await viem.deploy('BaseRegistrarImplementation', [
+  await viem.deploy('BaseRegistrarImplementation', [
     registry.address,
     namehash('eth'),
   ])
-  if (!bri.newlyDeployed) return
+  return true
 }
 
 func.id = 'BaseRegistrarImplementation:contract v1.0.0'

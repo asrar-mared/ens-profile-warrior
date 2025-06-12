@@ -21,7 +21,7 @@ const func: DeployFunction = async function (hre) {
 
   const resolver = await registry.read.resolver([namehash('eth')])
   console.log(`set resolver for .eth to ${resolver}`)
-  if (!ethOwnedResolver.newlyDeployed) return
+  return true
 }
 
 func.id = 'EthOwnedResolver v1.0.0'

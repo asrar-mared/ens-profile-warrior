@@ -54,6 +54,8 @@ const func: DeployFunction = async function (hre) {
       'resolver.eth is not owned by the owner address, not setting resolver',
     )
   }
+
+  return true
 }
 
 func.id = 'PublicResolver v3.0.0'

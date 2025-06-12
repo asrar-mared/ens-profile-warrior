@@ -55,6 +55,8 @@ const func: DeployFunction = async function (hre) {
   await Promise.all(
     transactionHashes.map((hash) => viem.waitForTransactionSuccess(hash)),
   )
+
+  return true
 }
 
 func.id = 'SimplePublicSuffixList v1.0.0'

@@ -35,6 +35,8 @@ const func: DeployFunction = async function (hre) {
       `${owner.address} is not the owner of the root; you will need to call setController('${deployment.address}', true) manually`,
     )
   }
+
+  return true
 }
 
 func.id = 'DNSRegistrar:contract v1.0.0'

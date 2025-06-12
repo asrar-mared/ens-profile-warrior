@@ -147,6 +147,8 @@ const func: DeployFunction = async function (hre) {
       viem.waitForTransactionSuccess(hash),
     ),
   )
+
+  return true
 }
 
 func.id = 'DNSRegistrar:set-tlds v1.0.0'

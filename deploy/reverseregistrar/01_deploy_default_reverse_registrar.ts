@@ -4,6 +4,8 @@ const func: DeployFunction = async function (hre) {
   const { viem } = hre
 
   await viem.deploy('DefaultReverseRegistrar', [])
+
+  return true
 }
 
 func.id = 'DefaultReverseRegistrar v1.0.0'

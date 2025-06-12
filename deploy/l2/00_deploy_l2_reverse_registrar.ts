@@ -312,6 +312,8 @@ const func: DeployFunction = async function (hre) {
 
     await viem.deploy('L2ReverseRegistrar', [coinType])
   }
+
+  return true
 }
 
 func.id = 'L2ReverseRegistrar v1.0.0'

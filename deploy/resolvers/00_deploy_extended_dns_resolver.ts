@@ -4,6 +4,8 @@ const func: DeployFunction = async function (hre) {
   const { viem } = hre
 
   await viem.deploy('ExtendedDNSResolver', [])
+
+  return true
 }
 
 func.id = 'ExtendedDNSResolver v1.0.0'

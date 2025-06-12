@@ -7,6 +7,8 @@ const func: DeployFunction = async function (hre) {
   await viem.deploy('SHA256Digest', [])
 
   if (network.tags.test) await viem.deploy('DummyDigest', [])
+
+  return true
 }
 
 func.id = 'dnssec-digests v1.0.0'
