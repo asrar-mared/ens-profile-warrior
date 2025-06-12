@@ -18,8 +18,12 @@ const func: DeployFunction = async function (hre) {
   ])
 }
 
-func.id = 'price-oracle'
-func.tags = ['ethregistrar', 'ExponentialPremiumPriceOracle', 'DummyOracle']
-func.dependencies = ['registry']
+func.id = 'ExponentialPremiumPriceOracle v1.0.0'
+func.tags = [
+  'category:ethregistrar',
+  'ExponentialPremiumPriceOracle',
+  'DummyOracle',
+]
+func.dependencies = []
 
 export default func

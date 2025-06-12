@@ -40,7 +40,7 @@ const config = {
   networks: {
     hardhat: {
       saveDeployments: false,
-      tags: ['test', 'legacy', 'use_root'],
+      tags: ['test', 'legacy', 'use_root', 'local'],
       allowUnlimitedContractSize: false,
       chainId: process.env.FORKING_ENABLED ? 1 : 31337,
       forking: {
@@ -51,7 +51,7 @@ const config = {
     localhost: {
       url: 'http://127.0.0.1:8545/',
       saveDeployments: false,
-      tags: ['test', 'legacy', 'use_root'],
+      tags: ['test', 'legacy', 'use_root', 'local'],
     },
     anvil: {
       url: `http://localhost:${parseInt(process.env['RPC_PORT'] || '8545')}`,

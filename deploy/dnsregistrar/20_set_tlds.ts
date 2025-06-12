@@ -149,7 +149,13 @@ const func: DeployFunction = async function (hre) {
   )
 }
 
-func.tags = ['settlds']
-func.dependencies = []
+func.id = 'DNSRegistrar:set-tlds v1.0.0'
+func.tags = ['category:dnsregistrar', 'DNSRegistrar', 'DNSRegistrar:set-tlds']
+func.dependencies = [
+  'ENSRegistry',
+  'SimplePublicSuffixList',
+  'DNSRegistrar:contract',
+  'Root',
+]
 
 export default func

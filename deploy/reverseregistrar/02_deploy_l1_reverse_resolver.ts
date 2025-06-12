@@ -167,6 +167,8 @@ const func: DeployFunction = async function (hre) {
   }
 }
 
-func.tags = ['ChainReverseResolver']
+func.id = 'ChainReverseResolver v1.0.0'
+func.tags = ['category:reverseregistrar', 'ChainReverseResolver']
+func.dependencies = ['DefaultReverseRegistrar']
 
 export default func

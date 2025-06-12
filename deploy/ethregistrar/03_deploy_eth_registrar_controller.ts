@@ -103,9 +103,11 @@ const func: DeployFunction = async function (hre) {
   await viem.waitForTransactionSuccess(setInterfaceHash)
 }
 
-func.tags = ['ethregistrar', 'ETHRegistrarController']
+func.id = 'ETHRegistrarController v3.0.0'
+func.tags = ['category:ethregistrar', 'ETHRegistrarController']
 func.dependencies = [
   'ENSRegistry',
+  'BaseRegistrarImplementation',
   'ExponentialPremiumPriceOracle',
   'ReverseRegistrar',
   'DefaultReverseRegistrar',

@@ -9,6 +9,14 @@ const func: DeployFunction = async function (hre) {
   if (network.tags.test) await viem.deploy('DummyDigest', [])
 }
 
-func.tags = ['dnssec-digests']
+func.id = 'dnssec-digests v1.0.0'
+func.tags = [
+  'category:dnssec-oracle',
+  'dnssec-digests',
+  'SHA1Digest',
+  'SHA256Digest',
+  'DummyDigest',
+]
+func.dependencies = []
 
 export default func

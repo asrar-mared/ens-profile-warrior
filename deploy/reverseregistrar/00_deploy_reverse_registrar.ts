@@ -47,8 +47,8 @@ const func: DeployFunction = async function (hre) {
   await viem.waitForTransactionSuccess(setAddrOwnerHash)
 }
 
-func.id = 'reverse-registrar'
-func.tags = ['ReverseRegistrar']
-func.dependencies = ['root']
+func.id = 'ReverseRegistrar v1.0.0'
+func.tags = ['category:reverseregistrar', 'ReverseRegistrar']
+func.dependencies = ['ENSRegistry', 'Root']
 
 export default func

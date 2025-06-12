@@ -53,8 +53,8 @@ const func: DeployFunction = async function (hre) {
   await viem.waitForTransactionSuccess(setResolverHash)
 }
 
-func.id = 'default-reverse-resolver'
-func.tags = ['DefaultReverseResolver']
-func.dependencies = ['DefaultReverseRegistrar']
+func.id = 'DefaultReverseResolver v1.0.0'
+func.tags = ['category:reverseresolver', 'DefaultReverseResolver']
+func.dependencies = ['ENSRegistry', 'Root', 'DefaultReverseRegistrar']
 
 export default func

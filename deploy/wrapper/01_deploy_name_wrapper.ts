@@ -60,12 +60,13 @@ const func: DeployFunction = async function (hre) {
   await viem.waitForTransactionSuccess(setInterfaceHash)
 }
 
-func.id = 'name-wrapper'
-func.tags = ['wrapper', 'NameWrapper']
+func.id = 'NameWrapper v1.0.0'
+func.tags = ['category:wrapper', 'NameWrapper']
 func.dependencies = [
   'StaticMetadataService',
-  'registry',
-  'ReverseRegistrar',
+  'ENSRegistry',
+  'BaseRegistrarImplementation',
+  'StaticMetadataService',
   'OwnedResolver',
 ]
 

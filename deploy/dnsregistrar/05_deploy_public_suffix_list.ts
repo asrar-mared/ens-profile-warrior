@@ -57,7 +57,8 @@ const func: DeployFunction = async function (hre) {
   )
 }
 
-func.tags = ['SimplePublicSuffixList']
+func.id = 'SimplePublicSuffixList v1.0.0'
+func.tags = ['category:dnsregistrar', 'SimplePublicSuffixList']
 func.dependencies = []
 
 export default func

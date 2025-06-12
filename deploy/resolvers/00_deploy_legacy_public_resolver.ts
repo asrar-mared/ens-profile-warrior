@@ -16,8 +16,8 @@ const func: DeployFunction = async function (hre) {
   return true
 }
 
-func.id = 'legacy-resolver'
-func.tags = ['resolvers', 'LegacyPublicResolver']
-func.dependencies = ['registry', 'wrapper']
+func.id = 'PublicResolver v1.0.0'
+func.tags = ['category:resolvers', 'LegacyPublicResolver']
+func.dependencies = ['ENSRegistry']
 
 export default func

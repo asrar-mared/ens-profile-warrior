@@ -56,12 +56,12 @@ const func: DeployFunction = async function (hre) {
   }
 }
 
-func.id = 'resolver'
-func.tags = ['resolvers', 'PublicResolver']
+func.id = 'PublicResolver v3.0.0'
+func.tags = ['category:resolvers', 'PublicResolver']
 func.dependencies = [
-  'registry',
-  'ETHRegistrarController',
+  'ENSRegistry',
   'NameWrapper',
+  'ETHRegistrarController',
   'ReverseRegistrar',
 ]
 

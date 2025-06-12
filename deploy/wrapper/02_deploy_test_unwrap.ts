@@ -110,8 +110,12 @@ const func: DeployFunction = async function (hre) {
   }
 }
 
-func.id = 'test-unwrap'
-func.tags = ['wrapper', 'TestUnwrap']
-func.dependencies = ['BaseRegistrarImplementation', 'registry']
+func.id = 'TestUnwrap v1.0.0'
+func.tags = ['category:wrapper', 'TestUnwrap']
+func.dependencies = ['BaseRegistrarImplementation', 'ENSRegistry']
+func.skip = async function (hre) {
+  if (hre.network.name === 'mainnet') return true
+  return false
+}
 
 export default func

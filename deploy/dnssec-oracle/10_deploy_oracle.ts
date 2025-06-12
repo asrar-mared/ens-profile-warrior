@@ -120,7 +120,8 @@ const func: DeployFunction = async function (hre) {
   )
 }
 
-func.tags = ['dnssec-oracle']
+func.id = 'DNSSECImpl v1.0.0'
+func.tags = ['category:dnssec-oracle', 'DNSSECImpl']
 func.dependencies = ['dnssec-algorithms', 'dnssec-digests']
 
 export default func

@@ -19,8 +19,8 @@ const func: DeployFunction = async function (hre) {
   }
 }
 
-func.id = 'migration-helper'
-func.tags = ['utils', 'MigrationHelper']
+func.id = 'MigrationHelper v1.0.0'
+func.tags = ['category:utils', 'MigrationHelper']
 func.dependencies = ['BaseRegistrarImplementation', 'NameWrapper']
 
 export default func

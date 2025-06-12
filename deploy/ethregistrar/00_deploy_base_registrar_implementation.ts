@@ -17,8 +17,12 @@ const func: DeployFunction = async function (hre) {
   if (!bri.newlyDeployed) return
 }
 
-func.id = 'registrar'
-func.tags = ['ethregistrar', 'BaseRegistrarImplementation']
-func.dependencies = ['registry', 'root']
+func.id = 'BaseRegistrarImplementation:contract v1.0.0'
+func.tags = [
+  'category:ethregistrar',
+  'BaseRegistrarImplementation',
+  'BaseRegistrarImplementation:contract',
+]
+func.dependencies = ['ENSRegistry']
 
 export default func

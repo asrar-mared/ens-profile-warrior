@@ -24,8 +24,8 @@ const func: DeployFunction = async function (hre) {
   if (!ethOwnedResolver.newlyDeployed) return
 }
 
-func.id = 'eth-owned-resolver'
-func.tags = ['resolvers', 'OwnedResolver', 'EthOwnedResolver']
-func.dependencies = ['Registry']
+func.id = 'EthOwnedResolver v1.0.0'
+func.tags = ['category:resolvers', 'OwnedResolver', 'EthOwnedResolver']
+func.dependencies = ['ENSRegistry', 'BaseRegistrarImplementation']
 
 export default func

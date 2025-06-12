@@ -51,12 +51,10 @@ const func: DeployFunction = async function (hre) {
   return true
 }
 
-func.id = 'legacy-controller'
-func.tags = ['LegacyETHRegistrarController']
+func.id = 'ETHRegistrarController v1.0.0'
+func.tags = ['category:ethregistrar', 'LegacyETHRegistrarController']
 func.dependencies = [
-  'registry',
-  'wrapper',
-  'LegacyPublicResolver',
+  'BaseRegistrarImplementation',
   'ExponentialPremiumPriceOracle',
   'ReverseRegistrar',
 ]
