@@ -15,7 +15,7 @@ const func: DeployFunction = async function (hre) {
   ])
 
   // Only attempt to make controller etc changes directly on testnets
-  if (network.name === 'mainnet') return
+  if (network.name === 'mainnet' && !network.tags.tenderly) return
 
   const registry = await viem.getContract('ENSRegistry')
   const root = await viem.getContract('Root')

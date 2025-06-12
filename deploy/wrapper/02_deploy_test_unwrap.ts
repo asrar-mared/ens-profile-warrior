@@ -17,9 +17,6 @@ const func: DeployFunction = async function (hre) {
   const unnamedClients = await viem.getUnnamedClients()
   const clients = [deployer, owner, ...unnamedClients]
 
-  // only deploy on testnets
-  if (network.name === 'mainnet') return
-
   const registry = await viem.getContract('ENSRegistry', owner)
   const registrar = await viem.getContract('BaseRegistrarImplementation', owner)
 

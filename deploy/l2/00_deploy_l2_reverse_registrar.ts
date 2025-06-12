@@ -321,7 +321,7 @@ func.tags = ['category:reverseregistrar', 'L2ReverseRegistrar']
 func.dependencies = ['UniversalSigValidator']
 func.skip = async function (hre) {
   if (hre.network.tags.l2) return false
-  if (hre.network.tags.test) return false
+  if (hre.network.tags.local) return false
   return true
 }
 

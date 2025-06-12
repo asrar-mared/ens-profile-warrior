@@ -61,6 +61,13 @@ const config = {
       tags: ['test', 'legacy', 'use_root', 'testnet'],
       chainId: 11155111,
       accounts: real_accounts,
+      ...(process.env.TENDERLY_ENABLED
+        ? {
+            url: 'http://127.0.0.1:8545',
+            tags: ['test', 'legacy', 'use_root', 'testnet', 'tenderly'],
+            accounts: 'remote',
+          }
+        : {}),
     },
     optimismSepolia: {
       url: 'https://sepolia.optimism.io',
@@ -121,6 +128,13 @@ const config = {
       tags: ['legacy', 'use_root'],
       chainId: 1,
       accounts: real_accounts,
+      ...(process.env.TENDERLY_ENABLED
+        ? {
+            url: 'http://127.0.0.1:8545',
+            tags: ['legacy', 'use_root', 'tenderly'],
+            accounts: 'remote',
+          }
+        : {}),
     },
   },
   mocha: {},

@@ -1,5 +1,5 @@
 import type { DeployFunction } from 'hardhat-deploy/types.js'
-import { namehash } from 'viem'
+import { getAddress, namehash } from 'viem'
 
 const func: DeployFunction = async function (hre) {
   const { viem } = hre
@@ -17,16 +17,20 @@ const func: DeployFunction = async function (hre) {
     controller.address,
     reverseRegistrar.address,
   ])
-  if (!publicResolverDeployment.newlyDeployed) return
 
-  const reverseRegistrarSetDefaultResolverHash =
-    await reverseRegistrar.write.setDefaultResolver([
-      publicResolverDeployment.address,
-    ])
-  console.log(
-    `Setting default resolver on ReverseRegistrar to PublicResolver (tx: ${reverseRegistrarSetDefaultResolverHash})...`,
-  )
-  await viem.waitForTransactionSuccess(reverseRegistrarSetDefaultResolverHash)
+  const isReverseRegistrarDefaultResolver = await reverseRegistrar.read
+    .defaultResolver()
+    .then((v) => getAddress(v) === getAddress(publicResolverDeployment.address))
+  if (!isReverseRegistrarDefaultResolver) {
+    const reverseRegistrarSetDefaultResolverHash =
+      await reverseRegistrar.write.setDefaultResolver([
+        publicResolverDeployment.address,
+      ])
+    console.log(
+      `Setting default resolver on ReverseRegistrar to PublicResolver (tx: ${reverseRegistrarSetDefaultResolverHash})...`,
+    )
+    await viem.waitForTransactionSuccess(reverseRegistrarSetDefaultResolverHash)
+  }
 
   const resolverEthOwner = await registry.read.owner([namehash('resolver.eth')])
 

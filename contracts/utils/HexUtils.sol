@@ -115,9 +115,7 @@ library HexUtils {
                     src := end // terminate loop
                 }
             }
-            for {
-
-            } lt(src, end) {
+            for {} lt(src, end) {
                 src := add(src, 2) // 2 nibbles
                 dst := add(dst, 1) // per byte
             } {

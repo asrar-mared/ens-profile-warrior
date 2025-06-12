@@ -1,5 +1,5 @@
 import type { DeployFunction } from 'hardhat-deploy/types.js'
-import { namehash, zeroAddress } from 'viem'
+import { getAddress, namehash, zeroAddress } from 'viem'
 import { createInterfaceId } from '../../test/fixtures/createInterfaceId.js'
 
 const func: DeployFunction = async function (hre) {
@@ -17,7 +17,6 @@ const func: DeployFunction = async function (hre) {
   const reverseRegistrar = await viem.getContract('ReverseRegistrar', owner)
   const defaultReverseRegistrar = await viem.getContract(
     'DefaultReverseRegistrar',
-    owner,
   )
   const nameWrapper = await viem.getContract('NameWrapper', owner)
 
@@ -31,7 +30,6 @@ const func: DeployFunction = async function (hre) {
     defaultReverseRegistrar.address,
     registry.address,
   ])
-  if (!controllerDeployment.newlyDeployed) return
 
   const controller = await viem.getContract('ETHRegistrarController')
 
@@ -44,41 +42,62 @@ const func: DeployFunction = async function (hre) {
   }
 
   // Only attempt to make controller etc changes directly on testnets
-  if (network.name === 'mainnet') return
+  if (network.name === 'mainnet' && !network.tags.tenderly) return
 
-  const registrarAddControllerHash = await registrar.write.addController([
+  const isRegistrarController = await registrar.read.controllers([
     controller.address,
   ])
-  console.log(
-    `Adding ETHRegistrarController as a controller of BaseRegistrarImplementation (tx: ${registrarAddControllerHash})...`,
-  )
-  await viem.waitForTransactionSuccess(registrarAddControllerHash)
+  if (!isRegistrarController) {
+    const registrarAddControllerHash = await registrar.write.addController([
+      controller.address,
+    ])
+    console.log(
+      `Adding ETHRegistrarController as a controller of BaseRegistrarImplementation (tx: ${registrarAddControllerHash})...`,
+    )
+    await viem.waitForTransactionSuccess(registrarAddControllerHash)
+  }
 
-  const nameWrapperSetControllerHash = await nameWrapper.write.setController([
+  const isNameWrapperController = await nameWrapper.read.controllers([
     controller.address,
-    true,
   ])
-  console.log(
-    `Adding ETHRegistrarController as a controller of NameWrapper (tx: ${nameWrapperSetControllerHash})...`,
-  )
-  await viem.waitForTransactionSuccess(nameWrapperSetControllerHash)
-
-  const reverseRegistrarSetControllerHash =
-    await reverseRegistrar.write.setController([controller.address, true])
-  console.log(
-    `Adding ETHRegistrarController as a controller of ReverseRegistrar (tx: ${reverseRegistrarSetControllerHash})...`,
-  )
-  await viem.waitForTransactionSuccess(reverseRegistrarSetControllerHash)
-
-  const defaultReverseRegistrarSetControllerHash =
-    await defaultReverseRegistrar.write.setController([
+  if (!isNameWrapperController) {
+    const nameWrapperSetControllerHash = await nameWrapper.write.setController([
       controller.address,
       true,
     ])
-  console.log(
-    `Adding ETHRegistrarController as a controller of DefaultReverseRegistrar (tx: ${defaultReverseRegistrarSetControllerHash})...`,
-  )
-  await viem.waitForTransactionSuccess(defaultReverseRegistrarSetControllerHash)
+    console.log(
+      `Adding ETHRegistrarController as a controller of NameWrapper (tx: ${nameWrapperSetControllerHash})...`,
+    )
+    await viem.waitForTransactionSuccess(nameWrapperSetControllerHash)
+  }
+
+  const isReverseRegistrarController = await reverseRegistrar.read.controllers([
+    controller.address,
+  ])
+  if (!isReverseRegistrarController) {
+    const reverseRegistrarSetControllerHash =
+      await reverseRegistrar.write.setController([controller.address, true])
+    console.log(
+      `Adding ETHRegistrarController as a controller of ReverseRegistrar (tx: ${reverseRegistrarSetControllerHash})...`,
+    )
+    await viem.waitForTransactionSuccess(reverseRegistrarSetControllerHash)
+  }
+
+  const isDefaultReverseRegistrarController =
+    await defaultReverseRegistrar.read.controllers([controller.address])
+  if (!isDefaultReverseRegistrarController) {
+    const defaultReverseRegistrarSetControllerHash =
+      await defaultReverseRegistrar.write.setController([
+        controller.address,
+        true,
+      ])
+    console.log(
+      `Adding ETHRegistrarController as a controller of DefaultReverseRegistrar (tx: ${defaultReverseRegistrarSetControllerHash})...`,
+    )
+    await viem.waitForTransactionSuccess(
+      defaultReverseRegistrarSetControllerHash,
+    )
+  }
 
   const artifact = await deployments.getArtifact('IETHRegistrarController')
   const interfaceId = createInterfaceId(artifact.abi)
@@ -91,16 +110,21 @@ const func: DeployFunction = async function (hre) {
     return
   }
 
-  const ethOwnedResolver = await viem.getContract('OwnedResolver')
-  const setInterfaceHash = await ethOwnedResolver.write.setInterface([
-    namehash('eth'),
-    interfaceId,
-    controller.address,
-  ])
-  console.log(
-    `Setting ETHRegistrarController interface ID ${interfaceId} on .eth resolver (tx: ${setInterfaceHash})...`,
-  )
-  await viem.waitForTransactionSuccess(setInterfaceHash)
+  const ethOwnedResolver = await viem.getContract('OwnedResolver', owner)
+  const hasInterfaceSet = await ethOwnedResolver.read
+    .interfaceImplementer([namehash('eth'), interfaceId])
+    .then((v) => getAddress(v) === getAddress(controller.address))
+  if (!hasInterfaceSet) {
+    const setInterfaceHash = await ethOwnedResolver.write.setInterface([
+      namehash('eth'),
+      interfaceId,
+      controller.address,
+    ])
+    console.log(
+      `Setting ETHRegistrarController interface ID ${interfaceId} on .eth resolver (tx: ${setInterfaceHash})...`,
+    )
+    await viem.waitForTransactionSuccess(setInterfaceHash)
+  }
 
   return true
 }
