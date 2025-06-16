@@ -4,12 +4,11 @@
   "description": "ENS contracts",
   "type": "module",
   "scripts": {
-    "hh": "NODE_OPTIONS='--experimental-loader ts-node/esm/transpile-only' hardhat",
-    "compile": "bun run hh compile && bun scripts/generate-artifacts.ts",
-    "test": "bun run hh test",
-    "test:remote": "FORKING_ENABLED=1 bun hh test ./test/**/Test*.remote.ts",
-    "test:parallel": "bun run hh test ./test/**/Test*.ts --parallel",
-    "test:local": "bun run hh --network localhost test",
+    "compile": "hardhat compile && bun scripts/generate-artifacts.ts",
+    "test": "hardhat compile && vitest run --reporter verbose",
+    "test:remote": "FORKING_ENABLED=1 bun run test ./test/**/Test*.remote.ts",
+    "test:parallel": "bun run test ./test/**/Test*.ts --parallel",
+    "test:local": "bun run test --network localhost",
     "test:deploy": "bun ./scripts/deploy-test.ts",
     "lint": "hardhat check",
     "build": "rm -rf ./build/deploy ./build/hardhat.config.js && hardhat compile && tsc",
@@ -28,18 +27,22 @@
   "main": "index.js",
   "devDependencies": {
     "@ensdomains/dnsprovejs": "^0.5.1",
-    "@ensdomains/hardhat-chai-matchers-viem": "^0.0.8",
-    "@nomicfoundation/hardhat-toolbox-viem": "^3.0.0",
-    "@types/mocha": "^9.1.1",
+    "@ensdomains/hardhat-chai-matchers-viem": "^0.1.7",
+    "@nomicfoundation/hardhat-keystore": "^3.0.0-next.8",
+    "@nomicfoundation/hardhat-network-helpers": "3.0.0-next.8",
+    "@nomicfoundation/hardhat-viem": "3.0.0-next.8",
+    "@rocketh/deploy": "^0.11.18",
+    "@rocketh/read-execute": "^0.11.19",
+    "@rocketh/verifier": "^0.11.18",
     "@types/node": "^18.0.0",
     "@viem/anvil": "^0.0.10",
-    "@vitest/expect": "^1.6.0",
     "abitype": "^1.0.2",
     "chai": "^5.1.1",
     "dotenv": "^16.4.5",
-    "hardhat": "next",
+    "hardhat": "3.0.0-next.8",
     "hardhat-abi-exporter": "^2.9.0",
     "hardhat-contract-sizer": "^2.6.1",
+    "hardhat-deploy": "^2.0.0-next.25",
     "hardhat-gas-reporter": "^1.0.4",
     "husky": "^9.1.7",
     "prettier": "^2.6.2",
@@ -47,7 +50,8 @@
     "rocketh": "^0.11.20",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.5",
-    "viem": "2.12.0"
+    "viem": "2.28.1",
+    "vitest": "^3.2.3"
   },
   "dependencies": {
     "@ensdomains/buffer": "^0.1.1",
@@ -56,7 +60,12 @@
     "dns-packet": "^5.3.0"
   },
   "patchedDependencies": {
-    "@nomicfoundation/hardhat-viem@2.0.6": "patches/@nomicfoundation%2Fhardhat-viem@2.0.6.patch"
+    "@nomicfoundation/hardhat-viem@3.0.0-next.8": "patches/@nomicfoundation%2Fhardhat-viem@3.0.0-next.8.patch",
+    "rocketh@0.11.20": "patches/rocketh@0.11.20.patch"
+  },
+  "resolutions": {
+    "@nomicfoundation/hardhat-viem": "3.0.0-next.8",
+    "hardhat": "3.0.0-next.8"
   },
   "directories": {
     "test": "test"

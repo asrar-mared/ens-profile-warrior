@@ -1,9 +1,12 @@
-import { expect } from 'chai'
 import hre from 'hardhat'
+import { describe, expect, it } from 'vitest'
+
 import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
 
+const connection = await hre.network.connect()
+
 async function fixture() {
-  const tldPublicSuffixList = await hre.viem.deployContract(
+  const tldPublicSuffixList = await connection.viem.deployContract(
     'TLDPublicSuffixList',
     [],
   )
@@ -11,9 +14,11 @@ async function fixture() {
   return { tldPublicSuffixList }
 }
 
+const loadFixture = async () => connection.networkHelpers.loadFixture(fixture)
+
 describe('TLDPublicSuffixList', () => {
   it('treats all TLDs as public suffixes', async () => {
-    const { tldPublicSuffixList } = await fixture()
+    const { tldPublicSuffixList } = await loadFixture()
 
     await expect(
       tldPublicSuffixList.read.isPublicSuffix([dnsEncodeName('eth')]),
@@ -24,7 +29,7 @@ describe('TLDPublicSuffixList', () => {
   })
 
   it('treats all non-TLDs as non-public suffixes', async () => {
-    const { tldPublicSuffixList } = await fixture()
+    const { tldPublicSuffixList } = await loadFixture()
 
     await expect(
       tldPublicSuffixList.read.isPublicSuffix([dnsEncodeName('')]),

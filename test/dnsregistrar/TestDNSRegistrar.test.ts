@@ -1,7 +1,7 @@
-import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
-import { expect } from 'chai'
 import hre from 'hardhat'
 import { labelhash, namehash, zeroAddress, zeroHash, type Address } from 'viem'
+import { describe, expect, it } from 'vitest'
+
 import {
   expiration,
   hexEncodeSignedSet,
@@ -11,13 +11,18 @@ import {
 } from '../fixtures/dns.js'
 import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
 import { dnssecFixture } from '../fixtures/dnssecFixture.js'
+import { getAccounts } from '../fixtures/utils.js'
+
+const connection = await hre.network.connect()
+const accounts = await getAccounts(connection)
 
 async function fixture() {
-  const { accounts, dnssec } = await loadFixture(dnssecFixture)
-  const ensRegistry = await hre.viem.deployContract('ENSRegistry', [])
-  const reverseRegistrar = await hre.viem.deployContract('ReverseRegistrar', [
-    ensRegistry.address,
-  ])
+  const { dnssec } = await dnssecFixture(connection)
+  const ensRegistry = await connection.viem.deployContract('ENSRegistry', [])
+  const reverseRegistrar = await connection.viem.deployContract(
+    'ReverseRegistrar',
+    [ensRegistry.address],
+  )
 
   await ensRegistry.write.setSubnodeOwner([
     zeroHash,
@@ -30,17 +35,22 @@ async function fixture() {
     reverseRegistrar.address,
   ])
 
-  const root = await hre.viem.deployContract('Root', [ensRegistry.address])
+  const root = await connection.viem.deployContract('Root', [
+    ensRegistry.address,
+  ])
 
   await ensRegistry.write.setOwner([zeroHash, root.address])
 
-  const suffixes = await hre.viem.deployContract('SimplePublicSuffixList', [])
+  const suffixes = await connection.viem.deployContract(
+    'SimplePublicSuffixList',
+    [],
+  )
 
   await suffixes.write.addPublicSuffixes([
     [dnsEncodeName('test'), dnsEncodeName('co.nz')],
   ])
 
-  const dnsRegistrar = await hre.viem.deployContract('DNSRegistrar', [
+  const dnsRegistrar = await connection.viem.deployContract('DNSRegistrar', [
     zeroAddress, // Previous registrar
     zeroAddress, // Resolver
     dnssec.address,
@@ -57,13 +67,14 @@ async function fixture() {
     suffixes,
     dnsRegistrar,
     dnssec,
-    accounts,
   }
 }
 
+const loadFixture = async () => connection.networkHelpers.loadFixture(fixture)
+
 describe('DNSRegistrar', () => {
   it('sets constructor variables correctly', async () => {
-    const { dnsRegistrar, dnssec, ensRegistry } = await loadFixture(fixture)
+    const { dnsRegistrar, dnssec, ensRegistry } = await loadFixture()
 
     await expect(dnsRegistrar.read.oracle()).resolves.toEqualAddress(
       dnssec.address,
@@ -74,7 +85,7 @@ describe('DNSRegistrar', () => {
   })
 
   it('allows anyone to claim on behalf of the owner of an ENS name', async () => {
-    const { dnsRegistrar, ensRegistry, accounts } = await loadFixture(fixture)
+    const { dnsRegistrar, ensRegistry } = await loadFixture()
 
     const proof = [
       hexEncodeSignedSet(rootKeys({ expiration, inception })),
@@ -93,7 +104,7 @@ describe('DNSRegistrar', () => {
   })
 
   it('allows claims on names that are not TLDs', async () => {
-    const { dnsRegistrar, ensRegistry, accounts } = await loadFixture(fixture)
+    const { dnsRegistrar, ensRegistry } = await loadFixture()
 
     const proof = [
       hexEncodeSignedSet(rootKeys({ expiration, inception })),
@@ -110,7 +121,7 @@ describe('DNSRegistrar', () => {
   })
 
   it('allows anyone to update a DNSSEC referenced name', async () => {
-    const { dnsRegistrar, ensRegistry, accounts } = await loadFixture(fixture)
+    const { dnsRegistrar, ensRegistry } = await loadFixture()
 
     const proof = [
       hexEncodeSignedSet(rootKeys({ expiration, inception })),
@@ -143,7 +154,7 @@ describe('DNSRegistrar', () => {
   })
 
   it('rejects proofs with earlier inceptions', async () => {
-    const { dnsRegistrar, ensRegistry, accounts } = await loadFixture(fixture)
+    const { dnsRegistrar } = await loadFixture()
 
     const proof = [
       hexEncodeSignedSet(rootKeys({ expiration, inception })),
@@ -172,13 +183,13 @@ describe('DNSRegistrar', () => {
       }),
     ]
 
-    await expect(dnsRegistrar)
-      .write('proveAndClaim', [dnsEncodeName('foo.test'), newProof])
-      .toBeRevertedWithCustomError('StaleProof')
+    await expect(
+      dnsRegistrar.write.proveAndClaim([dnsEncodeName('foo.test'), newProof]),
+    ).toBeRevertedWithCustomError('StaleProof')
   })
 
   it('does not allow updates with stale records', async () => {
-    const { dnsRegistrar, dnssec, accounts } = await loadFixture(fixture)
+    const { dnsRegistrar, dnssec } = await loadFixture()
 
     const rrset = testRrset({
       name: 'foo.test',
@@ -204,13 +215,11 @@ describe('DNSRegistrar', () => {
       newProof,
     ])
 
-    await expect(dnssec)
-      .transaction(tx)
-      .toBeRevertedWithCustomError('SignatureExpired')
+    await expect(tx).toBeRevertedWithCustomErrorFrom(dnssec, 'SignatureExpired')
   })
 
   it('allows the owner to claim and set a resolver', async () => {
-    const { dnsRegistrar, ensRegistry, accounts } = await loadFixture(fixture)
+    const { dnsRegistrar, ensRegistry } = await loadFixture()
 
     const proof = [
       hexEncodeSignedSet(rootKeys({ expiration, inception })),
@@ -235,7 +244,7 @@ describe('DNSRegistrar', () => {
   })
 
   it('does not allow anyone else to claim and set a resolver', async () => {
-    const { dnsRegistrar, accounts } = await loadFixture(fixture)
+    const { dnsRegistrar } = await loadFixture()
 
     const proof = [
       hexEncodeSignedSet(rootKeys({ expiration, inception })),
@@ -244,25 +253,23 @@ describe('DNSRegistrar', () => {
       ),
     ]
 
-    await expect(dnsRegistrar)
-      .write('proveAndClaimWithResolver', [
+    await expect(
+      dnsRegistrar.write.proveAndClaimWithResolver([
         dnsEncodeName('foo.test'),
         proof,
         accounts[1].address,
         zeroAddress,
-      ])
-      .toBeRevertedWithCustomError('PermissionDenied')
+      ]),
+    ).toBeRevertedWithCustomError('PermissionDenied')
   })
 
   it('sets an address on the resolver if provided', async () => {
-    const { dnsRegistrar, ensRegistry, accounts } = await loadFixture(fixture)
+    const { dnsRegistrar, ensRegistry } = await loadFixture()
 
-    const publicResolver = await hre.viem.deployContract('PublicResolver', [
-      ensRegistry.address,
-      zeroAddress,
-      zeroAddress,
-      zeroAddress,
-    ])
+    const publicResolver = await connection.viem.deployContract(
+      'PublicResolver',
+      [ensRegistry.address, zeroAddress, zeroAddress, zeroAddress],
+    )
     await publicResolver.write.setApprovalForAll([dnsRegistrar.address, true])
 
     const proof = [
@@ -285,7 +292,7 @@ describe('DNSRegistrar', () => {
   })
 
   it('forbids setting an address if the resolver is not also set', async () => {
-    const { dnsRegistrar, accounts } = await loadFixture(fixture)
+    const { dnsRegistrar } = await loadFixture()
 
     const proof = [
       hexEncodeSignedSet(rootKeys({ expiration, inception })),
@@ -294,56 +301,64 @@ describe('DNSRegistrar', () => {
       ),
     ]
 
-    await expect(dnsRegistrar)
-      .write('proveAndClaimWithResolver', [
+    await expect(
+      dnsRegistrar.write.proveAndClaimWithResolver([
         dnsEncodeName('foo.test'),
         proof,
         zeroAddress,
         accounts[0].address,
-      ])
-      .toBeRevertedWithCustomError('PreconditionNotMet')
+      ]),
+    ).toBeRevertedWithCustomError('PreconditionNotMet')
   })
 
   it('does not allow setting the owner to 0 with an empty record', async () => {
-    const { dnsRegistrar } = await loadFixture(fixture)
+    const { dnsRegistrar } = await loadFixture()
 
-    await expect(dnsRegistrar)
-      .write('proveAndClaim', [dnsEncodeName('foo.test'), []])
-      .toBeRevertedWithCustomError('NoOwnerRecordFound')
+    await expect(
+      dnsRegistrar.write.proveAndClaim([dnsEncodeName('foo.test'), []]),
+    ).toBeRevertedWithCustomError('NoOwnerRecordFound')
   })
 
   describe('unrelated proof', () => {
     async function fixtureWithTestTld() {
-      const { dnssec, accounts } = await loadFixture(dnssecFixture)
-      const ensRegistry = await hre.viem.deployContract('ENSRegistry', [])
-      const root = await hre.viem.deployContract('Root', [ensRegistry.address])
+      const { dnssec } = await loadFixture()
+      const ensRegistry = await connection.viem.deployContract(
+        'ENSRegistry',
+        [],
+      )
+      const root = await connection.viem.deployContract('Root', [
+        ensRegistry.address,
+      ])
 
       await ensRegistry.write.setOwner([zeroHash, root.address])
 
-      const suffixes = await hre.viem.deployContract(
+      const suffixes = await connection.viem.deployContract(
         'SimplePublicSuffixList',
         [],
       )
 
       await suffixes.write.addPublicSuffixes([[dnsEncodeName('test')]])
 
-      const dnsRegistrar = await hre.viem.deployContract('DNSRegistrar', [
-        zeroAddress, // Previous registrar
-        zeroAddress, // Resolver
-        dnssec.address,
-        suffixes.address,
-        ensRegistry.address,
-      ])
+      const dnsRegistrar = await connection.viem.deployContract(
+        'DNSRegistrar',
+        [
+          zeroAddress, // Previous registrar
+          zeroAddress, // Resolver
+          dnssec.address,
+          suffixes.address,
+          ensRegistry.address,
+        ],
+      )
 
       await root.write.setController([dnsRegistrar.address, true])
 
-      return { dnssec, accounts, ensRegistry, root, suffixes, dnsRegistrar }
+      return { dnssec, ensRegistry, root, suffixes, dnsRegistrar }
     }
+    const loadFixtureWithTestTld = async () =>
+      connection.networkHelpers.loadFixture(fixtureWithTestTld)
 
     it('cannot claim multiple names using single unrelated proof', async () => {
-      const { ensRegistry, dnsRegistrar, accounts } = await loadFixture(
-        fixtureWithTestTld,
-      )
+      const { ensRegistry, dnsRegistrar } = await loadFixtureWithTestTld()
 
       const alice = accounts[1]
 
@@ -366,18 +381,16 @@ describe('DNSRegistrar', () => {
       ).resolves.toEqualAddress(alice.address)
 
       // Now using the same proof for `alice.test`, alice cannot also claim `foo.test`
-      await expect(dnsRegistrar)
-        .write('proveAndClaim', [
+      await expect(
+        dnsRegistrar.write.proveAndClaim([
           dnsEncodeName('foo.test'),
           proofForAliceDotTest,
-        ])
-        .toBeRevertedWithCustomError('NoOwnerRecordFound')
+        ]),
+      ).toBeRevertedWithCustomError('NoOwnerRecordFound')
     })
 
     it('cannot takeover claimed DNS domains using unrelated proof', async () => {
-      const { ensRegistry, dnsRegistrar, accounts } = await loadFixture(
-        fixtureWithTestTld,
-      )
+      const { ensRegistry, dnsRegistrar } = await loadFixtureWithTestTld()
 
       const alice = accounts[1]
       const bob = accounts[2]
@@ -408,12 +421,12 @@ describe('DNSRegistrar', () => {
       ]
 
       // Bob cannot claim alice's domain
-      await expect(dnsRegistrar)
-        .write('proveAndClaim', [
+      await expect(
+        dnsRegistrar.write.proveAndClaim([
           dnsEncodeName('alice.test'),
           proofForBobDotTest,
-        ])
-        .toBeRevertedWithCustomError('NoOwnerRecordFound')
+        ]),
+      ).toBeRevertedWithCustomError('NoOwnerRecordFound')
     })
   })
 })

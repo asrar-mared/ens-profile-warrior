@@ -1,5 +1,3 @@
-import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
-import { expect } from 'chai'
 import hre from 'hardhat'
 import {
   Address,
@@ -14,6 +12,8 @@ import {
   zeroHash,
   type Hex,
 } from 'viem'
+import { describe, expect, it } from 'vitest'
+
 import {
   expiration,
   hexEncodeSignedSet,
@@ -23,36 +23,54 @@ import {
 } from '../fixtures/dns.js'
 import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
 import { dnssecFixture } from '../fixtures/dnssecFixture.js'
+import { getAccounts } from '../fixtures/utils.js'
 
 const OFFCHAIN_GATEWAY = 'https://localhost:8000/query'
 
+const connection = await hre.network.connect()
+const accounts = await getAccounts(connection)
+
 async function fixture() {
-  const { accounts, dnssec } = await loadFixture(dnssecFixture)
-  const ensRegistry = await hre.viem.deployContract('ENSRegistry', [])
-  const root = await hre.viem.deployContract('Root', [ensRegistry.address])
+  const { dnssec } = await dnssecFixture(connection)
+  const ensRegistry = await connection.viem.deployContract('ENSRegistry', [])
+  const root = await connection.viem.deployContract('Root', [
+    ensRegistry.address,
+  ])
 
   await ensRegistry.write.setOwner([zeroHash, root.address])
 
-  const suffixes = await hre.viem.deployContract('SimplePublicSuffixList', [])
+  const suffixes = await connection.viem.deployContract(
+    'SimplePublicSuffixList',
+    [],
+  )
 
   await suffixes.write.addPublicSuffixes([
     [dnsEncodeName('test'), dnsEncodeName('co.nz')],
   ])
 
-  const offchainResolver = await hre.viem.deployContract(
+  const offchainResolver = await connection.viem.deployContract(
     'MockOffchainResolver',
     [],
   )
-  const offchainDnsResolver = await hre.viem.deployContract(
+  const publicClientWithoutCcipRead = await connection.viem.getPublicClient({
+    ccipRead: false,
+  })
+  const offchainDnsResolver = await connection.viem.deployContract(
     'OffchainDNSResolver',
     [ensRegistry.address, dnssec.address, OFFCHAIN_GATEWAY],
+    {
+      client: { public: publicClientWithoutCcipRead },
+    },
   )
-  const ownedResolver = await hre.viem.deployContract('OwnedResolver', [])
-  const dummyResolver = await hre.viem.deployContract(
+  const ownedResolver = await connection.viem.deployContract(
+    'OwnedResolver',
+    [],
+  )
+  const dummyResolver = await connection.viem.deployContract(
     'DummyNonCCIPAwareResolver',
     [offchainDnsResolver.address],
   )
-  const dnsRegistrar = await hre.viem.deployContract('DNSRegistrar', [
+  const dnsRegistrar = await connection.viem.deployContract('DNSRegistrar', [
     zeroAddress, // Previous registrar
     offchainDnsResolver.address,
     dnssec.address,
@@ -70,7 +88,7 @@ async function fixture() {
     .readArtifact('IDNSGateway')
     .then((a) => a.abi)
 
-  const doDnsResolveCallback = async ({
+  const doDnsResolveCallback = ({
     name,
     texts,
     calldata,
@@ -104,7 +122,7 @@ async function fixture() {
     return offchainDnsResolver.read.resolveCallback([response, extraData])
   }
 
-  const doResolveCallback = async ({
+  const doResolveCallback = ({
     extraData,
     result,
   }: {
@@ -132,16 +150,16 @@ async function fixture() {
     dnsRegistrar,
     publicResolverAbi,
     dnsGatewayAbi,
-    accounts,
     doDnsResolveCallback,
     doResolveCallback,
   }
 }
+const loadFixture = async () => connection.networkHelpers.loadFixture(fixture)
 
 describe('OffchainDNSResolver', () => {
   it('should respond to resolution requests with a CCIP read request to the DNS gateway', async () => {
     const { publicResolverAbi, dnsGatewayAbi, offchainDnsResolver } =
-      await loadFixture(fixture)
+      await loadFixture()
 
     const name = 'test.test'
     const dnsName = dnsEncodeName(name)
@@ -161,21 +179,20 @@ describe('OffchainDNSResolver', () => {
       args: [dnsName, 16],
     })
 
-    await expect(offchainDnsResolver)
-      .read('resolve', [dnsName, callData])
+    await expect(offchainDnsResolver.read.resolve([dnsName, callData]))
       .toBeRevertedWithCustomError('OffchainLookup')
-      .withArgs(
+      .withArgs([
         getAddress(offchainDnsResolver.address),
         [OFFCHAIN_GATEWAY],
         gatewayCall,
         toFunctionSelector('function resolveCallback(bytes,bytes)'),
         extraData,
-      )
+      ])
   })
 
   it('handles calls to resolveCallback() with valid DNS TXT records containing an address', async () => {
     const { ownedResolver, doDnsResolveCallback, publicResolverAbi } =
-      await loadFixture(fixture)
+      await loadFixture()
 
     const name = 'test.test'
     const testAddress = '0xfefeFEFeFEFEFEFEFeFefefefefeFEfEfefefEfe'
@@ -201,7 +218,7 @@ describe('OffchainDNSResolver', () => {
 
   it('handles calls to resolveCallback() with extra data and a legacy resolver', async () => {
     const { ownedResolver, publicResolverAbi, doDnsResolveCallback } =
-      await loadFixture(fixture)
+      await loadFixture()
 
     const name = 'test.test'
     const testAddress = '0xfefeFEFeFEFEFEFEFeFefefefefeFEfEfefefEfe'
@@ -229,11 +246,10 @@ describe('OffchainDNSResolver', () => {
     const {
       ownedResolver,
       root,
-      accounts,
       ensRegistry,
       publicResolverAbi,
       doDnsResolveCallback,
-    } = await loadFixture(fixture)
+    } = await loadFixture()
 
     // Configure dnsresolver.eth to resolve to the ownedResolver so we can use it in the test
     await root.write.setSubnodeOwner([labelhash('eth'), accounts[0].address])
@@ -277,7 +293,7 @@ describe('OffchainDNSResolver', () => {
       doDnsResolveCallback,
       offchainDnsResolver,
       publicResolverAbi,
-    } = await loadFixture(fixture)
+    } = await loadFixture()
 
     const name = 'test.test'
     const testAddress = '0xfefeFEFeFEFEFEFEFeFefefefefeFEfEfefefEfe'
@@ -290,20 +306,18 @@ describe('OffchainDNSResolver', () => {
       args: [namehash(name)],
     })
 
-    await expect(offchainDnsResolver)
-      .transaction(
-        doDnsResolveCallback({
-          name,
-          texts: ['nonsense'],
-          calldata,
-        }),
-      )
-      .toBeRevertedWithCustomError('CouldNotResolve')
+    await expect(
+      doDnsResolveCallback({
+        name,
+        texts: ['nonsense'],
+        calldata,
+      }),
+    ).toBeRevertedWithCustomError('CouldNotResolve')
   })
 
   it('handles calls to resolveCallback() where the valid TXT record is not the first', async () => {
     const { ownedResolver, doDnsResolveCallback, publicResolverAbi } =
-      await loadFixture(fixture)
+      await loadFixture()
 
     const name = 'test.test'
     const testAddress = '0xfefeFEFeFEFEFEFEFeFefefefefeFEfEfefefEfe'
@@ -329,7 +343,7 @@ describe('OffchainDNSResolver', () => {
 
   it('respects the first record with a valid resolver', async () => {
     const { ownedResolver, doDnsResolveCallback, publicResolverAbi } =
-      await loadFixture(fixture)
+      await loadFixture()
 
     const name = 'test.test'
     const testAddress = '0xfefeFEFeFEFEFEFEFeFefefefefeFEfEfefefEfe'
@@ -358,11 +372,9 @@ describe('OffchainDNSResolver', () => {
   })
 
   it('correctly handles extra (string) data in the TXT record when calling a resolver that supports it', async () => {
-    const { doDnsResolveCallback, publicResolverAbi } = await loadFixture(
-      fixture,
-    )
+    const { doDnsResolveCallback, publicResolverAbi } = await loadFixture()
 
-    const resolver = await hre.viem.deployContract(
+    const resolver = await connection.viem.deployContract(
       'DummyExtendedDNSSECResolver',
       [],
     )
@@ -385,11 +397,12 @@ describe('OffchainDNSResolver', () => {
   })
 
   it('correctly handles extra data in the TXT record when calling a resolver that supports address resolution', async () => {
-    const { doDnsResolveCallback, publicResolverAbi } = await loadFixture(
-      fixture,
-    )
+    const { doDnsResolveCallback, publicResolverAbi } = await loadFixture()
 
-    const resolver = await hre.viem.deployContract('ExtendedDNSResolver', [])
+    const resolver = await connection.viem.deployContract(
+      'ExtendedDNSResolver',
+      [],
+    )
     const name = 'test.test'
     const testAddress = '0xfefeFEFeFEFEFEFEFeFefefefefeFEfEfefefEfe'
 
@@ -411,11 +424,12 @@ describe('OffchainDNSResolver', () => {
   })
 
   it('correctly handles extra data in the TXT record when calling a resolver that supports address resolution with valid cointype', async () => {
-    const { doDnsResolveCallback, publicResolverAbi } = await loadFixture(
-      fixture,
-    )
+    const { doDnsResolveCallback, publicResolverAbi } = await loadFixture()
 
-    const resolver = await hre.viem.deployContract('ExtendedDNSResolver', [])
+    const resolver = await connection.viem.deployContract(
+      'ExtendedDNSResolver',
+      [],
+    )
     const name = 'test.test'
     const testAddress = '0xfefeFEFeFEFEFEFEFeFefefefefeFEfEfefefEfe'
     const ethCoinType = 60n
@@ -437,11 +451,12 @@ describe('OffchainDNSResolver', () => {
   })
 
   it('handles extra data in the TXT record when calling a resolver that supports address resolution with invalid cointype', async () => {
-    const { doDnsResolveCallback, publicResolverAbi } = await loadFixture(
-      fixture,
-    )
+    const { doDnsResolveCallback, publicResolverAbi } = await loadFixture()
 
-    const resolver = await hre.viem.deployContract('ExtendedDNSResolver', [])
+    const resolver = await connection.viem.deployContract(
+      'ExtendedDNSResolver',
+      [],
+    )
     const name = 'test.test'
     const testAddress = '0xfefeFEFeFEFEFEFEFeFefefefefeFEfEfefefEfe'
     const btcCoinType = 0n
@@ -461,11 +476,12 @@ describe('OffchainDNSResolver', () => {
   })
 
   it('raises an error if extra (address) data in the TXT record is invalid', async () => {
-    const { doDnsResolveCallback, publicResolverAbi } = await loadFixture(
-      fixture,
-    )
+    const { doDnsResolveCallback, publicResolverAbi } = await loadFixture()
 
-    const resolver = await hre.viem.deployContract('ExtendedDNSResolver', [])
+    const resolver = await connection.viem.deployContract(
+      'ExtendedDNSResolver',
+      [],
+    )
     const name = 'test.test'
     const testAddress = '0xsmth'
     const calldata = encodeFunctionData({
@@ -474,23 +490,19 @@ describe('OffchainDNSResolver', () => {
       args: [namehash(name)],
     })
 
-    await expect(resolver)
-      .transaction(
-        doDnsResolveCallback({
-          name,
-          texts: [`ENS1 ${resolver.address} a[60]=${testAddress}`],
-          calldata,
-        }),
-      )
-      .toBeRevertedWithCustomError('InvalidAddressFormat')
+    await expect(
+      doDnsResolveCallback({
+        name,
+        texts: [`ENS1 ${resolver.address} a[60]=${testAddress}`],
+        calldata,
+      }),
+    ).toBeRevertedWithCustomErrorFrom(resolver, 'InvalidAddressFormat')
   })
 
   it('correctly resolves using legacy resolvers without resolve() support', async () => {
-    const { doDnsResolveCallback, publicResolverAbi } = await loadFixture(
-      fixture,
-    )
+    const { doDnsResolveCallback, publicResolverAbi } = await loadFixture()
 
-    const resolver = await hre.viem.deployContract(
+    const resolver = await connection.viem.deployContract(
       'DummyLegacyTextResolver',
       [],
     )
@@ -517,7 +529,7 @@ describe('OffchainDNSResolver', () => {
       offchainResolver,
       offchainDnsResolver,
       publicResolverAbi,
-    } = await loadFixture(fixture)
+    } = await loadFixture()
 
     const name = 'test.test'
     const dnsName = dnsEncodeName(name)
@@ -536,22 +548,21 @@ describe('OffchainDNSResolver', () => {
       ],
     )
 
-    await expect(offchainDnsResolver)
-      .transaction(
-        doDnsResolveCallback({
-          name,
-          texts: [`ENS1 ${offchainResolver.address} foobie bletch`],
-          calldata,
-        }),
-      )
+    await expect(
+      doDnsResolveCallback({
+        name,
+        texts: [`ENS1 ${offchainResolver.address} foobie bletch`],
+        calldata,
+      }),
+    )
       .toBeRevertedWithCustomError('OffchainLookup')
-      .withArgs(
+      .withArgs([
         getAddress(offchainDnsResolver.address),
         ['https://example.com/'],
         calldata,
         toFunctionSelector('function resolveCallback(bytes,bytes)'),
         extraData,
-      )
+      ])
 
     const expectedAddress = '0x0D59d0f7DcC0fBF0A3305cE0261863aAf7Ab685c'
     const expectedResult = encodeAbiParameters(
@@ -565,12 +576,8 @@ describe('OffchainDNSResolver', () => {
   })
 
   it('should prevent OffchainLookup error propagation from non-CCIP-aware contracts', async () => {
-    const {
-      offchainDnsResolver,
-      doDnsResolveCallback,
-      dummyResolver,
-      publicResolverAbi,
-    } = await loadFixture(fixture)
+    const { doDnsResolveCallback, dummyResolver, publicResolverAbi } =
+      await loadFixture()
 
     const name = 'test.test'
     const calldata = encodeFunctionData({
@@ -579,14 +586,12 @@ describe('OffchainDNSResolver', () => {
       args: [namehash(name)],
     })
 
-    await expect(offchainDnsResolver)
-      .transaction(
-        doDnsResolveCallback({
-          name,
-          texts: [`ENS1 ${dummyResolver.address}`],
-          calldata,
-        }),
-      )
-      .toBeRevertedWithCustomError('InvalidOperation')
+    await expect(
+      doDnsResolveCallback({
+        name,
+        texts: [`ENS1 ${dummyResolver.address}`],
+        calldata,
+      }),
+    ).toBeRevertedWithCustomError('InvalidOperation')
   })
 })

@@ -1,17 +1,20 @@
-import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
-import { expect } from 'chai'
 import hre from 'hardhat'
 import { stringToHex } from 'viem'
+import { describe, expect, it } from 'vitest'
+
+const connection = await hre.network.connect()
 
 async function fixture() {
-  const parser = await hre.viem.deployContract('DummyParser', [])
+  const parser = await connection.viem.deployContract('DummyParser', [])
 
   return { parser }
 }
 
+const loadFixture = async () => connection.networkHelpers.loadFixture(fixture)
+
 describe('RecordParser', () => {
   it('parses data', async () => {
-    const { parser } = await loadFixture(fixture)
+    const { parser } = await loadFixture()
 
     const data = 'usdt;issuer=tether decimals=18;https://tether.to'
     const [name, keys, values, url] = await parser.read.parseData([

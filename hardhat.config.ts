@@ -1,27 +1,23 @@
-import dotenv from 'dotenv'
-import { HardhatUserConfig } from 'hardhat/config'
+import { configVariable, type HardhatUserConfig } from 'hardhat/config'
 
-// Load environment variables from .env file. Suppress warnings using silent
-// if this file is missing. dotenv will never modify any environment variables
-// that have already been set.
-// https://github.com/motdotla/dotenv
-dotenv.config({ debug: false })
+import HardhatChaiMatchersViemPlugin from '@ensdomains/hardhat-chai-matchers-viem'
+import HardhatKeystore from '@nomicfoundation/hardhat-keystore'
+import HardhatNetworkHelpersPlugin from '@nomicfoundation/hardhat-network-helpers'
+import HardhatViem from '@nomicfoundation/hardhat-viem'
+import HardhatDeploy from 'hardhat-deploy'
 
-let real_accounts = undefined
-if (process.env.DEPLOYER_KEY) {
-  real_accounts = [
-    process.env.DEPLOYER_KEY,
-    process.env.OWNER_KEY || process.env.DEPLOYER_KEY,
-  ]
-}
+const realAccounts = [
+  configVariable('DEPLOYER_KEY'),
+  configVariable('OWNER_KEY'),
+]
 
 // circular dependency shared with actions
 export const archivedDeploymentPath = './deployments/archive'
 
-const config: HardhatUserConfig = {
+const config = {
   networks: {
     hardhat: {
-      type: 'http',
+      type: 'edr',
       allowUnlimitedContractSize: false,
       forking: process.env.FORKING_ENABLED
         ? {
@@ -37,19 +33,19 @@ const config: HardhatUserConfig = {
       type: 'http',
       url: `https://sepolia.infura.io/v3/${process.env.INFURA_API_KEY}`,
       chainId: 11155111,
-      accounts: real_accounts,
+      accounts: realAccounts,
     },
     holesky: {
       type: 'http',
       url: `https://holesky.gateway.tenderly.co`,
       chainId: 17000,
-      accounts: real_accounts,
+      accounts: realAccounts,
     },
     mainnet: {
       type: 'http',
       url: `https://mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
       chainId: 1,
-      accounts: real_accounts,
+      accounts: realAccounts,
     },
   },
   solidity: {
@@ -63,18 +59,15 @@ const config: HardhatUserConfig = {
           },
         },
       },
-      // for DummyOldResolver contract
-      {
-        version: '0.4.11',
-        settings: {
-          optimizer: {
-            enabled: true,
-            runs: 200,
-          },
-        },
-      },
     ],
   },
-}
+  plugins: [
+    HardhatNetworkHelpersPlugin,
+    HardhatChaiMatchersViemPlugin,
+    HardhatViem,
+    HardhatDeploy,
+    HardhatKeystore,
+  ],
+} satisfies HardhatUserConfig
 
 export default config
