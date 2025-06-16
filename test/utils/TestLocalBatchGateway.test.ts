@@ -4,17 +4,18 @@ import {
   parseAbi,
   zeroAddress,
 } from 'viem'
+import { afterAll, describe, expect, it } from 'vitest'
+
+import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
 import {
   fetchBatchGateway,
   serveBatchGateway,
 } from '../fixtures/localBatchGateway.js'
-import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
-import { expect } from 'chai'
 
 describe('TestLocalBatchGateway', () => {
   it('OffchainDNSOracle', async () => {
     const { shutdown, localBatchGatewayUrl } = await serveBatchGateway()
-    after(shutdown)
+    afterAll(shutdown)
     const abi = parseAbi([
       'function resolve(bytes memory name, uint16 qtype) view returns (RRSetWithSignature[] memory rrs)',
       'struct RRSetWithSignature { bytes rrset; bytes sig; }',

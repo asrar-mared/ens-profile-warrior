@@ -1,23 +1,35 @@
-import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
-import { expect } from 'chai'
 import hre from 'hardhat'
-import { type Address, labelhash, namehash, zeroAddress, zeroHash } from 'viem'
+import {
+  type Address,
+  getAddress,
+  labelhash,
+  namehash,
+  zeroAddress,
+  zeroHash,
+} from 'viem'
+import { describe, expect, it } from 'vitest'
+
 import { getReverseName } from '../fixtures/ensip19.js'
+import { getAccounts } from '../fixtures/utils.js'
 
 function getReverseNodeHash(addr: Address) {
   return namehash(getReverseName(addr))
 }
 
-async function fixture() {
-  const accounts = await hre.viem
-    .getWalletClients()
-    .then((clients) => clients.map((c) => c.account))
-  const ensRegistry = await hre.viem.deployContract('ENSRegistry', [])
-  const nameWrapper = await hre.viem.deployContract('DummyNameWrapper', [])
+const connection = await hre.network.connect()
+const accounts = await getAccounts(connection)
 
-  const reverseRegistrar = await hre.viem.deployContract('ReverseRegistrar', [
-    ensRegistry.address,
-  ])
+async function fixture() {
+  const ensRegistry = await connection.viem.deployContract('ENSRegistry', [])
+  const nameWrapper = await connection.viem.deployContract(
+    'DummyNameWrapper',
+    [],
+  )
+
+  const reverseRegistrar = await connection.viem.deployContract(
+    'ReverseRegistrar',
+    [ensRegistry.address],
+  )
 
   await ensRegistry.write.setSubnodeOwner([
     zeroHash,
@@ -30,18 +42,22 @@ async function fixture() {
     reverseRegistrar.address,
   ])
 
-  const publicResolver = await hre.viem.deployContract('PublicResolver', [
-    ensRegistry.address,
-    nameWrapper.address,
-    zeroAddress,
-    reverseRegistrar.address,
-  ])
+  const publicResolver = await connection.viem.deployContract(
+    'PublicResolver',
+    [
+      ensRegistry.address,
+      nameWrapper.address,
+      zeroAddress,
+      reverseRegistrar.address,
+    ],
+  )
 
   await reverseRegistrar.write.setDefaultResolver([publicResolver.address])
 
-  const dummyOwnable = await hre.viem.deployContract('ReverseRegistrar', [
-    ensRegistry.address,
-  ])
+  const dummyOwnable = await connection.viem.deployContract(
+    'ReverseRegistrar',
+    [ensRegistry.address],
+  )
 
   return {
     ensRegistry,
@@ -49,13 +65,13 @@ async function fixture() {
     reverseRegistrar,
     publicResolver,
     dummyOwnable,
-    accounts,
   }
 }
+const loadFixture = async () => connection.networkHelpers.loadFixture(fixture)
 
 describe('ReverseRegistrar', () => {
   it('should calculate node hash correctly', async () => {
-    const { reverseRegistrar, accounts } = await loadFixture(fixture)
+    const { reverseRegistrar } = await loadFixture()
 
     await expect(
       reverseRegistrar.read.node([accounts[0].address]),
@@ -64,9 +80,7 @@ describe('ReverseRegistrar', () => {
 
   describe('claim', () => {
     it('allows an account to claim its address', async () => {
-      const { ensRegistry, reverseRegistrar, accounts } = await loadFixture(
-        fixture,
-      )
+      const { ensRegistry, reverseRegistrar } = await loadFixture()
 
       await reverseRegistrar.write.claim([accounts[1].address])
 
@@ -76,19 +90,21 @@ describe('ReverseRegistrar', () => {
     })
 
     it('event ReverseClaimed is emitted', async () => {
-      const { reverseRegistrar, accounts } = await loadFixture(fixture)
+      const { reverseRegistrar } = await loadFixture()
 
-      await expect(reverseRegistrar)
-        .write('claim', [accounts[1].address])
+      await expect(reverseRegistrar.write.claim([accounts[1].address]))
         .toEmitEvent('ReverseClaimed')
-        .withArgs(accounts[0].address, getReverseNodeHash(accounts[0].address))
+        .withArgs({
+          addr: getAddress(accounts[0].address),
+          node: getReverseNodeHash(accounts[0].address),
+        })
     })
   })
 
   describe('claimForAddr', () => {
     it('allows an account to claim its address', async () => {
-      const { ensRegistry, reverseRegistrar, publicResolver, accounts } =
-        await loadFixture(fixture)
+      const { ensRegistry, reverseRegistrar, publicResolver } =
+        await loadFixture()
 
       await reverseRegistrar.write.claimForAddr([
         accounts[0].address,
@@ -102,37 +118,37 @@ describe('ReverseRegistrar', () => {
     })
 
     it('event ReverseClaimed is emitted', async () => {
-      const { reverseRegistrar, publicResolver, accounts } = await loadFixture(
-        fixture,
-      )
+      const { reverseRegistrar, publicResolver } = await loadFixture()
 
-      await expect(reverseRegistrar)
-        .write('claimForAddr', [
+      await expect(
+        reverseRegistrar.write.claimForAddr([
           accounts[0].address,
           accounts[1].address,
           publicResolver.address,
-        ])
+        ]),
+      )
         .toEmitEvent('ReverseClaimed')
-        .withArgs(accounts[0].address, getReverseNodeHash(accounts[0].address))
+        .withArgs({
+          addr: getAddress(accounts[0].address),
+          node: getReverseNodeHash(accounts[0].address),
+        })
     })
 
     it('forbids an account to claim another address', async () => {
-      const { reverseRegistrar, publicResolver, accounts } = await loadFixture(
-        fixture,
-      )
+      const { reverseRegistrar, publicResolver } = await loadFixture()
 
-      await expect(reverseRegistrar)
-        .write('claimForAddr', [
+      await expect(
+        reverseRegistrar.write.claimForAddr([
           accounts[1].address,
           accounts[0].address,
           publicResolver.address,
-        ])
-        .toBeRevertedWithoutReason()
+        ]),
+      ).toBeRevertedWithoutReason()
     })
 
     it('allows an authorised account to claim a different address', async () => {
-      const { ensRegistry, reverseRegistrar, publicResolver, accounts } =
-        await loadFixture(fixture)
+      const { ensRegistry, reverseRegistrar, publicResolver } =
+        await loadFixture()
 
       await ensRegistry.write.setApprovalForAll([accounts[0].address, true], {
         account: accounts[1],
@@ -149,8 +165,8 @@ describe('ReverseRegistrar', () => {
     })
 
     it('allows a controller to claim a different address', async () => {
-      const { ensRegistry, reverseRegistrar, publicResolver, accounts } =
-        await loadFixture(fixture)
+      const { ensRegistry, reverseRegistrar, publicResolver } =
+        await loadFixture()
 
       await reverseRegistrar.write.setController([accounts[0].address, true])
       await reverseRegistrar.write.claimForAddr([
@@ -165,13 +181,8 @@ describe('ReverseRegistrar', () => {
     })
 
     it('allows an owner() of a contract to claim the reverse node of that contract', async () => {
-      const {
-        ensRegistry,
-        reverseRegistrar,
-        dummyOwnable,
-        publicResolver,
-        accounts,
-      } = await loadFixture(fixture)
+      const { ensRegistry, reverseRegistrar, dummyOwnable, publicResolver } =
+        await loadFixture()
 
       await reverseRegistrar.write.setController([accounts[0].address, true])
       await reverseRegistrar.write.claimForAddr([
@@ -188,9 +199,7 @@ describe('ReverseRegistrar', () => {
 
   describe('claimWithResolver', async () => {
     it('allows an account to specify resolver', async () => {
-      const { ensRegistry, reverseRegistrar, accounts } = await loadFixture(
-        fixture,
-      )
+      const { ensRegistry, reverseRegistrar } = await loadFixture()
 
       await reverseRegistrar.write.claimWithResolver([
         accounts[1].address,
@@ -206,19 +215,26 @@ describe('ReverseRegistrar', () => {
     })
 
     it('event ReverseClaimed is emitted', async () => {
-      const { reverseRegistrar, accounts } = await loadFixture(fixture)
+      const { reverseRegistrar } = await loadFixture()
 
-      await expect(reverseRegistrar)
-        .write('claimWithResolver', [accounts[1].address, accounts[2].address])
+      await expect(
+        reverseRegistrar.write.claimWithResolver([
+          accounts[1].address,
+          accounts[2].address,
+        ]),
+      )
         .toEmitEvent('ReverseClaimed')
-        .withArgs(accounts[0].address, getReverseNodeHash(accounts[0].address))
+        .withArgs({
+          addr: getAddress(accounts[0].address),
+          node: getReverseNodeHash(accounts[0].address),
+        })
     })
   })
 
   describe('setName', () => {
     it('allows controller to set name records for other accounts', async () => {
-      const { ensRegistry, reverseRegistrar, publicResolver, accounts } =
-        await loadFixture(fixture)
+      const { ensRegistry, reverseRegistrar, publicResolver } =
+        await loadFixture()
 
       await reverseRegistrar.write.setController([accounts[0].address, true])
       await reverseRegistrar.write.setNameForAddr([
@@ -237,39 +253,39 @@ describe('ReverseRegistrar', () => {
     })
 
     it('event ReverseClaimed is emitted', async () => {
-      const { reverseRegistrar, publicResolver, accounts } = await loadFixture(
-        fixture,
-      )
+      const { reverseRegistrar, publicResolver } = await loadFixture()
 
-      await expect(reverseRegistrar)
-        .write('setNameForAddr', [
+      await expect(
+        reverseRegistrar.write.setNameForAddr([
           accounts[0].address,
           accounts[0].address,
           publicResolver.address,
           'testname',
-        ])
+        ]),
+      )
         .toEmitEvent('ReverseClaimed')
-        .withArgs(accounts[0].address, getReverseNodeHash(accounts[0].address))
+        .withArgs({
+          addr: getAddress(accounts[0].address),
+          node: getReverseNodeHash(accounts[0].address),
+        })
     })
 
     it('forbids non-controller if address is different from sender and not authorised', async () => {
-      const { reverseRegistrar, publicResolver, accounts } = await loadFixture(
-        fixture,
-      )
+      const { reverseRegistrar, publicResolver } = await loadFixture()
 
-      await expect(reverseRegistrar)
-        .write('setNameForAddr', [
+      await expect(
+        reverseRegistrar.write.setNameForAddr([
           accounts[1].address,
           accounts[0].address,
           publicResolver.address,
           'testname',
-        ])
-        .toBeRevertedWithoutReason()
+        ]),
+      ).toBeRevertedWithoutReason()
     })
 
     it('allows name to be set for an address if the sender is the address', async () => {
-      const { ensRegistry, reverseRegistrar, publicResolver, accounts } =
-        await loadFixture(fixture)
+      const { ensRegistry, reverseRegistrar, publicResolver } =
+        await loadFixture()
 
       await reverseRegistrar.write.setNameForAddr([
         accounts[0].address,
@@ -287,8 +303,8 @@ describe('ReverseRegistrar', () => {
     })
 
     it('allows name to be set for an address if the sender is authorised', async () => {
-      const { ensRegistry, reverseRegistrar, publicResolver, accounts } =
-        await loadFixture(fixture)
+      const { ensRegistry, reverseRegistrar, publicResolver } =
+        await loadFixture()
 
       await ensRegistry.write.setApprovalForAll([accounts[1].address, true])
       await reverseRegistrar.write.setNameForAddr(
@@ -310,13 +326,8 @@ describe('ReverseRegistrar', () => {
     })
 
     it('allows an owner() of a contract to claimWithResolverForAddr on behalf of the contract', async () => {
-      const {
-        ensRegistry,
-        reverseRegistrar,
-        dummyOwnable,
-        publicResolver,
-        accounts,
-      } = await loadFixture(fixture)
+      const { ensRegistry, reverseRegistrar, dummyOwnable, publicResolver } =
+        await loadFixture()
 
       await reverseRegistrar.write.setNameForAddr([
         dummyOwnable.address,
@@ -336,13 +347,13 @@ describe('ReverseRegistrar', () => {
 
   describe('setController', () => {
     it('forbids non-owner from setting a controller', async () => {
-      const { reverseRegistrar, accounts } = await loadFixture(fixture)
+      const { reverseRegistrar } = await loadFixture()
 
-      await expect(reverseRegistrar)
-        .write('setController', [accounts[1].address, true], {
+      await expect(
+        reverseRegistrar.write.setController([accounts[1].address, true], {
           account: accounts[1],
-        })
-        .toBeRevertedWithString('Ownable: caller is not the owner')
+        }),
+      ).toBeRevertedWithString('Ownable: caller is not the owner')
     })
   })
 })

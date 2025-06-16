@@ -1,16 +1,21 @@
-import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
-import { expect } from 'chai'
 import hre from 'hardhat'
+import { describe, expect, it } from 'vitest'
+
+const connection = await hre.network.connect()
 
 async function fixture() {
-  const stringUtils = await hre.viem.deployContract('StringUtilsTest', [])
+  const stringUtils = await connection.viem.deployContract(
+    'StringUtilsTest',
+    [],
+  )
 
   return { stringUtils }
 }
+const loadFixture = async () => connection.networkHelpers.loadFixture(fixture)
 
 describe('StringUtils', () => {
   it('should escape double quote correctly based on JSON standard', async () => {
-    const { stringUtils } = await loadFixture(fixture)
+    const { stringUtils } = await loadFixture()
 
     await expect(
       stringUtils.read.testEscape(['My ENS is, "tanrikulu.eth"']),
@@ -18,7 +23,7 @@ describe('StringUtils', () => {
   })
 
   it('should escape backslash correctly based on JSON standard', async () => {
-    const { stringUtils } = await loadFixture(fixture)
+    const { stringUtils } = await loadFixture()
 
     await expect(
       stringUtils.read.testEscape(['Path\\to\\file']),
@@ -26,7 +31,7 @@ describe('StringUtils', () => {
   })
 
   it('should escape new line character correctly based on JSON standard', async () => {
-    const { stringUtils } = await loadFixture(fixture)
+    const { stringUtils } = await loadFixture()
 
     await expect(
       stringUtils.read.testEscape(['Line 1\nLine 2']),

@@ -1,6 +1,7 @@
 import hre from 'hardhat'
-import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
-import { expect } from 'chai'
+import { describe, expect, it } from 'vitest'
+
+import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
 import {
   chainFromCoinType,
   COIN_TYPE_ETH,
@@ -9,11 +10,6 @@ import {
   isEVMCoinType,
   shortCoin,
 } from '../fixtures/ensip19.js'
-import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
-
-async function fixture() {
-  return hre.viem.deployContract('TestENSIP19')
-}
 
 const addrs = [
   '0x81',
@@ -30,18 +26,25 @@ const coinTypes = [
   0x1_8000_0123n, // 33 bits
 ]
 
+const connection = await hre.network.connect()
+
+async function fixture() {
+  return connection.viem.deployContract('TestENSIP19')
+}
+const loadFixture = async () => connection.networkHelpers.loadFixture(fixture)
+
 describe('ENSIP19', () => {
   describe('reverseName()', () => {
     it('empty', async () => {
-      const F = await loadFixture(fixture)
-      await expect(F)
-        .read('reverseName', ['0x', COIN_TYPE_ETH])
-        .toBeRevertedWithCustomError('EmptyAddress')
+      const F = await loadFixture()
+      await expect(
+        F.read.reverseName(['0x', COIN_TYPE_ETH]),
+      ).toBeRevertedWithCustomError('EmptyAddress')
     })
 
     for (const addr of addrs) {
       it(addr, async () => {
-        const F = await loadFixture(fixture)
+        const F = await loadFixture()
         for (const coinType of coinTypes) {
           await expect(
             F.read.reverseName([addr, coinType]),
@@ -55,7 +58,7 @@ describe('ENSIP19', () => {
   describe('parse(reverseName(a, c)) == (a, c)', () => {
     for (const addr of addrs) {
       it(addr, async () => {
-        const F = await loadFixture(fixture)
+        const F = await loadFixture()
         for (const coinType of coinTypes) {
           await expect(
             F.read.parse([dnsEncodeName(getReverseName(addr, coinType))]),
@@ -80,7 +83,7 @@ describe('ENSIP19', () => {
       '1234.addr.reverse.eth', // not tld
     ]) {
       it(name || '<empty>', async () => {
-        const F = await loadFixture(fixture)
+        const F = await loadFixture()
         await expect(
           F.read.parse([dnsEncodeName(name)]),
         ).resolves.toStrictEqual(['0x', 0n])
@@ -91,7 +94,7 @@ describe('ENSIP19', () => {
   describe('chainFromCoinType()', () => {
     for (const coinType of coinTypes) {
       it(shortCoin(coinType), async () => {
-        const F = await loadFixture(fixture)
+        const F = await loadFixture()
         await expect(
           F.read.chainFromCoinType([coinType]),
         ).resolves.toStrictEqual(chainFromCoinType(coinType))
@@ -102,7 +105,7 @@ describe('ENSIP19', () => {
   describe('isEVMCoinType()', () => {
     for (const coinType of coinTypes) {
       it(shortCoin(coinType), async () => {
-        const F = await loadFixture(fixture)
+        const F = await loadFixture()
         await expect(F.read.isEVMCoinType([coinType])).resolves.toStrictEqual(
           isEVMCoinType(coinType),
         )

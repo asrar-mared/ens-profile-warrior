@@ -1,7 +1,6 @@
-import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
-import { expect } from 'chai'
 import hre from 'hardhat'
 import {
+  getAddress,
   hexToBigInt,
   labelhash,
   namehash,
@@ -9,35 +8,31 @@ import {
   zeroAddress,
   zeroHash,
 } from 'viem'
+import { describe, expect, it } from 'vitest'
 
-const getAccounts = async () => {
-  const [ownerClient, registrantClient, otherClient] =
-    await hre.viem.getWalletClients()
-  return {
-    ownerAccount: ownerClient.account,
-    ownerClient,
-    registrantAccount: registrantClient.account,
-    registrantClient,
-    otherAccount: otherClient.account,
-    otherClient,
-  }
-}
+const connection = await hre.network.connect()
+const publicClient = await connection.viem.getPublicClient()
+const [ownerClient, registrantClient, otherClient] =
+  await connection.viem.getWalletClients()
+const ownerAccount = ownerClient.account
+const registrantAccount = registrantClient.account
+const otherAccount = otherClient.account
 
 async function fixture() {
-  const accounts = await getAccounts()
-  const ensRegistry = await hre.viem.deployContract('ENSRegistry', [])
-  const baseRegistrar = await hre.viem.deployContract(
+  const ensRegistry = await connection.viem.deployContract('ENSRegistry', [])
+  const baseRegistrar = await connection.viem.deployContract(
     'BaseRegistrarImplementation',
     [ensRegistry.address, namehash('eth')],
   )
-  const reverseRegistrar = await hre.viem.deployContract('ReverseRegistrar', [
-    ensRegistry.address,
-  ])
+  const reverseRegistrar = await connection.viem.deployContract(
+    'ReverseRegistrar',
+    [ensRegistry.address],
+  )
 
   await ensRegistry.write.setSubnodeOwner([
     zeroHash,
     labelhash('reverse'),
-    accounts.ownerAccount.address,
+    ownerAccount.address,
   ])
   await ensRegistry.write.setSubnodeOwner([
     namehash('reverse'),
@@ -45,10 +40,10 @@ async function fixture() {
     reverseRegistrar.address,
   ])
 
-  const nameWrapper = await hre.viem.deployContract('NameWrapper', [
+  const nameWrapper = await connection.viem.deployContract('NameWrapper', [
     ensRegistry.address,
     baseRegistrar.address,
-    accounts.ownerAccount.address,
+    ownerAccount.address,
   ])
 
   await ensRegistry.write.setSubnodeOwner([
@@ -58,17 +53,14 @@ async function fixture() {
   ])
 
   await baseRegistrar.write.addController([nameWrapper.address])
-  await baseRegistrar.write.addController([accounts.ownerAccount.address])
-  await nameWrapper.write.setController([accounts.ownerAccount.address, true])
+  await baseRegistrar.write.addController([ownerAccount.address])
+  await nameWrapper.write.setController([ownerAccount.address, true])
 
-  const migrationHelper = await hre.viem.deployContract('MigrationHelper', [
-    baseRegistrar.address,
-    nameWrapper.address,
-  ])
-  await migrationHelper.write.setController([
-    accounts.ownerAccount.address,
-    true,
-  ])
+  const migrationHelper = await connection.viem.deployContract(
+    'MigrationHelper',
+    [baseRegistrar.address, nameWrapper.address],
+  )
+  await migrationHelper.write.setController([ownerAccount.address, true])
 
   return {
     ensRegistry,
@@ -76,36 +68,35 @@ async function fixture() {
     reverseRegistrar,
     nameWrapper,
     migrationHelper,
-    ...accounts,
   }
 }
+const loadFixture = async () => connection.networkHelpers.loadFixture(fixture)
 
 describe('MigrationHelper', () => {
   it('should allow the owner to set a migration target', async () => {
-    const { migrationHelper, ownerAccount } = await loadFixture(fixture)
+    const { migrationHelper } = await loadFixture()
 
-    await expect(migrationHelper)
-      .write('setMigrationTarget', [ownerAccount.address])
+    await expect(
+      migrationHelper.write.setMigrationTarget([ownerAccount.address]),
+    )
       .toEmitEvent('MigrationTargetUpdated')
-      .withArgs(ownerAccount.address)
+      .withArgs({ target: getAddress(ownerAccount.address) })
     expect(await migrationHelper.read.migrationTarget()).toEqualAddress(
       ownerAccount.address,
     )
   })
 
   it('should not allow non-owners to set migration targets', async () => {
-    const { migrationHelper, ownerAccount, registrantAccount } =
-      await loadFixture(fixture)
-    await expect(migrationHelper)
-      .write('setMigrationTarget', [ownerAccount.address], {
+    const { migrationHelper } = await loadFixture()
+    await expect(
+      migrationHelper.write.setMigrationTarget([ownerAccount.address], {
         account: registrantAccount,
-      })
-      .toBeRevertedWithString('Ownable: caller is not the owner')
+      }),
+    ).toBeRevertedWithString('Ownable: caller is not the owner')
   })
 
   it('should refuse to migrate unwrapped names to the zero address', async () => {
-    const { baseRegistrar, migrationHelper, registrantAccount } =
-      await loadFixture(fixture)
+    const { baseRegistrar, migrationHelper } = await loadFixture()
     const ids = [labelhash('test'), labelhash('test2')].map((v) =>
       hexToBigInt(v),
     )
@@ -120,18 +111,17 @@ describe('MigrationHelper', () => {
       [migrationHelper.address, true],
       { account: registrantAccount },
     )
-    await expect(migrationHelper)
-      .write('migrateNames', [
+    await expect(
+      migrationHelper.write.migrateNames([
         registrantAccount.address,
         ids,
         stringToHex('test'),
-      ])
-      .toBeRevertedWithCustomError('MigrationTargetNotSet')
+      ]),
+    ).toBeRevertedWithCustomError('MigrationTargetNotSet')
   })
 
   it('should migrate unwrapped names', async () => {
-    const { baseRegistrar, migrationHelper, ownerAccount, registrantAccount } =
-      await loadFixture(fixture)
+    const { baseRegistrar, migrationHelper } = await loadFixture()
     const ids = [labelhash('test'), labelhash('test2')].map((v) =>
       hexToBigInt(v),
     )
@@ -147,24 +137,29 @@ describe('MigrationHelper', () => {
       { account: registrantAccount },
     )
     await migrationHelper.write.setMigrationTarget([ownerAccount.address])
-    const tx = await migrationHelper.write.migrateNames([
+    const tx = migrationHelper.write.migrateNames([
       registrantAccount.address,
       ids,
       stringToHex('test'),
     ])
-    await expect(migrationHelper)
-      .transaction(tx)
+    await expect(tx)
       .toEmitEventFrom(baseRegistrar, 'Transfer')
-      .withArgs(registrantAccount.address, ownerAccount.address, ids[0])
-    await expect(migrationHelper)
-      .transaction(tx)
+      .withArgs({
+        from: getAddress(registrantAccount.address),
+        to: getAddress(ownerAccount.address),
+        tokenId: ids[0],
+      })
+    await expect(tx)
       .toEmitEventFrom(baseRegistrar, 'Transfer')
-      .withArgs(registrantAccount.address, ownerAccount.address, ids[1])
+      .withArgs({
+        from: getAddress(registrantAccount.address),
+        to: getAddress(ownerAccount.address),
+        tokenId: ids[1],
+      })
   })
 
   it('should only allow controllers to migrate unwrapped names', async () => {
-    const { baseRegistrar, migrationHelper, ownerAccount, registrantAccount } =
-      await loadFixture(fixture)
+    const { baseRegistrar, migrationHelper } = await loadFixture()
     const ids = [labelhash('test'), labelhash('test2')].map((v) =>
       hexToBigInt(v),
     )
@@ -180,18 +175,16 @@ describe('MigrationHelper', () => {
       [migrationHelper.address, true],
       { account: registrantAccount },
     )
-    await expect(migrationHelper)
-      .write(
-        'migrateNames',
+    await expect(
+      migrationHelper.write.migrateNames(
         [registrantAccount.address, ids, stringToHex('test')],
         { account: registrantAccount },
-      )
-      .toBeRevertedWithString('Controllable: Caller is not a controller')
+      ),
+    ).toBeRevertedWithString('Controllable: Caller is not a controller')
   })
 
   it('should migrate wrapped names', async () => {
-    const { nameWrapper, migrationHelper, ownerAccount, registrantAccount } =
-      await loadFixture(fixture)
+    const { nameWrapper, migrationHelper } = await loadFixture()
     const labels = ['test', 'test2']
     const ids = labels.map((label) => hexToBigInt(namehash(label + '.eth')))
     for (let label of labels) {
@@ -207,25 +200,25 @@ describe('MigrationHelper', () => {
     await nameWrapper.write.setApprovalForAll([migrationHelper.address, true], {
       account: registrantAccount,
     })
-    await expect(migrationHelper)
-      .write('migrateWrappedNames', [
+    await expect(
+      migrationHelper.write.migrateWrappedNames([
         registrantAccount.address,
         ids,
         stringToHex('test'),
-      ])
+      ]),
+    )
       .toEmitEventFrom(nameWrapper, 'TransferBatch')
-      .withArgs(
-        migrationHelper.address,
-        registrantAccount.address,
-        ownerAccount.address,
+      .withArgs({
+        operator: getAddress(migrationHelper.address),
+        from: getAddress(registrantAccount.address),
+        to: getAddress(ownerAccount.address),
         ids,
-        ids.map(() => 1n),
-      )
+        values: ids.map(() => 1n),
+      })
   })
 
   it('should refuse to migrate wrapped names to the zero address', async () => {
-    const { nameWrapper, migrationHelper, registrantAccount } =
-      await loadFixture(fixture)
+    const { nameWrapper, migrationHelper } = await loadFixture()
     const labels = ['test', 'test2']
     const ids = labels.map((label) => hexToBigInt(namehash(label + '.eth')))
     for (let label of labels) {
@@ -240,18 +233,17 @@ describe('MigrationHelper', () => {
     await nameWrapper.write.setApprovalForAll([migrationHelper.address, true], {
       account: registrantAccount,
     })
-    await expect(migrationHelper)
-      .write('migrateWrappedNames', [
+    await expect(
+      migrationHelper.write.migrateWrappedNames([
         registrantAccount.address,
         ids,
         stringToHex('test'),
-      ])
-      .toBeRevertedWithCustomError('MigrationTargetNotSet')
+      ]),
+    ).toBeRevertedWithCustomError('MigrationTargetNotSet')
   })
 
   it('should only allow controllers to migrate wrapped names', async () => {
-    const { nameWrapper, migrationHelper, ownerAccount, registrantAccount } =
-      await loadFixture(fixture)
+    const { nameWrapper, migrationHelper } = await loadFixture()
     const labels = ['test', 'test2']
     const ids = labels.map((label) => hexToBigInt(namehash(label + '.eth')))
     for (let label of labels) {
@@ -267,12 +259,11 @@ describe('MigrationHelper', () => {
     await nameWrapper.write.setApprovalForAll([migrationHelper.address, true], {
       account: registrantAccount,
     })
-    await expect(migrationHelper)
-      .write(
-        'migrateWrappedNames',
+    await expect(
+      migrationHelper.write.migrateWrappedNames(
         [registrantAccount.address, ids, stringToHex('test')],
         { account: registrantAccount },
-      )
-      .toBeRevertedWithString('Controllable: Caller is not a controller')
+      ),
+    ).toBeRevertedWithString('Controllable: Caller is not a controller')
   })
 })

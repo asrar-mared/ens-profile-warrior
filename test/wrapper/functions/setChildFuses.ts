@@ -1,6 +1,6 @@
-import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
-import { expect } from 'chai'
 import { getAddress, labelhash, namehash, zeroAddress, zeroHash } from 'viem'
+import { describe, expect, it } from 'vitest'
+
 import { DAY } from '../../fixtures/constants.js'
 import { toLabelId, toNameId } from '../../fixtures/utils.js'
 import {
@@ -12,10 +12,10 @@ import {
   IS_DOT_ETH,
   MAX_EXPIRY,
   PARENT_CANNOT_CONTROL,
-  deployNameWrapperWithUtils as fixture,
+  type LoadNameWrapperFixture,
 } from '../fixtures/utils.js'
 
-export const setChildFusesTests = () => {
+export const setChildFusesTests = (loadFixture: LoadNameWrapperFixture) => {
   describe('setChildFuses()', () => {
     const label = 'fuses'
     const name = `${label}.eth`
@@ -24,7 +24,7 @@ export const setChildFusesTests = () => {
 
     it('Allows parent owners to set fuses/expiry', async () => {
       const { baseRegistrar, nameWrapper, actions, accounts } =
-        await loadFixture(fixture)
+        await loadFixture()
 
       await actions.registerSetupAndWrapName({
         label,
@@ -65,7 +65,7 @@ export const setChildFusesTests = () => {
 
     it('Emits a FusesSet event and ExpiryExtended event', async () => {
       const { baseRegistrar, nameWrapper, actions, accounts } =
-        await loadFixture(fixture)
+        await loadFixture()
 
       await actions.registerSetupAndWrapName({
         label,
@@ -86,12 +86,13 @@ export const setChildFusesTests = () => {
       expect(initialFuses).toEqual(0)
       expect(initialExpiry).toEqual(0n)
 
-      const tx = await nameWrapper.write.setChildFuses([
+      const tx = nameWrapper.write.setChildFuses([
         namehash(name),
         labelhash(sublabel),
         CANNOT_UNWRAP | PARENT_CANNOT_CONTROL,
         MAX_EXPIRY,
       ])
+      await tx
 
       const expectedExpiry = await baseRegistrar.read.nameExpires([
         toLabelId(label),
@@ -103,19 +104,23 @@ export const setChildFusesTests = () => {
       expect(newFuses).toEqual(CANNOT_UNWRAP | PARENT_CANNOT_CONTROL)
       expect(newExpiry).toEqual(expectedExpiry + GRACE_PERIOD)
 
-      await expect(nameWrapper)
-        .transaction(tx)
+      await expect(tx)
         .toEmitEvent('FusesSet')
-        .withArgs(namehash(subname), CANNOT_UNWRAP | PARENT_CANNOT_CONTROL)
-      await expect(nameWrapper)
-        .transaction(tx)
+        .withArgs({
+          node: namehash(subname),
+          fuses: CANNOT_UNWRAP | PARENT_CANNOT_CONTROL,
+        })
+      await expect(tx)
         .toEmitEvent('ExpiryExtended')
-        .withArgs(namehash(subname), expectedExpiry + GRACE_PERIOD)
+        .withArgs({
+          node: namehash(subname),
+          expiry: expectedExpiry + GRACE_PERIOD,
+        })
     })
 
     it('Allows special cased TLD owners to set fuses/expiry', async () => {
       const { nameWrapper, actions, accounts, publicClient } =
-        await loadFixture(fixture)
+        await loadFixture()
 
       await actions.setSubnodeOwner.onEnsRegistry({
         parentName: '',
@@ -149,7 +154,7 @@ export const setChildFusesTests = () => {
     })
 
     it('does not allow parent owners to burn IS_DOT_ETH fuse', async () => {
-      const { nameWrapper, actions, accounts } = await loadFixture(fixture)
+      const { nameWrapper, actions, accounts } = await loadFixture()
 
       await actions.registerSetupAndWrapName({
         label,
@@ -170,19 +175,20 @@ export const setChildFusesTests = () => {
       expect(fuses).toEqual(0)
       expect(expiry).toEqual(0n)
 
-      await expect(nameWrapper)
-        .write('setChildFuses', [
+      await expect(
+        nameWrapper.write.setChildFuses([
           namehash(name),
           labelhash(sublabel),
           CANNOT_UNWRAP | PARENT_CANNOT_CONTROL | IS_DOT_ETH,
           MAX_EXPIRY,
-        ])
+        ]),
+      )
         .toBeRevertedWithCustomError('OperationProhibited')
-        .withArgs(namehash(subname))
+        .withArgs([namehash(subname)])
     })
 
     it('Allow parent owners to burn parent controlled fuses without burning PCC', async () => {
-      const { nameWrapper, actions, accounts } = await loadFixture(fixture)
+      const { nameWrapper, actions, accounts } = await loadFixture()
 
       await actions.registerSetupAndWrapName({
         label,
@@ -217,7 +223,7 @@ export const setChildFusesTests = () => {
     })
 
     it('Does not allow parent owners to burn parent controlled fuses after burning PCC', async () => {
-      const { nameWrapper, actions, accounts } = await loadFixture(fixture)
+      const { nameWrapper, actions, accounts } = await loadFixture()
 
       await actions.registerSetupAndWrapName({
         label,
@@ -246,20 +252,21 @@ export const setChildFusesTests = () => {
         MAX_EXPIRY,
       ])
 
-      await expect(nameWrapper)
-        .write('setChildFuses', [
+      await expect(
+        nameWrapper.write.setChildFuses([
           namehash(name),
           labelhash(sublabel),
           IS_DOT_ETH * 2, // Next undefined parent controlled fuse
           MAX_EXPIRY,
-        ])
+        ]),
+      )
         .toBeRevertedWithCustomError('OperationProhibited')
-        .withArgs(namehash(subname))
+        .withArgs([namehash(subname)])
     })
 
     it('Allows accounts authorised by the parent node owner to set fuses/expiry', async () => {
       const { baseRegistrar, nameWrapper, actions, accounts } =
-        await loadFixture(fixture)
+        await loadFixture()
 
       await actions.registerSetupAndWrapName({
         label,
@@ -305,7 +312,7 @@ export const setChildFusesTests = () => {
     })
 
     it('Does not allow non-parent owners to set child fuses', async () => {
-      const { nameWrapper, actions, accounts } = await loadFixture(fixture)
+      const { nameWrapper, actions, accounts } = await loadFixture()
 
       await actions.registerSetupAndWrapName({
         label,
@@ -326,9 +333,8 @@ export const setChildFusesTests = () => {
       expect(fuses).toEqual(0)
       expect(expiry).toEqual(0n)
 
-      await expect(nameWrapper)
-        .write(
-          'setChildFuses',
+      await expect(
+        nameWrapper.write.setChildFuses(
           [
             namehash(name),
             labelhash(sublabel),
@@ -336,14 +342,14 @@ export const setChildFusesTests = () => {
             MAX_EXPIRY,
           ],
           { account: accounts[1] },
-        )
+        ),
+      )
         .toBeRevertedWithCustomError('Unauthorised')
-        .withArgs(namehash(name), getAddress(accounts[1].address))
+        .withArgs([namehash(name), getAddress(accounts[1].address)])
     })
 
     it('Normalises expiry to the parent expiry', async () => {
-      const { baseRegistrar, nameWrapper, actions, accounts } =
-        await loadFixture(fixture)
+      const { nameWrapper, actions, accounts } = await loadFixture()
 
       await actions.registerSetupAndWrapName({
         label,
@@ -380,7 +386,7 @@ export const setChildFusesTests = () => {
     })
 
     it('Normalises expiry to the old expiry', async () => {
-      const { nameWrapper, actions, accounts } = await loadFixture(fixture)
+      const { nameWrapper, actions, accounts } = await loadFixture()
 
       await actions.registerSetupAndWrapName({
         label,
@@ -415,7 +421,7 @@ export const setChildFusesTests = () => {
     })
 
     it('Does not allow burning fuses if PARENT_CANNOT_CONTROL is not burnt', async () => {
-      const { nameWrapper, actions, accounts } = await loadFixture(fixture)
+      const { nameWrapper, actions, accounts } = await loadFixture()
 
       await actions.registerSetupAndWrapName({
         label,
@@ -430,39 +436,41 @@ export const setChildFusesTests = () => {
         expiry: 0n,
       })
 
-      await expect(nameWrapper)
-        .write('setChildFuses', [
+      await expect(
+        nameWrapper.write.setChildFuses([
           namehash(name),
           labelhash(sublabel),
           CANNOT_UNWRAP,
           MAX_EXPIRY,
-        ])
+        ]),
+      )
         .toBeRevertedWithCustomError('OperationProhibited')
-        .withArgs(namehash(subname))
+        .withArgs([namehash(subname)])
     })
 
     it('should not allow .eth to call setChildFuses()', async () => {
-      const { nameWrapper, actions, accounts } = await loadFixture(fixture)
+      const { nameWrapper, actions, accounts } = await loadFixture()
 
       await actions.registerSetupAndWrapName({
         label,
         fuses: CAN_DO_EVERYTHING,
       })
 
-      await expect(nameWrapper)
-        .write('setChildFuses', [
+      await expect(
+        nameWrapper.write.setChildFuses([
           namehash('eth'),
           labelhash(label),
           CANNOT_SET_RESOLVER,
           0n,
-        ])
+        ]),
+      )
         .toBeRevertedWithCustomError('Unauthorised')
-        .withArgs(namehash('eth'), getAddress(accounts[0].address))
+        .withArgs([namehash('eth'), getAddress(accounts[0].address)])
     })
 
     it('Does not allow burning fuses if CANNOT_UNWRAP is not burnt', async () => {
       const { nameWrapper, actions, accounts, publicClient } =
-        await loadFixture(fixture)
+        await loadFixture()
 
       await actions.registerSetupAndWrapName({
         label,
@@ -481,19 +489,20 @@ export const setChildFusesTests = () => {
       })
 
       // attempt to burn a fuse without CANNOT_UNWRAP
-      await expect(nameWrapper)
-        .write('setChildFuses', [
+      await expect(
+        nameWrapper.write.setChildFuses([
           namehash(name),
           labelhash(sublabel),
           CANNOT_SET_RESOLVER,
           0n,
-        ])
+        ]),
+      )
         .toBeRevertedWithCustomError('OperationProhibited')
-        .withArgs(namehash(subname))
+        .withArgs([namehash(subname)])
     })
 
     it('Does not allow burning fuses if PARENT_CANNOT_CONTROL is already burned', async () => {
-      const { nameWrapper, actions, accounts } = await loadFixture(fixture)
+      const { nameWrapper, actions, accounts } = await loadFixture()
 
       await actions.registerSetupAndWrapName({
         label,
@@ -517,19 +526,20 @@ export const setChildFusesTests = () => {
         MAX_EXPIRY,
       ])
 
-      await expect(nameWrapper)
-        .write('setChildFuses', [
+      await expect(
+        nameWrapper.write.setChildFuses([
           namehash(name),
           labelhash(sublabel),
           CANNOT_SET_RESOLVER | CANNOT_BURN_FUSES,
           MAX_EXPIRY,
-        ])
+        ]),
+      )
         .toBeRevertedWithCustomError('OperationProhibited')
-        .withArgs(namehash(subname))
+        .withArgs([namehash(subname)])
     })
 
     it('Does not allow burning fuses if PARENT_CANNOT_CONTROL is already burned even if PARENT_CANNOT_CONTROL is added as a fuse', async () => {
-      const { nameWrapper, actions, accounts } = await loadFixture(fixture)
+      const { nameWrapper, actions, accounts } = await loadFixture()
 
       await actions.registerSetupAndWrapName({
         label,
@@ -553,8 +563,8 @@ export const setChildFusesTests = () => {
         MAX_EXPIRY,
       ])
 
-      await expect(nameWrapper)
-        .write('setChildFuses', [
+      await expect(
+        nameWrapper.write.setChildFuses([
           namehash(name),
           labelhash(sublabel),
           PARENT_CANNOT_CONTROL |
@@ -562,13 +572,14 @@ export const setChildFusesTests = () => {
             CANNOT_SET_RESOLVER |
             CANNOT_BURN_FUSES,
           MAX_EXPIRY,
-        ])
+        ]),
+      )
         .toBeRevertedWithCustomError('OperationProhibited')
-        .withArgs(namehash(subname))
+        .withArgs([namehash(subname)])
     })
 
     it('Does not allow burning PARENT_CANNOT_CONTROL if CU on the parent is not burned', async () => {
-      const { nameWrapper, actions, accounts } = await loadFixture(fixture)
+      const { nameWrapper, actions, accounts } = await loadFixture()
 
       await actions.registerSetupAndWrapName({
         label,
@@ -585,19 +596,20 @@ export const setChildFusesTests = () => {
 
       const originalFuses = PARENT_CANNOT_CONTROL | CANNOT_UNWRAP
 
-      await expect(nameWrapper)
-        .write('setChildFuses', [
+      await expect(
+        nameWrapper.write.setChildFuses([
           namehash(name),
           labelhash(sublabel),
           originalFuses,
           MAX_EXPIRY,
-        ])
+        ]),
+      )
         .toBeRevertedWithCustomError('OperationProhibited')
-        .withArgs(namehash(subname))
+        .withArgs([namehash(subname)])
     })
 
     it('Fuses and owner are set to 0 if expired', async () => {
-      const { nameWrapper, actions, accounts } = await loadFixture(fixture)
+      const { nameWrapper, actions, accounts } = await loadFixture()
 
       await actions.registerSetupAndWrapName({
         label,
@@ -630,7 +642,7 @@ export const setChildFusesTests = () => {
 
     it('Fuses and owner are set to 0 if expired and fuses cannot be burnt after expiry using setChildFuses()', async () => {
       const { nameWrapper, actions, accounts, publicClient } =
-        await loadFixture(fixture)
+        await loadFixture()
 
       await actions.registerSetupAndWrapName({
         label,
@@ -662,14 +674,14 @@ export const setChildFusesTests = () => {
 
       const timestamp = await publicClient.getBlock().then((b) => b.timestamp)
 
-      await expect(nameWrapper)
-        .write('setChildFuses', [
+      await expect(
+        nameWrapper.write.setChildFuses([
           namehash(name),
           labelhash(sublabel),
           PARENT_CANNOT_CONTROL | CANNOT_UNWRAP,
           timestamp + 1n * DAY,
-        ])
-        .toBeRevertedWithCustomError('NameIsNotWrapped')
+        ]),
+      ).toBeRevertedWithCustomError('NameIsNotWrapped')
     })
   })
 }

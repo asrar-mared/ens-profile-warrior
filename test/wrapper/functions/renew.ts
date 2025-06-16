@@ -1,6 +1,7 @@
-import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
-import { expect } from 'chai'
+import type { NetworkConnection } from 'hardhat/types/network'
 import { zeroAddress } from 'viem'
+import { describe, expect, it } from 'vitest'
+
 import { DAY } from '../../fixtures/constants.js'
 import { toLabelId, toNameId } from '../../fixtures/utils.js'
 import {
@@ -10,16 +11,19 @@ import {
   GRACE_PERIOD,
   IS_DOT_ETH,
   PARENT_CANNOT_CONTROL,
-  deployNameWrapperWithUtils as fixture,
+  type LoadNameWrapperFixture,
 } from '../fixtures/utils.js'
 
-export const renewTests = () => {
+export const renewTests = (
+  connection: NetworkConnection,
+  loadNameWrapperFixture: LoadNameWrapperFixture,
+) => {
   describe('renew', () => {
     const label = 'register'
     const name = `${label}.eth`
 
-    async function renewFixture() {
-      const initial = await loadFixture(fixture)
+    async function fixture() {
+      const initial = await loadNameWrapperFixture()
       const { baseRegistrar, nameWrapper, accounts } = initial
 
       await baseRegistrar.write.addController([nameWrapper.address])
@@ -27,11 +31,11 @@ export const renewTests = () => {
 
       return initial
     }
+    const loadFixture = async () =>
+      connection.networkHelpers.loadFixture(fixture)
 
     it('Renews names', async () => {
-      const { baseRegistrar, nameWrapper, accounts } = await loadFixture(
-        renewFixture,
-      )
+      const { baseRegistrar, nameWrapper, accounts } = await loadFixture()
 
       await nameWrapper.write.registerAndWrapETH2LD([
         label,
@@ -53,9 +57,7 @@ export const renewTests = () => {
     })
 
     it('Renews names and can extend wrapper expiry', async () => {
-      const { baseRegistrar, nameWrapper, accounts } = await loadFixture(
-        renewFixture,
-      )
+      const { baseRegistrar, nameWrapper, accounts } = await loadFixture()
 
       await nameWrapper.write.registerAndWrapETH2LD([
         label,
@@ -78,7 +80,7 @@ export const renewTests = () => {
 
     it('Renewing name less than required to unexpire it still has original owner/fuses', async () => {
       const { nameWrapper, accounts, testClient, publicClient } =
-        await loadFixture(renewFixture)
+        await loadFixture()
 
       await nameWrapper.write.registerAndWrapETH2LD([
         label,

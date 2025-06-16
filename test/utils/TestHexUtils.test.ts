@@ -1,11 +1,13 @@
-import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
-import { expect } from 'chai'
 import hre from 'hardhat'
 import { type Hex, stringToHex, toHex, zeroAddress, zeroHash } from 'viem'
+import { describe, expect, it } from 'vitest'
+
+const connection = await hre.network.connect()
 
 async function fixture() {
-  return hre.viem.deployContract('TestHexUtils')
+  return connection.viem.deployContract('TestHexUtils')
 }
+const loadFixture = async () => connection.networkHelpers.loadFixture(fixture)
 
 function unprefixedHexStr(length: number) {
   return Array.from({ length }, (_, i) =>
@@ -19,7 +21,7 @@ describe('HexUtils', () => {
       const raw = unprefixedHexStr(n)
       const hex = (n & 1 ? `0x0${raw}` : `0x${raw}`) as Hex
       it(`0x${raw}`, async () => {
-        const F = await loadFixture(fixture)
+        const F = await loadFixture()
         await expect(
           F.read.hexToBytes([stringToHex(raw), 0n, BigInt(n)]),
         ).resolves.toStrictEqual([hex, true])
@@ -32,7 +34,7 @@ describe('HexUtils', () => {
       const raw = unprefixedHexStr(n)
       const hex = ('0x' + raw.padStart(64, '0')) as Hex
       it(`0x${raw}`, async () => {
-        const F = await loadFixture(fixture)
+        const F = await loadFixture()
         await expect(
           F.read.hexStringToBytes32([stringToHex(raw), 0n, BigInt(n)]),
         ).resolves.toStrictEqual([hex, true])
@@ -40,7 +42,7 @@ describe('HexUtils', () => {
     }
 
     it('uses the correct index to read from', async () => {
-      const F = await loadFixture(fixture)
+      const F = await loadFixture()
       await expect(
         F.read.hexStringToBytes32([
           stringToHex(
@@ -56,7 +58,7 @@ describe('HexUtils', () => {
     })
 
     it('correctly parses all the hex characters', async () => {
-      const F = await loadFixture(fixture)
+      const F = await loadFixture()
       await expect(
         F.read.hexStringToBytes32([
           stringToHex('0123456789abcdefABCDEF0123456789abcdefABCD'),
@@ -70,7 +72,7 @@ describe('HexUtils', () => {
     })
 
     it('returns invalid when the string contains non-hex characters', async () => {
-      const F = await loadFixture(fixture)
+      const F = await loadFixture()
       await expect(
         F.read.hexStringToBytes32([
           stringToHex(
@@ -83,14 +85,14 @@ describe('HexUtils', () => {
     })
 
     it('invalid when the string is too short', async () => {
-      const F = await loadFixture(fixture)
+      const F = await loadFixture()
       await expect(
         F.read.hexStringToBytes32([stringToHex('abcd'), 0n, 64n]),
       ).resolves.toMatchObject([zeroHash, false])
     })
 
     it('invalid when the string is too long', async () => {
-      const F = await loadFixture(fixture)
+      const F = await loadFixture()
       await expect(
         F.read.hexStringToBytes32([
           stringToHex(
@@ -105,7 +107,7 @@ describe('HexUtils', () => {
 
   describe('hexToAddress()', async () => {
     it('converts a hex string to an address', async () => {
-      const F = await loadFixture(fixture)
+      const F = await loadFixture()
       await expect(
         F.read.hexToAddress([
           stringToHex(
@@ -121,7 +123,7 @@ describe('HexUtils', () => {
     })
 
     it('does not allow sizes smaller than 40 characters', async () => {
-      const F = await loadFixture(fixture)
+      const F = await loadFixture()
       await expect(
         F.read.hexToAddress([
           stringToHex(
@@ -134,7 +136,7 @@ describe('HexUtils', () => {
     })
 
     it('does not allow sizes larger than 40 characters', async () => {
-      const F = await loadFixture(fixture)
+      const F = await loadFixture()
       await expect(
         F.read.hexToAddress([
           stringToHex(
@@ -154,7 +156,7 @@ describe('HexUtils', () => {
       '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
     ] as const) {
       it(addr, async () => {
-        const F = await loadFixture(fixture)
+        const F = await loadFixture()
         await expect(F.read.addressToHex([addr])).resolves.toStrictEqual(
           addr.slice(2).toLowerCase(),
         )
@@ -166,7 +168,7 @@ describe('HexUtils', () => {
     for (let n = 0; n <= 33; n++) {
       const data = toHex(Uint8Array.from({ length: n }, (_, i) => n + i))
       it(data, async () => {
-        const F = await loadFixture(fixture)
+        const F = await loadFixture()
         await expect(F.read.bytesToHex([data])).resolves.toStrictEqual(
           data.slice(2),
         )
@@ -179,7 +181,7 @@ describe('HexUtils', () => {
       const uint = (1n << BigInt(n << 3)) - 1n
       const hex = uint.toString(16)
       it(`0x${hex}`, async () => {
-        const F = await loadFixture(fixture)
+        const F = await loadFixture()
         await expect(
           F.read.unpaddedUintToHex([uint, true]),
           'true',

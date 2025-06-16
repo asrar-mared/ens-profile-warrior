@@ -22,6 +22,7 @@
     "./deploy/**/*.ts",
     "./typings-custom/**/*.ts",
     "./artifacts/**/*.d.ts",
+    "./artifacts/node_modules/**/*.d.ts",
     "tasks/hardhat-deploy-viem.cts",
     "tasks/deploy-test.cts"
   ],

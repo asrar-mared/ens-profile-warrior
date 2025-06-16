@@ -1,4 +1,4 @@
-import { expect } from 'chai'
+import { expect } from 'vitest'
 
 // expectVar({ x }) <==> expect(x, 'x')
 export function expectVar<T>(obj: Record<string, T>) {

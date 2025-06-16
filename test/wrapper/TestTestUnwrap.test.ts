@@ -1,17 +1,17 @@
-import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
-import { expect } from 'chai'
 import hre from 'hardhat'
 import { labelhash, namehash, zeroAddress, zeroHash } from 'viem'
+import { describe, expect, it } from 'vitest'
+
 import { DAY, FUSES } from '../fixtures/constants.js'
 import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
-import { toTokenId } from '../fixtures/utils.js'
+import { getAccounts, toTokenId } from '../fixtures/utils.js'
+
+const connection = await hre.network.connect()
+const accounts = await getAccounts(connection)
 
 async function fixture() {
-  const accounts = await hre.viem
-    .getWalletClients()
-    .then((clients) => clients.map((c) => c.account))
-  const ensRegistry = await hre.viem.deployContract('ENSRegistry', [])
-  const baseRegistrar = await hre.viem.deployContract(
+  const ensRegistry = await connection.viem.deployContract('ENSRegistry', [])
+  const baseRegistrar = await connection.viem.deployContract(
     'BaseRegistrarImplementation',
     [ensRegistry.address, namehash('eth')],
   )
@@ -19,9 +19,10 @@ async function fixture() {
   await baseRegistrar.write.addController([accounts[0].address])
   await baseRegistrar.write.addController([accounts[1].address])
 
-  const reverseRegistrar = await hre.viem.deployContract('ReverseRegistrar', [
-    ensRegistry.address,
-  ])
+  const reverseRegistrar = await connection.viem.deployContract(
+    'ReverseRegistrar',
+    [ensRegistry.address],
+  )
 
   await ensRegistry.write.setSubnodeOwner([
     zeroHash,
@@ -34,16 +35,16 @@ async function fixture() {
     reverseRegistrar.address,
   ])
 
-  const metadataService = await hre.viem.deployContract(
+  const metadataService = await connection.viem.deployContract(
     'StaticMetadataService',
     ['https://ens.domains/'],
   )
-  const nameWrapper = await hre.viem.deployContract('NameWrapper', [
+  const nameWrapper = await connection.viem.deployContract('NameWrapper', [
     ensRegistry.address,
     baseRegistrar.address,
     metadataService.address,
   ])
-  const testUnwrap = await hre.viem.deployContract('TestUnwrap', [
+  const testUnwrap = await connection.viem.deployContract('TestUnwrap', [
     ensRegistry.address,
     baseRegistrar.address,
   ])
@@ -64,9 +65,9 @@ async function fixture() {
     metadataService,
     nameWrapper,
     testUnwrap,
-    accounts,
   }
 }
+const loadFixture = async () => connection.networkHelpers.loadFixture(fixture)
 
 describe('TestUnwrap', () => {
   describe('wrapFromUpgrade()', () => {
@@ -77,8 +78,8 @@ describe('TestUnwrap', () => {
       const nameHash = namehash('wrapped.eth')
 
       async function fixtureWithTestEthRegistered() {
-        const initial = await loadFixture(fixture)
-        const { ensRegistry, baseRegistrar, nameWrapper, accounts } = initial
+        const initial = await loadFixture()
+        const { ensRegistry, baseRegistrar, nameWrapper } = initial
 
         await baseRegistrar.write.register([
           toTokenId(labelHash),
@@ -112,15 +113,12 @@ describe('TestUnwrap', () => {
 
         return initial
       }
+      const loadFixtureWithTestEthRegistered = async () =>
+        connection.networkHelpers.loadFixture(fixtureWithTestEthRegistered)
 
       it('allows unwrapping from an approved NameWrapper', async () => {
-        const {
-          ensRegistry,
-          baseRegistrar,
-          nameWrapper,
-          testUnwrap,
-          accounts,
-        } = await loadFixture(fixtureWithTestEthRegistered)
+        const { ensRegistry, baseRegistrar, nameWrapper, testUnwrap } =
+          await loadFixtureWithTestEthRegistered()
 
         await testUnwrap.write.setWrapperApproval([nameWrapper.address, true])
 
@@ -138,30 +136,29 @@ describe('TestUnwrap', () => {
       })
 
       it('does not allow unwrapping from an unapproved NameWrapper', async () => {
-        const { nameWrapper } = await loadFixture(fixtureWithTestEthRegistered)
+        const { nameWrapper } = await loadFixtureWithTestEthRegistered()
 
-        await expect(nameWrapper)
-          .write('upgrade', [encodedName, '0x'])
-          .toBeRevertedWithString('Unauthorised')
+        await expect(
+          nameWrapper.write.upgrade([encodedName, '0x']),
+        ).toBeRevertedWithString('Unauthorised')
       })
 
       it('does not allow unwrapping from an unapproved sender', async () => {
-        const { nameWrapper, testUnwrap, accounts } = await loadFixture(
-          fixtureWithTestEthRegistered,
-        )
+        const { nameWrapper, testUnwrap } =
+          await loadFixtureWithTestEthRegistered()
 
         await testUnwrap.write.setWrapperApproval([nameWrapper.address, true])
 
-        await expect(testUnwrap)
-          .write('wrapFromUpgrade', [
+        await expect(
+          testUnwrap.write.wrapFromUpgrade([
             encodedName,
             accounts[0].address,
             0,
             0n,
             zeroAddress,
             '0x',
-          ])
-          .toBeRevertedWithString('Unauthorised')
+          ]),
+        ).toBeRevertedWithString('Unauthorised')
       })
     })
 
@@ -175,8 +172,8 @@ describe('TestUnwrap', () => {
       const encodedName = dnsEncodeName(name)
 
       async function fixtureWithSubWrapped() {
-        const initial = await loadFixture(fixture)
-        const { ensRegistry, baseRegistrar, nameWrapper, accounts } = initial
+        const initial = await loadFixture()
+        const { ensRegistry, baseRegistrar, nameWrapper } = initial
 
         await ensRegistry.write.setApprovalForAll([nameWrapper.address, true])
         await baseRegistrar.write.setApprovalForAll([nameWrapper.address, true])
@@ -205,10 +202,12 @@ describe('TestUnwrap', () => {
 
         return initial
       }
+      const loadFixtureWithSubWrapped = async () =>
+        connection.networkHelpers.loadFixture(fixtureWithSubWrapped)
 
       it('allows unwrapping from an approved NameWrapper', async () => {
-        const { ensRegistry, nameWrapper, testUnwrap, accounts } =
-          await loadFixture(fixtureWithSubWrapped)
+        const { ensRegistry, nameWrapper, testUnwrap } =
+          await loadFixtureWithSubWrapped()
 
         await testUnwrap.write.setWrapperApproval([nameWrapper.address, true])
 
@@ -220,30 +219,28 @@ describe('TestUnwrap', () => {
       })
 
       it('does not allow unwrapping from an unapproved NameWrapper', async () => {
-        const { nameWrapper } = await loadFixture(fixtureWithSubWrapped)
+        const { nameWrapper } = await loadFixtureWithSubWrapped()
 
-        await expect(nameWrapper)
-          .write('upgrade', [encodedName, '0x'])
-          .toBeRevertedWithString('Unauthorised')
+        await expect(
+          nameWrapper.write.upgrade([encodedName, '0x']),
+        ).toBeRevertedWithString('Unauthorised')
       })
 
       it('does not allow unwrapping from an unapproved sender', async () => {
-        const { nameWrapper, testUnwrap, accounts } = await loadFixture(
-          fixtureWithSubWrapped,
-        )
+        const { nameWrapper, testUnwrap } = await loadFixtureWithSubWrapped()
 
         await testUnwrap.write.setWrapperApproval([nameWrapper.address, true])
 
-        await expect(testUnwrap)
-          .write('wrapFromUpgrade', [
+        await expect(
+          testUnwrap.write.wrapFromUpgrade([
             encodedName,
             accounts[0].address,
             0,
             0n,
             zeroAddress,
             '0x',
-          ])
-          .toBeRevertedWithString('Unauthorised')
+          ]),
+        ).toBeRevertedWithString('Unauthorised')
       })
     })
   })

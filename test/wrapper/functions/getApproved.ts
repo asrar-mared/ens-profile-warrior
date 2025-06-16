@@ -1,21 +1,25 @@
-import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
-import { expect } from 'chai'
 import { zeroAddress } from 'viem'
+import { describe, expect, it } from 'vitest'
+
+import type { NetworkConnection } from 'hardhat/types/network'
 import { toNameId } from '../../fixtures/utils.js'
 import {
   CAN_DO_EVERYTHING,
   expectOwnerOf,
-  deployNameWrapperWithUtils as fixture,
   zeroAccount,
+  type LoadNameWrapperFixture,
 } from '../fixtures/utils.js'
 
-export const getApprovedTests = () => {
+export const getApprovedTests = (
+  connection: NetworkConnection,
+  loadNameWrapperFixture: LoadNameWrapperFixture,
+) => {
   describe('getApproved()', () => {
     const label = 'subdomain'
     const name = `${label}.eth`
 
-    async function getApprovedFixture() {
-      const initial = await loadFixture(fixture)
+    async function fixture() {
+      const initial = await loadNameWrapperFixture()
       const { actions } = initial
 
       await actions.registerSetupAndWrapName({
@@ -25,9 +29,11 @@ export const getApprovedTests = () => {
 
       return initial
     }
+    const loadFixture = async () =>
+      connection.networkHelpers.loadFixture(fixture)
 
     it('Returns returns zero address when ownerOf() is zero', async () => {
-      const { nameWrapper } = await loadFixture(getApprovedFixture)
+      const { nameWrapper } = await loadFixture()
 
       await expectOwnerOf('unminted.eth').on(nameWrapper).toBe(zeroAccount)
       await expect(
@@ -36,7 +42,7 @@ export const getApprovedTests = () => {
     })
 
     it('Returns the approved address', async () => {
-      const { nameWrapper, accounts } = await loadFixture(getApprovedFixture)
+      const { nameWrapper, accounts } = await loadFixture()
 
       await nameWrapper.write.approve([accounts[1].address, toNameId(name)])
 

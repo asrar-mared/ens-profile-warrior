@@ -1,16 +1,16 @@
-import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
-import { expect } from 'chai'
 import hre from 'hardhat'
 import { labelhash, namehash, zeroHash } from 'viem'
+import { describe, expect, it } from 'vitest'
+
 import { getReverseName } from '../fixtures/ensip19.js'
+import { getAccounts } from '../fixtures/utils.js'
+
+const connection = await hre.network.connect()
+const accounts = await getAccounts(connection)
 
 async function fixture() {
-  const accounts = await hre.viem
-    .getWalletClients()
-    .then((clients) => clients.map((c) => c.account))
-
-  const ensRegistry = await hre.viem.deployContract('ENSRegistry', [])
-  const baseRegistrar = await hre.viem.deployContract(
+  const ensRegistry = await connection.viem.deployContract('ENSRegistry', [])
+  const baseRegistrar = await connection.viem.deployContract(
     'BaseRegistrarImplementation',
     [ensRegistry.address, namehash('eth')],
   )
@@ -18,9 +18,10 @@ async function fixture() {
   await baseRegistrar.write.addController([accounts[0].address])
   await baseRegistrar.write.addController([accounts[1].address])
 
-  const reverseRegistrar = await hre.viem.deployContract('ReverseRegistrar', [
-    ensRegistry.address,
-  ])
+  const reverseRegistrar = await connection.viem.deployContract(
+    'ReverseRegistrar',
+    [ensRegistry.address],
+  )
 
   await ensRegistry.write.setSubnodeOwner([
     zeroHash,
@@ -33,12 +34,12 @@ async function fixture() {
     reverseRegistrar.address,
   ])
 
-  const metadataService = await hre.viem.deployContract(
+  const metadataService = await connection.viem.deployContract(
     'StaticMetadataService',
     ['https://ens.domains/'],
   )
 
-  const nameWrapper = await hre.viem.deployContract('NameWrapper', [
+  const nameWrapper = await connection.viem.deployContract('NameWrapper', [
     ensRegistry.address,
     baseRegistrar.address,
     metadataService.address,
@@ -50,13 +51,13 @@ async function fixture() {
     reverseRegistrar,
     metadataService,
     nameWrapper,
-    accounts,
   }
 }
+const loadFixture = async () => connection.networkHelpers.loadFixture(fixture)
 
 describe('ReverseClaimer', () => {
   it('claims a reverse node to the msg.sender of the deployer', async () => {
-    const { ensRegistry, nameWrapper, accounts } = await loadFixture(fixture)
+    const { ensRegistry, nameWrapper } = await loadFixture()
 
     await expect(
       ensRegistry.read.owner([namehash(getReverseName(nameWrapper.address))]),
@@ -64,9 +65,9 @@ describe('ReverseClaimer', () => {
   })
 
   it('claims a reverse node to an address specified by the deployer', async () => {
-    const { ensRegistry, accounts } = await loadFixture(fixture)
+    const { ensRegistry } = await loadFixture()
 
-    const mockReverseClaimerImplementer = await hre.viem.deployContract(
+    const mockReverseClaimerImplementer = await connection.viem.deployContract(
       'MockReverseClaimerImplementer',
       [ensRegistry.address, accounts[1].address],
     )

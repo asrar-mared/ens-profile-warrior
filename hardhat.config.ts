@@ -65,6 +65,8 @@ const config = {
     sources: [
       './contracts',
       './node_modules/@openzeppelin/contracts/utils/introspection/',
+      './node_modules/@openzeppelin/contracts/token/ERC1155/',
+      './node_modules/@openzeppelin/contracts/token/ERC721/',
     ],
   },
   plugins: [

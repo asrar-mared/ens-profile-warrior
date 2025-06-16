@@ -1,4 +1,3 @@
-import { expect } from 'chai'
 import {
   type Hex,
   decodeFunctionResult,
@@ -8,6 +7,7 @@ import {
   namehash,
   parseAbi,
 } from 'viem'
+import { expect } from 'vitest'
 import { COIN_TYPE_ETH, shortCoin } from '../fixtures/ensip19.js'
 
 export const RESOLVE_MULTICALL = parseAbi([
@@ -115,8 +115,7 @@ export function bundleCalls(calls: KnownResolution[]): KnownBundle {
     }),
     answer: encodeFunctionResult({
       abi: RESOLVE_MULTICALL,
-      // TODO: fix when we can use newer viem version
-      result: [calls.map((x) => x.answer)] as never,
+      result: calls.map((x) => x.answer),
     }),
     unbundle: (data) =>
       decodeFunctionResult({
@@ -148,8 +147,7 @@ export function makeResolutions(p: KnownProfile): KnownResolution[] {
           }),
           answer: encodeFunctionResult({
             abi,
-            // TODO: fix when we can use newer viem version
-            result: [encodedAddress] as never,
+            result: encodedAddress,
           }),
           expect(data) {
             const actual = decodeFunctionResult({
@@ -172,8 +170,7 @@ export function makeResolutions(p: KnownProfile): KnownResolution[] {
           answer: encodeFunctionResult({
             abi,
             functionName,
-            // TODO: fix when we can use newer viem version
-            result: [encodedAddress] as never,
+            result: encodedAddress,
           }),
           expect(data) {
             const actual = decodeFunctionResult({

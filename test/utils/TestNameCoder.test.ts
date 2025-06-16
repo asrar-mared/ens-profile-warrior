@@ -1,14 +1,17 @@
 import hre from 'hardhat'
-import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
-import { expect } from 'chai'
 import { namehash, slice, toHex } from 'viem'
-import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
+import { describe, expect, it } from 'vitest'
+
 import { dnsDecodeName } from '../fixtures/dnsDecodeName.js'
+import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
 import { getParentName } from '../universalResolver/utils.js'
 
+const connection = await hre.network.connect()
+
 async function fixture() {
-  return hre.viem.deployContract('TestNameCoder', [])
+  return connection.viem.deployContract('TestNameCoder', [])
 }
+const loadFixture = async () => connection.networkHelpers.loadFixture(fixture)
 
 describe('NameCoder', () => {
   describe('valid', () => {
@@ -22,7 +25,7 @@ describe('NameCoder', () => {
     ]) {
       ens ??= title
       it(title, async () => {
-        const F = await loadFixture(fixture)
+        const F = await loadFixture()
         const dns = dnsEncodeName(ens)
         await expect(F.read.encode([ens]), 'encode').resolves.toStrictEqual(dns)
         await expect(F.read.decode([dns]), 'decode').resolves.toStrictEqual(
@@ -45,10 +48,10 @@ describe('NameCoder', () => {
   describe('encode() failure', () => {
     for (const ens of ['.', '..', '.a', 'a.', 'a..b']) {
       it(ens, async () => {
-        const F = await loadFixture(fixture)
-        await expect(F)
-          .read('encode', [ens])
-          .toBeRevertedWithCustomError('DNSEncodingFailed')
+        const F = await loadFixture()
+        await expect(F.read.encode([ens])).toBeRevertedWithCustomError(
+          'DNSEncodingFailed',
+        )
       })
     }
   })
@@ -56,28 +59,28 @@ describe('NameCoder', () => {
   describe('decode() failure', () => {
     for (const dns of ['0x', '0x02', '0x0000', '0x1000'] as const) {
       it(dns, async () => {
-        const F = await loadFixture(fixture)
-        await expect(F)
-          .read('decode', [dns])
-          .toBeRevertedWithCustomError('DNSDecodingFailed')
-        await expect(F)
-          .read('namehash', [dns, 0n])
-          .toBeRevertedWithCustomError('DNSDecodingFailed')
+        const F = await loadFixture()
+        await expect(F.read.decode([dns])).toBeRevertedWithCustomError(
+          'DNSDecodingFailed',
+        )
+        await expect(F.read.namehash([dns, 0n])).toBeRevertedWithCustomError(
+          'DNSDecodingFailed',
+        )
       })
     }
   })
 
   it('malicious label', async () => {
-    const F = await loadFixture(fixture)
-    await expect(F)
-      .read('decode', [toHex('\x03a.b\x00')])
-      .toBeRevertedWithCustomError('DNSDecodingFailed')
+    const F = await loadFixture()
+    await expect(
+      F.read.decode([toHex('\x03a.b\x00')]),
+    ).toBeRevertedWithCustomError('DNSDecodingFailed')
   })
 
   it('null hashed label', async () => {
-    const F = await loadFixture(fixture)
-    await expect(F)
-      .read('namehash', [dnsEncodeName(`[${'0'.repeat(64)}]`), 0n])
-      .toBeRevertedWithCustomError('DNSDecodingFailed')
+    const F = await loadFixture()
+    await expect(
+      F.read.namehash([dnsEncodeName(`[${'0'.repeat(64)}]`), 0n]),
+    ).toBeRevertedWithCustomError('DNSDecodingFailed')
   })
 })

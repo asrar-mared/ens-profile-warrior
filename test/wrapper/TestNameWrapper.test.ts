@@ -1,12 +1,17 @@
-import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
-import { expect } from 'chai'
+import { shouldSupportInterfaces } from '@ensdomains/hardhat-chai-matchers-viem/behaviour'
+import type { Fixture } from '@nomicfoundation/hardhat-network-helpers/types'
+import hre from 'hardhat'
 import { getAddress, labelhash, namehash, zeroAddress, zeroHash } from 'viem'
+import { describe, expect, it } from 'vitest'
+
 import { DAY } from '../fixtures/constants.js'
 import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
 import { toLabelId, toNameId } from '../fixtures/utils.js'
 import { shouldRespectConstraints } from './Constraints.behaviour.js'
-import { shouldBehaveLikeErc1155 } from './ERC1155.behaviour.js'
-import { shouldSupportInterfaces } from '@ensdomains/hardhat-chai-matchers-viem/behaviour'
+import {
+  shouldBehaveLikeErc1155,
+  type ERC1155Contract,
+} from './ERC1155.behaviour.js'
 import {
   CANNOT_CREATE_SUBDOMAIN,
   CANNOT_TRANSFER,
@@ -15,8 +20,8 @@ import {
   GRACE_PERIOD,
   MAX_EXPIRY,
   PARENT_CANNOT_CONTROL,
+  deployNameWrapperWithUtils,
   expectOwnerOf,
-  deployNameWrapperWithUtils as fixture,
   zeroAccount,
 } from './fixtures/utils.js'
 
@@ -43,16 +48,26 @@ import { upgradeTests } from './functions/upgrade.js'
 import { wrapTests } from './functions/wrap.js'
 import { wrapETH2LDTests } from './functions/wrapETH2LD.js'
 
+const connection = await hre.network.connect()
+async function nameWrapperFixture() {
+  return deployNameWrapperWithUtils(connection)
+}
+const loadFixture = async <T>(fixture: Fixture<T>): Promise<T> =>
+  connection.networkHelpers.loadFixture(fixture)
+const loadNameWrapperFixture = async () => loadFixture(nameWrapperFixture)
+
 describe('NameWrapper', () => {
   shouldSupportInterfaces({
-    contract: () => loadFixture(fixture).then(({ nameWrapper }) => nameWrapper),
+    contract: () =>
+      loadFixture(nameWrapperFixture).then(({ nameWrapper }) => nameWrapper),
     interfaces: ['INameWrapper', 'IERC721Receiver'],
   })
 
   shouldBehaveLikeErc1155({
+    connection,
     contracts: () =>
-      loadFixture(fixture).then((contracts) => ({
-        contract: contracts.nameWrapper,
+      loadFixture(nameWrapperFixture).then((contracts) => ({
+        contract: contracts.nameWrapper as unknown as ERC1155Contract,
         ...contracts,
       })),
     targetTokenIds: [
@@ -90,37 +105,37 @@ describe('NameWrapper', () => {
     },
   })
 
-  shouldRespectConstraints()
+  shouldRespectConstraints(connection)
 
-  approveTests()
-  extendExpiryTests()
-  getApprovedTests()
-  getDataTests()
-  isWrappedTests()
-  onERC721ReceivedTests()
-  ownerOfTests()
-  registerAndWrapETH2LDTests()
-  renewTests()
-  setChildFusesTests()
-  setFusesTests()
-  setRecordTests()
-  setResolverTests()
-  setSubnodeOwnerTests()
-  setSubnodeRecordTests()
-  setTTLTests()
-  setUpgradeContractTests()
-  unwrapTests()
-  unwrapETH2LDTests()
-  upgradeTests()
-  wrapTests()
-  wrapETH2LDTests()
+  approveTests(connection, loadNameWrapperFixture)
+  extendExpiryTests(connection, loadNameWrapperFixture)
+  getApprovedTests(connection, loadNameWrapperFixture)
+  getDataTests(connection, loadNameWrapperFixture)
+  isWrappedTests(connection, loadNameWrapperFixture)
+  onERC721ReceivedTests(connection, loadNameWrapperFixture)
+  ownerOfTests(loadNameWrapperFixture)
+  registerAndWrapETH2LDTests(connection, loadNameWrapperFixture)
+  renewTests(connection, loadNameWrapperFixture)
+  setChildFusesTests(loadNameWrapperFixture)
+  setFusesTests(loadNameWrapperFixture)
+  setRecordTests(connection, loadNameWrapperFixture)
+  setResolverTests(connection, loadNameWrapperFixture)
+  setSubnodeOwnerTests(connection, loadNameWrapperFixture)
+  setSubnodeRecordTests(connection, loadNameWrapperFixture)
+  setTTLTests(connection, loadNameWrapperFixture)
+  setUpgradeContractTests(loadNameWrapperFixture)
+  unwrapTests(loadNameWrapperFixture)
+  unwrapETH2LDTests(loadNameWrapperFixture)
+  upgradeTests(loadNameWrapperFixture)
+  wrapTests(connection, loadNameWrapperFixture)
+  wrapETH2LDTests(loadNameWrapperFixture)
 
   describe('Transfer', () => {
     const label = 'transfer'
     const name = `${label}.eth`
 
     async function transferFixture() {
-      const initial = await loadFixture(fixture)
+      const initial = await loadFixture(nameWrapperFixture)
       const { actions } = initial
 
       await actions.registerSetupAndWrapName({
@@ -136,16 +151,17 @@ describe('NameWrapper', () => {
 
       await nameWrapper.write.setFuses([namehash(name), CANNOT_TRANSFER])
 
-      await expect(nameWrapper)
-        .write('safeTransferFrom', [
+      await expect(
+        nameWrapper.write.safeTransferFrom([
           accounts[0].address,
           accounts[1].address,
           toNameId(name),
           1n,
           '0x',
-        ])
+        ]),
+      )
         .toBeRevertedWithCustomError('OperationProhibited')
-        .withArgs(namehash(name))
+        .withArgs([namehash(name)])
     })
 
     it('safeBatchTransfer cannot be called if CANNOT_TRANSFER is burned and is not expired', async () => {
@@ -153,56 +169,63 @@ describe('NameWrapper', () => {
 
       await nameWrapper.write.setFuses([namehash(name), CANNOT_TRANSFER])
 
-      await expect(nameWrapper)
-        .write('safeBatchTransferFrom', [
+      await expect(
+        nameWrapper.write.safeBatchTransferFrom([
           accounts[0].address,
           accounts[1].address,
           [toNameId(name)],
           [1n],
           '0x',
-        ])
+        ]),
+      )
         .toBeRevertedWithCustomError('OperationProhibited')
-        .withArgs(namehash(name))
+        .withArgs([namehash(name)])
     })
   })
 
   describe('Controllable', () => {
     it('allows the owner to add and remove controllers', async () => {
-      const { nameWrapper, accounts } = await loadFixture(fixture)
+      const { nameWrapper, accounts } = await loadFixture(nameWrapperFixture)
 
-      await expect(nameWrapper)
-        .write('setController', [accounts[0].address, true])
+      await expect(nameWrapper.write.setController([accounts[0].address, true]))
         .toEmitEvent('ControllerChanged')
-        .withArgs(accounts[0].address, true)
+        .withArgs({
+          controller: getAddress(accounts[0].address),
+          active: true,
+        })
 
-      await expect(nameWrapper)
-        .write('setController', [accounts[0].address, false])
+      await expect(
+        nameWrapper.write.setController([accounts[0].address, false]),
+      )
         .toEmitEvent('ControllerChanged')
-        .withArgs(accounts[0].address, false)
+        .withArgs({
+          controller: getAddress(accounts[0].address),
+          active: false,
+        })
     })
 
     it('does not allow non-owners to add or remove controllers', async () => {
-      const { nameWrapper, accounts } = await loadFixture(fixture)
+      const { nameWrapper, accounts } = await loadFixture(nameWrapperFixture)
 
       await nameWrapper.write.setController([accounts[0].address, true])
 
-      await expect(nameWrapper)
-        .write('setController', [accounts[1].address, true], {
+      await expect(
+        nameWrapper.write.setController([accounts[1].address, true], {
           account: accounts[1],
-        })
-        .toBeRevertedWithString('Ownable: caller is not the owner')
+        }),
+      ).toBeRevertedWithString('Ownable: caller is not the owner')
 
-      await expect(nameWrapper)
-        .write('setController', [accounts[0].address, false], {
+      await expect(
+        nameWrapper.write.setController([accounts[0].address, false], {
           account: accounts[1],
-        })
-        .toBeRevertedWithString('Ownable: caller is not the owner')
+        }),
+      ).toBeRevertedWithString('Ownable: caller is not the owner')
     })
   })
 
   describe('MetadataService', () => {
     it('uri() returns url', async () => {
-      const { nameWrapper } = await loadFixture(fixture)
+      const { nameWrapper } = await loadFixture(nameWrapperFixture)
 
       await expect(nameWrapper.read.uri([123n])).resolves.toEqual(
         'https://ens.domains',
@@ -210,7 +233,7 @@ describe('NameWrapper', () => {
     })
 
     it('owner can set a new MetadataService', async () => {
-      const { nameWrapper, accounts } = await loadFixture(fixture)
+      const { nameWrapper, accounts } = await loadFixture(nameWrapperFixture)
 
       await nameWrapper.write.setMetadataService([accounts[1].address])
 
@@ -220,13 +243,13 @@ describe('NameWrapper', () => {
     })
 
     it('non-owner cannot set a new MetadataService', async () => {
-      const { nameWrapper, accounts } = await loadFixture(fixture)
+      const { nameWrapper, accounts } = await loadFixture(nameWrapperFixture)
 
-      await expect(nameWrapper)
-        .write('setMetadataService', [accounts[1].address], {
+      await expect(
+        nameWrapper.write.setMetadataService([accounts[1].address], {
           account: accounts[1],
-        })
-        .toBeRevertedWithString('Ownable: caller is not the owner')
+        }),
+      ).toBeRevertedWithString('Ownable: caller is not the owner')
     })
   })
 
@@ -240,7 +263,7 @@ describe('NameWrapper', () => {
         testClient,
         publicClient,
         actions,
-      } = await loadFixture(fixture)
+      } = await loadFixture(nameWrapperFixture)
 
       const label = 'base'
       const name = `${label}.eth`
@@ -358,7 +381,7 @@ describe('NameWrapper', () => {
     const subname = `${sublabel}.${name}`
 
     async function gracePeriodFixture() {
-      const initial = await loadFixture(fixture)
+      const initial = await loadFixture(nameWrapperFixture)
       const { nameWrapper, actions, accounts, testClient, publicClient } =
         initial
 
@@ -405,16 +428,17 @@ describe('NameWrapper', () => {
         gracePeriodFixture,
       )
 
-      await expect(nameWrapper)
-        .write('setSubnodeOwner', [
+      await expect(
+        nameWrapper.write.setSubnodeOwner([
           namehash(name),
           sublabel,
           accounts[1].address,
           PARENT_CANNOT_CONTROL,
           parentExpiry - DAY / 2n,
-        ])
+        ]),
+      )
         .toBeRevertedWithCustomError('Unauthorised')
-        .withArgs(namehash(name), getAddress(accounts[0].address))
+        .withArgs([namehash(name), getAddress(accounts[0].address)])
     })
 
     it('When a .eth name is in grace period it cannot call setSubnodeRecord', async () => {
@@ -422,8 +446,8 @@ describe('NameWrapper', () => {
         gracePeriodFixture,
       )
 
-      await expect(nameWrapper)
-        .write('setSubnodeRecord', [
+      await expect(
+        nameWrapper.write.setSubnodeRecord([
           namehash(name),
           sublabel,
           accounts[1].address,
@@ -431,87 +455,92 @@ describe('NameWrapper', () => {
           0n,
           PARENT_CANNOT_CONTROL,
           parentExpiry - DAY / 2n,
-        ])
+        ]),
+      )
         .toBeRevertedWithCustomError('Unauthorised')
-        .withArgs(namehash(name), getAddress(accounts[0].address))
+        .withArgs([namehash(name), getAddress(accounts[0].address)])
     })
 
     it('When a .eth name is in grace period it cannot call setRecord', async () => {
       const { nameWrapper, accounts } = await loadFixture(gracePeriodFixture)
 
-      await expect(nameWrapper)
-        .write('setRecord', [
+      await expect(
+        nameWrapper.write.setRecord([
           namehash(name),
           accounts[1].address,
           zeroAddress,
           0n,
-        ])
+        ]),
+      )
         .toBeRevertedWithCustomError('Unauthorised')
-        .withArgs(namehash(name), getAddress(accounts[0].address))
+        .withArgs([namehash(name), getAddress(accounts[0].address)])
     })
 
     it('When a .eth name is in grace period it cannot call safeTransferFrom', async () => {
       const { nameWrapper, accounts } = await loadFixture(gracePeriodFixture)
 
-      await expect(nameWrapper)
-        .write('safeTransferFrom', [
+      await expect(
+        nameWrapper.write.safeTransferFrom([
           accounts[0].address,
           accounts[1].address,
           toNameId(name),
           1n,
           '0x',
-        ])
-        .toBeRevertedWithString('ERC1155: insufficient balance for transfer')
+        ]),
+      ).toBeRevertedWithString('ERC1155: insufficient balance for transfer')
     })
 
     it('When a .eth name is in grace period it cannot call batchSafeTransferFrom', async () => {
       const { nameWrapper, accounts } = await loadFixture(gracePeriodFixture)
 
-      await expect(nameWrapper)
-        .write('safeBatchTransferFrom', [
+      await expect(
+        nameWrapper.write.safeBatchTransferFrom([
           accounts[0].address,
           accounts[1].address,
           [toNameId(name)],
           [1n],
           '0x',
-        ])
-        .toBeRevertedWithString('ERC1155: insufficient balance for transfer')
+        ]),
+      ).toBeRevertedWithString('ERC1155: insufficient balance for transfer')
     })
 
     it('When a .eth name is in grace period it cannot call setResolver', async () => {
       const { nameWrapper, accounts } = await loadFixture(gracePeriodFixture)
 
-      await expect(nameWrapper)
-        .write('setResolver', [namehash(name), zeroAddress])
+      await expect(nameWrapper.write.setResolver([namehash(name), zeroAddress]))
         .toBeRevertedWithCustomError('Unauthorised')
-        .withArgs(namehash(name), getAddress(accounts[0].address))
+        .withArgs([namehash(name), getAddress(accounts[0].address)])
     })
 
     it('When a .eth name is in grace period it cannot call setTTL', async () => {
       const { nameWrapper, accounts } = await loadFixture(gracePeriodFixture)
 
-      await expect(nameWrapper)
-        .write('setTTL', [namehash(name), 0n])
+      await expect(nameWrapper.write.setTTL([namehash(name), 0n]))
         .toBeRevertedWithCustomError('Unauthorised')
-        .withArgs(namehash(name), getAddress(accounts[0].address))
+        .withArgs([namehash(name), getAddress(accounts[0].address)])
     })
 
     it('When a .eth name is in grace period it cannot call setFuses', async () => {
       const { nameWrapper, accounts } = await loadFixture(gracePeriodFixture)
 
-      await expect(nameWrapper)
-        .write('setFuses', [namehash(name), 0])
+      await expect(nameWrapper.write.setFuses([namehash(name), 0]))
         .toBeRevertedWithCustomError('Unauthorised')
-        .withArgs(namehash(name), getAddress(accounts[0].address))
+        .withArgs([namehash(name), getAddress(accounts[0].address)])
     })
 
     it('When a .eth name is in grace period it cannot call setChildFuses', async () => {
       const { nameWrapper, accounts } = await loadFixture(gracePeriodFixture)
 
-      await expect(nameWrapper)
-        .write('setChildFuses', [namehash(name), labelhash(sublabel), 0, 0n])
+      await expect(
+        nameWrapper.write.setChildFuses([
+          namehash(name),
+          labelhash(sublabel),
+          0,
+          0n,
+        ]),
+      )
         .toBeRevertedWithCustomError('Unauthorised')
-        .withArgs(namehash(name), getAddress(accounts[0].address))
+        .withArgs([namehash(name), getAddress(accounts[0].address)])
     })
 
     it('When a .eth name is in grace period, unexpired subdomains can call setFuses', async () => {
@@ -669,7 +698,7 @@ describe('NameWrapper', () => {
         actions,
         accounts,
         testClient,
-      } = await loadFixture(fixture)
+      } = await loadFixture(nameWrapperFixture)
 
       await actions.registerSetupAndWrapName({
         label,
@@ -703,9 +732,8 @@ describe('NameWrapper', () => {
 
       // create `sub2.sub1.eth` to the victim user with `PARENT_CANNOT_CONTROL`
       // burnt.
-      await expect(nameWrapper)
-        .write(
-          'setSubnodeOwner',
+      await expect(
+        nameWrapper.write.setSubnodeOwner(
           [
             namehash(name),
             sublabel,
@@ -714,9 +742,10 @@ describe('NameWrapper', () => {
             MAX_EXPIRY,
           ],
           { account: accounts[2] },
-        )
+        ),
+      )
         .toBeRevertedWithCustomError('Unauthorised')
-        .withArgs(namehash(name), getAddress(accounts[2].address))
+        .withArgs([namehash(name), getAddress(accounts[2].address)])
     })
   })
 
@@ -725,24 +754,27 @@ describe('NameWrapper', () => {
     const name = `${label}.eth`
 
     it('Transferring a token that is not owned by the owner reverts', async () => {
-      const { nameWrapper, actions, accounts } = await loadFixture(fixture)
+      const { nameWrapper, actions, accounts } = await loadFixture(
+        nameWrapperFixture,
+      )
 
       await actions.registerSetupAndWrapName({
         label,
         fuses: CANNOT_UNWRAP,
       })
 
-      await expect(nameWrapper)
-        .write(
-          'safeTransferFrom',
+      await expect(
+        nameWrapper.write.safeTransferFrom(
           [accounts[2].address, accounts[0].address, toNameId(name), 1n, '0x'],
           { account: accounts[2] },
-        )
-        .toBeRevertedWithString('ERC1155: insufficient balance for transfer')
+        ),
+      ).toBeRevertedWithString('ERC1155: insufficient balance for transfer')
     })
 
     it('Approval on the Wrapper does not give permission to wrap the .eth name', async () => {
-      const { nameWrapper, actions, accounts } = await loadFixture(fixture)
+      const { nameWrapper, actions, accounts } = await loadFixture(
+        nameWrapperFixture,
+      )
 
       await actions.register({
         label,
@@ -752,17 +784,21 @@ describe('NameWrapper', () => {
 
       await nameWrapper.write.setApprovalForAll([accounts[2].address, true])
 
-      await expect(nameWrapper)
-        .write('wrapETH2LD', [label, accounts[2].address, 0, zeroAddress], {
-          account: accounts[2],
-        })
+      await expect(
+        nameWrapper.write.wrapETH2LD(
+          [label, accounts[2].address, 0, zeroAddress],
+          {
+            account: accounts[2],
+          },
+        ),
+      )
         .toBeRevertedWithCustomError('Unauthorised')
-        .withArgs(namehash(label + '.eth'), getAddress(accounts[2].address))
+        .withArgs([namehash(label + '.eth'), getAddress(accounts[2].address)])
     })
 
     it('Approval on the Wrapper does not give permission to wrap a non .eth name', async () => {
       const { nameWrapper, ensRegistry, accounts, actions } = await loadFixture(
-        fixture,
+        nameWrapperFixture,
       )
 
       await expectOwnerOf('xyz').on(ensRegistry).toBe(accounts[0])
@@ -771,21 +807,21 @@ describe('NameWrapper', () => {
 
       await actions.setRegistryApprovalForWrapper()
 
-      await expect(nameWrapper)
-        .write(
-          'wrap',
+      await expect(
+        nameWrapper.write.wrap(
           [dnsEncodeName('xyz'), accounts[2].address, zeroAddress],
           {
             account: accounts[2],
           },
-        )
+        ),
+      )
         .toBeRevertedWithCustomError('Unauthorised')
-        .withArgs(namehash('xyz'), getAddress(accounts[2].address))
+        .withArgs([namehash('xyz'), getAddress(accounts[2].address)])
     })
 
     it('When .eth name expires, it is untransferrable', async () => {
       const { nameWrapper, actions, accounts, testClient } = await loadFixture(
-        fixture,
+        nameWrapperFixture,
       )
 
       await actions.registerSetupAndWrapName({
@@ -798,20 +834,20 @@ describe('NameWrapper', () => {
       })
       await testClient.mine({ blocks: 1 })
 
-      await expect(nameWrapper)
-        .write('safeTransferFrom', [
+      await expect(
+        nameWrapper.write.safeTransferFrom([
           accounts[0].address,
           accounts[1].address,
           toNameId(name),
           1n,
           '0x',
-        ])
-        .toBeRevertedWithString('ERC1155: insufficient balance for transfer')
+        ]),
+      ).toBeRevertedWithString('ERC1155: insufficient balance for transfer')
     })
 
     it('Approval on the Wrapper does not give permission to transfer after expiry', async () => {
       const { nameWrapper, actions, accounts, testClient } = await loadFixture(
-        fixture,
+        nameWrapperFixture,
       )
 
       await actions.registerSetupAndWrapName({
@@ -825,28 +861,27 @@ describe('NameWrapper', () => {
       })
       await testClient.mine({ blocks: 1 })
 
-      await expect(nameWrapper)
-        .write('safeTransferFrom', [
+      await expect(
+        nameWrapper.write.safeTransferFrom([
           accounts[0].address,
           accounts[1].address,
           toNameId(name),
           1n,
           '0x',
-        ])
-        .toBeRevertedWithString('ERC1155: insufficient balance for transfer')
+        ]),
+      ).toBeRevertedWithString('ERC1155: insufficient balance for transfer')
 
-      await expect(nameWrapper)
-        .write(
-          'safeTransferFrom',
+      await expect(
+        nameWrapper.write.safeTransferFrom(
           [accounts[0].address, accounts[2].address, toNameId(name), 1n, '0x'],
           { account: accounts[2] },
-        )
-        .toBeRevertedWithString('ERC1155: insufficient balance for transfer')
+        ),
+      ).toBeRevertedWithString('ERC1155: insufficient balance for transfer')
     })
 
     it('When emancipated names expire, they are untransferrible', async () => {
       const { nameWrapper, actions, accounts, testClient, publicClient } =
-        await loadFixture(fixture)
+        await loadFixture(nameWrapperFixture)
 
       await actions.registerSetupAndWrapName({
         label,
@@ -865,20 +900,20 @@ describe('NameWrapper', () => {
       await testClient.increaseTime({ seconds: 3601 })
       await testClient.mine({ blocks: 1 })
 
-      await expect(nameWrapper)
-        .write('safeTransferFrom', [
+      await expect(
+        nameWrapper.write.safeTransferFrom([
           accounts[0].address,
           accounts[1].address,
           toNameId(`test.${name}`),
           1n,
           '0x',
-        ])
-        .toBeRevertedWithString('ERC1155: insufficient balance for transfer')
+        ]),
+      ).toBeRevertedWithString('ERC1155: insufficient balance for transfer')
     })
 
     it('Returns a balance of 0 for expired names', async () => {
       const { nameWrapper, actions, accounts, testClient } = await loadFixture(
-        fixture,
+        nameWrapperFixture,
       )
 
       await actions.registerSetupAndWrapName({
@@ -900,7 +935,7 @@ describe('NameWrapper', () => {
 
     it('Reregistering an expired name does not inherit its previous parent fuses', async () => {
       const { nameWrapper, actions, accounts, testClient, publicClient } =
-        await loadFixture(fixture)
+        await loadFixture(nameWrapperFixture)
 
       await actions.registerSetupAndWrapName({
         label,
@@ -946,7 +981,7 @@ describe('NameWrapper', () => {
     const subname = `${sublabel}.${name}`
 
     async function implicitUnwrapFixture() {
-      const initial = await loadFixture(fixture)
+      const initial = await loadFixture(nameWrapperFixture)
       const { nameWrapper, baseRegistrar, accounts } = initial
 
       await baseRegistrar.write.addController([nameWrapper.address])
@@ -1019,9 +1054,8 @@ describe('NameWrapper', () => {
       // set `sub2.sub1.eth` to the victim user w fuses burnt
       // XXX: do this via `setChildFuses`
       // Cannot setChildFuses as the owner has not been updated in the wrapper when reregistering
-      await expect(nameWrapper)
-        .write(
-          'setChildFuses',
+      await expect(
+        nameWrapper.write.setChildFuses(
           [
             namehash(name),
             labelhash(sublabel),
@@ -1029,9 +1063,10 @@ describe('NameWrapper', () => {
             MAX_EXPIRY,
           ],
           { account: accounts[2] },
-        )
+        ),
+      )
         .toBeRevertedWithCustomError('Unauthorised')
-        .withArgs(namehash(name), getAddress(accounts[2].address))
+        .withArgs([namehash(name), getAddress(accounts[2].address)])
     })
 
     it('Renewing a wrapped, but expired name .eth in the wrapper, but unexpired on the registrar resyncs expiry', async () => {
@@ -1076,7 +1111,7 @@ describe('NameWrapper', () => {
   describe('TLD recovery', () => {
     it('Wraps a name which get stuck forever can be recovered by ROOT owner', async () => {
       const { ensRegistry, nameWrapper, accounts, actions } = await loadFixture(
-        fixture,
+        nameWrapperFixture,
       )
 
       await expectOwnerOf('xyz').on(nameWrapper).toBe(zeroAccount)
@@ -1100,14 +1135,14 @@ describe('NameWrapper', () => {
       await expectOwnerOf('xyz').on(nameWrapper).toBe(zeroAccount)
       await expectOwnerOf('xyz').on(ensRegistry).toBe(nameWrapper)
 
-      await expect(nameWrapper)
-        .write('setChildFuses', [
+      await expect(
+        nameWrapper.write.setChildFuses([
           zeroHash,
           labelhash('xyz'),
           PARENT_CANNOT_CONTROL,
           100000000000000n,
-        ])
-        .toBeRevertedWithCustomError('NameIsNotWrapped')
+        ]),
+      ).toBeRevertedWithCustomError('NameIsNotWrapped')
 
       await ensRegistry.write.setSubnodeOwner([
         zeroHash,

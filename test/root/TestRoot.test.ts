@@ -1,14 +1,17 @@
-import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
-import { expect } from 'chai'
 import hre from 'hardhat'
 import { labelhash, namehash, zeroHash } from 'viem'
+import { describe, expect, it } from 'vitest'
+
+import { getAccounts } from '../fixtures/utils.js'
+
+const connection = await hre.network.connect()
+const accounts = await getAccounts(connection)
 
 async function fixture() {
-  const accounts = await hre.viem
-    .getWalletClients()
-    .then((clients) => clients.map((c) => c.account))
-  const ensRegistry = await hre.viem.deployContract('ENSRegistry', [])
-  const root = await hre.viem.deployContract('Root', [ensRegistry.address])
+  const ensRegistry = await connection.viem.deployContract('ENSRegistry', [])
+  const root = await connection.viem.deployContract('Root', [
+    ensRegistry.address,
+  ])
 
   await root.write.setController([accounts[0].address, true])
   await ensRegistry.write.setSubnodeOwner([
@@ -20,11 +23,12 @@ async function fixture() {
 
   return { ensRegistry, root, accounts }
 }
+const loadFixture = async () => connection.networkHelpers.loadFixture(fixture)
 
 describe('Root', () => {
   describe('setSubnodeOwner', () => {
     it('should allow controllers to set subnodes', async () => {
-      const { ensRegistry, root, accounts } = await loadFixture(fixture)
+      const { ensRegistry, root, accounts } = await loadFixture()
 
       await root.write.setSubnodeOwner([labelhash('eth'), accounts[1].address])
 
@@ -34,23 +38,23 @@ describe('Root', () => {
     })
 
     it('should fail when non-controller tries to set subnode', async () => {
-      const { root, accounts } = await loadFixture(fixture)
+      const { root, accounts } = await loadFixture()
 
-      await expect(root)
-        .write('setSubnodeOwner', [labelhash('eth'), accounts[1].address], {
+      await expect(
+        root.write.setSubnodeOwner([labelhash('eth'), accounts[1].address], {
           account: accounts[1],
-        })
-        .toBeRevertedWithString('Controllable: Caller is not a controller')
+        }),
+      ).toBeRevertedWithString('Controllable: Caller is not a controller')
     })
 
     it('should not allow setting a locked TLD', async () => {
-      const { root, accounts } = await loadFixture(fixture)
+      const { root, accounts } = await loadFixture()
 
       await root.write.lock([labelhash('eth')])
 
-      await expect(root)
-        .write('setSubnodeOwner', [labelhash('eth'), accounts[1].address])
-        .toBeRevertedWithoutReason()
+      await expect(
+        root.write.setSubnodeOwner([labelhash('eth'), accounts[1].address]),
+      ).toBeRevertedWithoutReason()
     })
   })
 })
