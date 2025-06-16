@@ -1,5 +1,3 @@
-import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
-import { expect } from 'chai'
 import hre from 'hardhat'
 import {
   Address,
@@ -10,50 +8,50 @@ import {
   zeroAddress,
   zeroHash,
 } from 'viem'
+import { describe, expect, it } from 'vitest'
+
 import { DAY, FUSES } from '../fixtures/constants.js'
 import { getReverseName } from '../fixtures/ensip19.js'
 import {
-  commitName,
-  getDefaultRegistrationOptions,
+  commitNameWithConnection,
+  getDefaultRegistrationOptionsWithConnection,
   getRegisterNameParameterArray,
-  registerName,
+  registerNameWithConnection,
 } from '../fixtures/registerName.js'
 
 const REGISTRATION_TIME = 28n * DAY
 const BUFFERED_REGISTRATION_COST = REGISTRATION_TIME + 3n * DAY
 const GRACE_PERIOD = 90n * DAY
 
-const getAccounts = async () => {
-  const [ownerClient, registrantClient, otherClient] =
-    await hre.viem.getWalletClients()
-  return {
-    ownerAccount: ownerClient.account,
-    ownerClient,
-    registrantAccount: registrantClient.account,
-    registrantClient,
-    otherAccount: otherClient.account,
-    otherClient,
-  }
-}
-
 const labelId = (label: string) => hexToBigInt(labelhash(label))
 
+const connection = await hre.network.connect()
+const publicClient = await connection.viem.getPublicClient()
+const [ownerClient, registrantClient, otherClient] =
+  await connection.viem.getWalletClients()
+const ownerAccount = ownerClient.account
+const registrantAccount = registrantClient.account
+const otherAccount = otherClient.account
+const registerName = registerNameWithConnection(connection)
+const commitName = commitNameWithConnection(connection)
+const getDefaultRegistrationOptions =
+  getDefaultRegistrationOptionsWithConnection(connection)
+
 async function fixture() {
-  const publicClient = await hre.viem.getPublicClient()
-  const accounts = await getAccounts()
-  const ensRegistry = await hre.viem.deployContract('ENSRegistry', [])
-  const baseRegistrar = await hre.viem.deployContract(
+  const ensRegistry = await connection.viem.deployContract('ENSRegistry', [])
+  const baseRegistrar = await connection.viem.deployContract(
     'BaseRegistrarImplementation',
     [ensRegistry.address, namehash('eth')],
   )
-  const reverseRegistrar = await hre.viem.deployContract('ReverseRegistrar', [
-    ensRegistry.address,
-  ])
+  const reverseRegistrar = await connection.viem.deployContract(
+    'ReverseRegistrar',
+    [ensRegistry.address],
+  )
 
   await ensRegistry.write.setSubnodeOwner([
     zeroHash,
     labelhash('reverse'),
-    accounts.ownerAccount.address,
+    ownerAccount.address,
   ])
   await ensRegistry.write.setSubnodeOwner([
     namehash('reverse'),
@@ -61,10 +59,10 @@ async function fixture() {
     reverseRegistrar.address,
   ])
 
-  const nameWrapper = await hre.viem.deployContract('NameWrapper', [
+  const nameWrapper = await connection.viem.deployContract('NameWrapper', [
     ensRegistry.address,
     baseRegistrar.address,
-    accounts.ownerAccount.address,
+    ownerAccount.address,
   ])
 
   await ensRegistry.write.setSubnodeOwner([
@@ -73,12 +71,14 @@ async function fixture() {
     baseRegistrar.address,
   ])
 
-  const dummyOracle = await hre.viem.deployContract('DummyOracle', [100000000n])
-  const priceOracle = await hre.viem.deployContract('StablePriceOracle', [
-    dummyOracle.address,
-    [0n, 0n, 4n, 2n, 1n],
+  const dummyOracle = await connection.viem.deployContract('DummyOracle', [
+    100000000n,
   ])
-  const ethRegistrarController = await hre.viem.deployContract(
+  const priceOracle = await connection.viem.deployContract(
+    'StablePriceOracle',
+    [dummyOracle.address, [0n, 0n, 4n, 2n, 1n]],
+  )
+  const ethRegistrarController = await connection.viem.deployContract(
     'ETHRegistrarController',
     [
       baseRegistrar.address,
@@ -98,18 +98,21 @@ async function fixture() {
     true,
   ])
 
-  const publicResolver = await hre.viem.deployContract('PublicResolver', [
-    ensRegistry.address,
-    nameWrapper.address,
-    ethRegistrarController.address,
-    reverseRegistrar.address,
-  ])
+  const publicResolver = await connection.viem.deployContract(
+    'PublicResolver',
+    [
+      ensRegistry.address,
+      nameWrapper.address,
+      ethRegistrarController.address,
+      reverseRegistrar.address,
+    ],
+  )
 
   const callData = [
     encodeFunctionData({
       abi: publicResolver.abi,
       functionName: 'setAddr',
-      args: [namehash('newconfigname.eth'), accounts.registrantAccount.address],
+      args: [namehash('newconfigname.eth'), registrantAccount.address],
     }),
     encodeFunctionData({
       abi: publicResolver.abi,
@@ -128,10 +131,9 @@ async function fixture() {
     ethRegistrarController,
     publicResolver,
     callData,
-    publicClient,
-    ...accounts,
   }
 }
+const loadFixture = async () => connection.networkHelpers.loadFixture(fixture)
 
 describe('ETHRegistrarController', () => {
   it('should report label validity', async () => {
@@ -159,7 +161,7 @@ describe('ETHRegistrarController', () => {
       '\ud83d\udca9\ud83d\udca9': false,
     }
 
-    const { ethRegistrarController } = await loadFixture(fixture)
+    const { ethRegistrarController } = await loadFixture()
 
     for (const label in checkLabels) {
       await expect(ethRegistrarController.read.valid([label])).resolves.toEqual(
@@ -169,15 +171,14 @@ describe('ETHRegistrarController', () => {
   })
 
   it('should report unused names as available', async () => {
-    const { ethRegistrarController } = await loadFixture(fixture)
+    const { ethRegistrarController } = await loadFixture()
     await expect(
       ethRegistrarController.read.available(['available']),
     ).resolves.toEqual(true)
   })
 
   it('should permit new registrations', async () => {
-    const { ethRegistrarController, publicClient, registrantAccount } =
-      await loadFixture(fixture)
+    const { ethRegistrarController } = await loadFixture()
 
     const balanceBefore = await publicClient.getBalance({
       address: ethRegistrarController.address,
@@ -192,19 +193,24 @@ describe('ETHRegistrarController', () => {
       },
     )
 
-    const timestamp = await publicClient.getBlock().then((b) => b.timestamp)
+    const timestamp = await publicClient
+      .getBlock({ blockTag: 'pending' })
+      .then((b) => b.timestamp)
 
-    await expect(ethRegistrarController)
-      .write('register', args, { value: BUFFERED_REGISTRATION_COST })
+    await expect(
+      ethRegistrarController.write.register(args, {
+        value: BUFFERED_REGISTRATION_COST,
+      }),
+    )
       .toEmitEvent('NameRegistered')
-      .withArgs(
-        params.label,
-        labelhash(params.label),
-        params.ownerAddress,
-        params.duration,
-        0n,
-        timestamp + params.duration,
-      )
+      .withArgs({
+        label: labelhash(params.label),
+        owner: params.ownerAddress,
+        name: params.label,
+        baseCost: params.duration,
+        premium: 0n,
+        expires: timestamp + params.duration,
+      })
 
     await expect(
       publicClient.getBalance({ address: ethRegistrarController.address }),
@@ -212,9 +218,7 @@ describe('ETHRegistrarController', () => {
   })
 
   it('should revert when not enough ether is transferred', async () => {
-    const { ethRegistrarController, registrantAccount } = await loadFixture(
-      fixture,
-    )
+    const { ethRegistrarController } = await loadFixture()
 
     const { args } = await commitName(
       { ethRegistrarController },
@@ -225,13 +229,13 @@ describe('ETHRegistrarController', () => {
       },
     )
 
-    await expect(ethRegistrarController)
-      .write('register', args, { value: 0n })
-      .toBeRevertedWithCustomError('InsufficientValue')
+    await expect(
+      ethRegistrarController.write.register(args, { value: 0n }),
+    ).toBeRevertedWithCustomError('InsufficientValue')
   })
 
   it('should report registered names as unavailable', async () => {
-    const { ethRegistrarController } = await loadFixture(fixture)
+    const { ethRegistrarController } = await loadFixture()
     await registerName({ ethRegistrarController }, { label: 'newname' })
     await expect(
       ethRegistrarController.read.available(['newname']),
@@ -246,9 +250,7 @@ describe('ETHRegistrarController', () => {
       ethRegistrarController,
       callData,
       publicResolver,
-      publicClient,
-      registrantAccount,
-    } = await loadFixture(fixture)
+    } = await loadFixture()
 
     const { args, params } = await commitName(
       { ethRegistrarController },
@@ -260,19 +262,24 @@ describe('ETHRegistrarController', () => {
         data: callData,
       },
     )
-    const timestamp = await publicClient.getBlock().then((b) => b.timestamp)
+    const timestamp = await publicClient
+      .getBlock({ blockTag: 'pending' })
+      .then((b) => b.timestamp)
 
-    await expect(ethRegistrarController)
-      .write('register', args, { value: BUFFERED_REGISTRATION_COST })
+    await expect(
+      ethRegistrarController.write.register(args, {
+        value: BUFFERED_REGISTRATION_COST,
+      }),
+    )
       .toEmitEvent('NameRegistered')
-      .withArgs(
-        params.label,
-        labelhash(params.label),
-        params.ownerAddress,
-        params.duration,
-        0n,
-        timestamp + params.duration,
-      )
+      .withArgs({
+        name: params.label,
+        label: labelhash(params.label),
+        owner: params.ownerAddress,
+        baseCost: params.duration,
+        premium: 0n,
+        expires: timestamp + params.duration,
+      })
 
     await expect(
       publicClient.getBalance({ address: ethRegistrarController.address }),
@@ -300,12 +307,10 @@ describe('ETHRegistrarController', () => {
   })
 
   it('should not permit new registrations with data and 0 resolver', async () => {
-    const { ethRegistrarController, registrantAccount, callData } =
-      await loadFixture(fixture)
+    const { ethRegistrarController, callData } = await loadFixture()
 
-    await expect(ethRegistrarController)
-      .read(
-        'makeCommitment',
+    await expect(
+      ethRegistrarController.read.makeCommitment(
         getRegisterNameParameterArray(
           await getDefaultRegistrationOptions({
             label: 'newconfigname',
@@ -313,13 +318,12 @@ describe('ETHRegistrarController', () => {
             data: callData,
           }),
         ),
-      )
-      .toBeRevertedWithCustomError('ResolverRequiredWhenDataSupplied')
+      ),
+    ).toBeRevertedWithCustomError('ResolverRequiredWhenDataSupplied')
   })
 
   it('should not permit new registrations with EoA resolver', async () => {
-    const { ethRegistrarController, registrantAccount, callData } =
-      await loadFixture(fixture)
+    const { ethRegistrarController, callData } = await loadFixture()
 
     const { args } = await commitName(
       { ethRegistrarController },
@@ -332,14 +336,15 @@ describe('ETHRegistrarController', () => {
       },
     )
 
-    await expect(ethRegistrarController)
-      .write('register', args, { value: BUFFERED_REGISTRATION_COST })
-      .toBeRevertedWithoutReason()
+    await expect(
+      ethRegistrarController.write.register(args, {
+        value: BUFFERED_REGISTRATION_COST,
+      }),
+    ).toBeRevertedWithoutReason()
   })
 
   it('should not permit new registrations with incompatible contract resolver', async () => {
-    const { ethRegistrarController, registrantAccount, callData } =
-      await loadFixture(fixture)
+    const { ethRegistrarController, callData } = await loadFixture()
 
     const { args } = await commitName(
       { ethRegistrarController },
@@ -352,14 +357,15 @@ describe('ETHRegistrarController', () => {
       },
     )
 
-    await expect(ethRegistrarController)
-      .write('register', args, { value: BUFFERED_REGISTRATION_COST })
-      .toBeRevertedWithoutReason()
+    await expect(
+      ethRegistrarController.write.register(args, {
+        value: BUFFERED_REGISTRATION_COST,
+      }),
+    ).toBeRevertedWithoutReason()
   })
 
   it('should not permit new registrations with records updating a different name', async () => {
-    const { ethRegistrarController, publicResolver, registrantAccount } =
-      await loadFixture(fixture)
+    const { ethRegistrarController, publicResolver } = await loadFixture()
 
     const { args } = await commitName(
       { ethRegistrarController },
@@ -378,16 +384,17 @@ describe('ETHRegistrarController', () => {
       },
     )
 
-    await expect(ethRegistrarController)
-      .write('register', args, { value: BUFFERED_REGISTRATION_COST })
-      .toBeRevertedWithString(
-        'multicall: All records must have a matching namehash',
-      )
+    await expect(
+      ethRegistrarController.write.register(args, {
+        value: BUFFERED_REGISTRATION_COST,
+      }),
+    ).toBeRevertedWithString(
+      'multicall: All records must have a matching namehash',
+    )
   })
 
   it('should not permit new registrations with any record updating a different name', async () => {
-    const { ethRegistrarController, publicResolver, registrantAccount } =
-      await loadFixture(fixture)
+    const { ethRegistrarController, publicResolver } = await loadFixture()
 
     const { args } = await commitName(
       { ethRegistrarController },
@@ -411,21 +418,18 @@ describe('ETHRegistrarController', () => {
       },
     )
 
-    await expect(ethRegistrarController)
-      .write('register', args, { value: BUFFERED_REGISTRATION_COST })
-      .toBeRevertedWithString(
-        'multicall: All records must have a matching namehash',
-      )
+    await expect(
+      ethRegistrarController.write.register(args, {
+        value: BUFFERED_REGISTRATION_COST,
+      }),
+    ).toBeRevertedWithString(
+      'multicall: All records must have a matching namehash',
+    )
   })
 
   it('should permit a registration with resolver but no records', async () => {
-    const {
-      ensRegistry,
-      ethRegistrarController,
-      publicResolver,
-      publicClient,
-      registrantAccount,
-    } = await loadFixture(fixture)
+    const { ensRegistry, ethRegistrarController, publicResolver } =
+      await loadFixture()
 
     const { args, params } = await commitName(
       { ethRegistrarController },
@@ -436,19 +440,24 @@ describe('ETHRegistrarController', () => {
         resolverAddress: publicResolver.address,
       },
     )
-    const timestamp = await publicClient.getBlock().then((b) => b.timestamp)
+    const timestamp = await publicClient
+      .getBlock({ blockTag: 'pending' })
+      .then((b) => b.timestamp)
 
-    await expect(ethRegistrarController)
-      .write('register', args, { value: BUFFERED_REGISTRATION_COST })
+    await expect(
+      ethRegistrarController.write.register(args, {
+        value: BUFFERED_REGISTRATION_COST,
+      }),
+    )
       .toEmitEvent('NameRegistered')
-      .withArgs(
-        params.label,
-        labelhash(params.label),
-        params.ownerAddress,
-        params.duration,
-        0n,
-        timestamp + params.duration,
-      )
+      .withArgs({
+        name: params.label,
+        label: labelhash(params.label),
+        owner: params.ownerAddress,
+        baseCost: params.duration,
+        premium: 0n,
+        expires: timestamp + params.duration,
+      })
 
     const nodehash = namehash('newconfigname.eth')
     await expect(ensRegistry.read.resolver([nodehash])).resolves.toEqualAddress(
@@ -463,10 +472,9 @@ describe('ETHRegistrarController', () => {
   })
 
   it('should include the owner in the commitment', async () => {
-    const { ethRegistrarController, registrantAccount, otherAccount } =
-      await loadFixture(fixture)
+    const { ethRegistrarController } = await loadFixture()
 
-    let { args, params } = await commitName(
+    let { args } = await commitName(
       { ethRegistrarController },
       {
         label: 'newname',
@@ -477,15 +485,15 @@ describe('ETHRegistrarController', () => {
 
     args[1] = registrantAccount.address
 
-    await expect(ethRegistrarController)
-      .write('register', args, { value: BUFFERED_REGISTRATION_COST })
-      .toBeRevertedWithCustomError('CommitmentTooOld')
+    await expect(
+      ethRegistrarController.write.register(args, {
+        value: BUFFERED_REGISTRATION_COST,
+      }),
+    ).toBeRevertedWithCustomError('CommitmentTooOld')
   })
 
   it('should reject duplicate registrations', async () => {
-    const { ethRegistrarController, registrantAccount } = await loadFixture(
-      fixture,
-    )
+    const { ethRegistrarController } = await loadFixture()
 
     const label = 'newname'
 
@@ -507,17 +515,18 @@ describe('ETHRegistrarController', () => {
       },
     )
 
-    await expect(ethRegistrarController)
-      .write('register', args, { value: BUFFERED_REGISTRATION_COST })
+    await expect(
+      ethRegistrarController.write.register(args, {
+        value: BUFFERED_REGISTRATION_COST,
+      }),
+    )
       .toBeRevertedWithCustomError('NameNotAvailable')
-      .withArgs(label)
+      .withArgs([label])
   })
 
   it('should reject for expired commitments', async () => {
-    const { ethRegistrarController, registrantAccount } = await loadFixture(
-      fixture,
-    )
-    const testClient = await hre.viem.getTestClient()
+    const { ethRegistrarController } = await loadFixture()
+    const testClient = await connection.viem.getTestClient()
 
     const { args, hash } = await commitName(
       { ethRegistrarController },
@@ -537,20 +546,18 @@ describe('ETHRegistrarController', () => {
       seconds: Number(maxCommitmentAge - minCommitmentAge) + 1,
     })
 
-    await expect(ethRegistrarController)
-      .write('register', args, { value: BUFFERED_REGISTRATION_COST })
+    await expect(
+      ethRegistrarController.write.register(args, {
+        value: BUFFERED_REGISTRATION_COST,
+      }),
+    )
       .toBeRevertedWithCustomError('CommitmentTooOld')
-      .withArgs(hash)
+      .withArgs([hash])
   })
 
   it('should allow anyone to renew a name and change fuse expiry', async () => {
-    const {
-      baseRegistrar,
-      ethRegistrarController,
-      nameWrapper,
-      publicClient,
-      registrantAccount,
-    } = await loadFixture(fixture)
+    const { baseRegistrar, ethRegistrarController, nameWrapper } =
+      await loadFixture()
     await registerName(
       { ethRegistrarController },
       {
@@ -595,13 +602,8 @@ describe('ETHRegistrarController', () => {
   })
 
   it('should allow token owners to renew a name', async () => {
-    const {
-      baseRegistrar,
-      ethRegistrarController,
-      nameWrapper,
-      publicClient,
-      registrantAccount,
-    } = await loadFixture(fixture)
+    const { baseRegistrar, ethRegistrarController, nameWrapper } =
+      await loadFixture()
     await registerName(
       { ethRegistrarController },
       {
@@ -646,8 +648,8 @@ describe('ETHRegistrarController', () => {
   })
 
   it('non wrapped names can renew', async () => {
-    const { nameWrapper, baseRegistrar, ethRegistrarController, ownerAccount } =
-      await loadFixture(fixture)
+    const { nameWrapper, baseRegistrar, ethRegistrarController } =
+      await loadFixture()
 
     const label = 'newname'
     const tokenId = labelId(label)
@@ -689,16 +691,15 @@ describe('ETHRegistrarController', () => {
   })
 
   it('should require sufficient value for a renewal', async () => {
-    const { ethRegistrarController } = await loadFixture(fixture)
+    const { ethRegistrarController } = await loadFixture()
 
-    await expect(ethRegistrarController)
-      .write('renew', ['newname', 86400n])
-      .toBeRevertedWithCustomError('InsufficientValue')
+    await expect(
+      ethRegistrarController.write.renew(['newname', 86400n]),
+    ).toBeRevertedWithCustomError('InsufficientValue')
   })
 
   it('should allow anyone to withdraw funds and transfer to the registrar owner', async () => {
-    const { ethRegistrarController, ownerAccount, publicClient } =
-      await loadFixture(fixture)
+    const { ethRegistrarController } = await loadFixture()
 
     await registerName(
       { ethRegistrarController },
@@ -716,12 +717,7 @@ describe('ETHRegistrarController', () => {
   })
 
   it('should set the reverse record of the account', async () => {
-    const {
-      ethRegistrarController,
-      publicResolver,
-      registrantAccount,
-      ownerAccount,
-    } = await loadFixture(fixture)
+    const { ethRegistrarController, publicResolver } = await loadFixture()
 
     await registerName(
       { ethRegistrarController },
@@ -742,8 +738,7 @@ describe('ETHRegistrarController', () => {
   })
 
   it('should not set the reverse record of the account when set to false', async () => {
-    const { ethRegistrarController, publicResolver, registrantAccount } =
-      await loadFixture(fixture)
+    const { ethRegistrarController, publicResolver } = await loadFixture()
 
     await registerName(
       { ethRegistrarController },
@@ -764,13 +759,8 @@ describe('ETHRegistrarController', () => {
   })
 
   it('should auto wrap the name and set the ERC721 owner to the wrapper', async () => {
-    const {
-      ensRegistry,
-      baseRegistrar,
-      ethRegistrarController,
-      nameWrapper,
-      registrantAccount,
-    } = await loadFixture(fixture)
+    const { ensRegistry, baseRegistrar, ethRegistrarController, nameWrapper } =
+      await loadFixture()
 
     const label = 'wrapper'
     const name = label + '.eth'
@@ -796,12 +786,7 @@ describe('ETHRegistrarController', () => {
   })
 
   it('should auto wrap the name and allow fuses and expiry to be set', async () => {
-    const {
-      publicClient,
-      ethRegistrarController,
-      nameWrapper,
-      registrantAccount,
-    } = await loadFixture(fixture)
+    const { ethRegistrarController, nameWrapper } = await loadFixture()
 
     const label = 'fuses'
     const name = label + '.eth'
@@ -829,14 +814,12 @@ describe('ETHRegistrarController', () => {
 
   it('approval should reduce gas for registration', async () => {
     const {
-      publicClient,
       ensRegistry,
       baseRegistrar,
       ethRegistrarController,
       nameWrapper,
-      registrantAccount,
       publicResolver,
-    } = await loadFixture(fixture)
+    } = await loadFixture()
 
     const label = 'other'
     const name = label + '.eth'
@@ -902,12 +885,8 @@ describe('ETHRegistrarController', () => {
   })
 
   it('should not permit new registrations with non resolver function calls', async () => {
-    const {
-      baseRegistrar,
-      ethRegistrarController,
-      registrantAccount,
-      publicResolver,
-    } = await loadFixture(fixture)
+    const { baseRegistrar, ethRegistrarController, publicResolver } =
+      await loadFixture()
 
     const label = 'newconfigname'
     const name = label + '.eth'
@@ -936,8 +915,10 @@ describe('ETHRegistrarController', () => {
       },
     )
 
-    await expect(ethRegistrarController)
-      .write('register', args, { value: BUFFERED_REGISTRATION_COST })
-      .toBeRevertedWithoutReason()
+    await expect(
+      ethRegistrarController.write.register(args, {
+        value: BUFFERED_REGISTRATION_COST,
+      }),
+    ).toBeRevertedWithoutReason()
   })
 })

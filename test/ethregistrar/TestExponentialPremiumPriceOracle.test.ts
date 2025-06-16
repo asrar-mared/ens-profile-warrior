@@ -1,7 +1,8 @@
-import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
-import { expect } from 'chai'
 import hre from 'hardhat'
 import { labelhash, namehash, zeroHash } from 'viem'
+import { describe, expect, it } from 'vitest'
+
+import { getAccounts } from '../fixtures/utils.js'
 
 const FACTOR = 10n ** 18n
 const START_PRICE = 100000000
@@ -22,13 +23,13 @@ function exponentialReduceFloatingPoint(startPrice: number, days: number) {
   return 0
 }
 
+const connection = await hre.network.connect()
+const publicClient = await connection.viem.getPublicClient()
+const accounts = await getAccounts(connection)
+
 async function fixture() {
-  const publicClient = await hre.viem.getPublicClient()
-  const accounts = await hre.viem
-    .getWalletClients()
-    .then((clients) => clients.map((c) => c.account))
-  const ensRegistry = await hre.viem.deployContract('ENSRegistry', [])
-  const baseRegistrar = await hre.viem.deployContract(
+  const ensRegistry = await connection.viem.deployContract('ENSRegistry', [])
+  const baseRegistrar = await connection.viem.deployContract(
     'BaseRegistrarImplementation',
     [ensRegistry.address, namehash('eth')],
   )
@@ -41,11 +42,13 @@ async function fixture() {
   ])
 
   // Dummy oracle with 1 ETH == 2 USD
-  const dummyOracle = await hre.viem.deployContract('DummyOracle', [200000000n])
+  const dummyOracle = await connection.viem.deployContract('DummyOracle', [
+    200000000n,
+  ])
   // 4 attousd per second for 3 character names, 2 attousd per second for 4 character names,
   // 1 attousd per second for longer names.
   // Pricing premium starts out at 100 USD at expiry and decreases to 0 over 100k seconds (a bit over a day)
-  const priceOracle = await hre.viem.deployContract(
+  const priceOracle = await connection.viem.deployContract(
     'ExponentialPremiumPriceOracle',
     [
       dummyOracle.address,
@@ -55,12 +58,13 @@ async function fixture() {
     ],
   )
 
-  return { ensRegistry, baseRegistrar, priceOracle, publicClient, accounts }
+  return { ensRegistry, baseRegistrar, priceOracle }
 }
+const loadFixture = async () => connection.networkHelpers.loadFixture(fixture)
 
 describe('ExponentialPremiumPriceOracle', () => {
   it('should return correct base prices', async () => {
-    const { priceOracle } = await loadFixture(fixture)
+    const { priceOracle } = await loadFixture()
     await expect(
       priceOracle.read.price(['foo', 0n, 3600n]),
     ).resolves.toHaveProperty('base', 7200n)
@@ -76,7 +80,7 @@ describe('ExponentialPremiumPriceOracle', () => {
   })
 
   it('should not specify a premium for first-time registrations', async () => {
-    const { priceOracle } = await loadFixture(fixture)
+    const { priceOracle } = await loadFixture()
     await expect(priceOracle.read.premium(['foobar', 0n, 0n])).resolves.toEqual(
       0n,
     )
@@ -86,7 +90,7 @@ describe('ExponentialPremiumPriceOracle', () => {
   })
 
   it('should not specify a premium for renewals', async () => {
-    const { priceOracle, publicClient } = await loadFixture(fixture)
+    const { priceOracle } = await loadFixture()
     const timestamp = await publicClient.getBlock().then((b) => b.timestamp)
     await expect(
       priceOracle.read.premium(['foobar', timestamp, 0n]),
@@ -97,7 +101,7 @@ describe('ExponentialPremiumPriceOracle', () => {
   })
 
   it('should specify the maximum premium at the moment of expiration', async () => {
-    const { priceOracle, publicClient } = await loadFixture(fixture)
+    const { priceOracle } = await loadFixture()
     const timestamp = await publicClient
       .getBlock()
       .then((b) => b.timestamp - 90n * BigInt(DAY))
@@ -112,7 +116,7 @@ describe('ExponentialPremiumPriceOracle', () => {
   })
 
   it('should specify the correct price after 2.5 days and 1 year registration', async () => {
-    const { priceOracle, publicClient } = await loadFixture(fixture)
+    const { priceOracle } = await loadFixture()
     const timestamp = await publicClient
       .getBlock()
       .then((b) => b.timestamp - (90n * DAY + 2n * DAY + DAY / 2n))
@@ -135,7 +139,7 @@ describe('ExponentialPremiumPriceOracle', () => {
   })
 
   it('should produce a 0 premium at the end of the decay period', async () => {
-    const { priceOracle, publicClient } = await loadFixture(fixture)
+    const { priceOracle } = await loadFixture()
     const timestamp = await publicClient
       .getBlock()
       .then((b) => b.timestamp - 90n * DAY)
@@ -150,7 +154,7 @@ describe('ExponentialPremiumPriceOracle', () => {
 
   // This test only runs every hour of each day. For an exhaustive test use the exponentialPremiumScript and uncomment the exhaustive test below
   it('should not be beyond a certain amount of inaccuracy from floating point calc', async () => {
-    const { priceOracle, publicClient } = await loadFixture(fixture)
+    const { priceOracle } = await loadFixture()
     const timestamp = await publicClient
       .getBlock()
       .then((b) => b.timestamp - 90n * DAY)

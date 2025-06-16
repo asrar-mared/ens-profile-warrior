@@ -1,12 +1,13 @@
 import { SignedSet } from '@ensdomains/dnsprovejs'
-import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
-import { expect } from 'chai'
+import hre from 'hardhat'
 import {
   stringToHex,
   zeroAddress,
   type Hex,
   type ReadContractReturnType,
 } from 'viem'
+import { describe, expect, it } from 'vitest'
+
 import {
   expiration,
   hexEncodeSignedSet,
@@ -14,6 +15,7 @@ import {
   rootKeys,
 } from '../fixtures/dns.js'
 import { dnssecFixture } from '../fixtures/dnssecFixture.js'
+import { getAccounts } from '../fixtures/utils.js'
 
 const TEST_RRSET_TIMESTAMP = 1552658805n
 
@@ -75,9 +77,16 @@ const test_rrsets = [
   ],
 ] as const
 
+const connection = await hre.network.connect()
+const accounts = await getAccounts(connection)
+function fixture() {
+  return dnssecFixture(connection)
+}
+const loadFixture = async () => connection.networkHelpers.loadFixture(fixture)
+
 describe('DNSSEC', () => {
   it('should accept real DNSSEC records', async () => {
-    const { dnssec } = await loadFixture(dnssecFixture)
+    const { dnssec } = await loadFixture()
 
     const sets = test_rrsets.map(([, rrset, sig]) => ({ rrset, sig }))
 
@@ -100,7 +109,7 @@ describe('DNSSEC', () => {
   })
 
   it('should have a default algorithm and digest set', async () => {
-    const { dnssec } = await loadFixture(dnssecFixture)
+    const { dnssec } = await loadFixture()
 
     await expect(dnssec.read.algorithms([8])).not.resolves.toEqualAddress(
       zeroAddress,
@@ -117,23 +126,27 @@ describe('DNSSEC', () => {
   })
 
   it('should only allow the owner to set digests', async () => {
-    const { dnssec, accounts } = await loadFixture(dnssecFixture)
+    const { dnssec } = await loadFixture()
 
-    await expect(dnssec)
-      .write('setDigest', [1, accounts[1].address], { account: accounts[1] })
-      .toBeRevertedWithoutReason()
+    await expect(
+      dnssec.write.setDigest([1, accounts[1].address], {
+        account: accounts[1],
+      }),
+    ).toBeRevertedWithoutReason()
   })
 
   it('should only allow the owner to set algorithms', async () => {
-    const { dnssec, accounts } = await loadFixture(dnssecFixture)
+    const { dnssec } = await loadFixture()
 
-    await expect(dnssec)
-      .write('setAlgorithm', [1, accounts[1].address], { account: accounts[1] })
-      .toBeRevertedWithoutReason()
+    await expect(
+      dnssec.write.setAlgorithm([1, accounts[1].address], {
+        account: accounts[1],
+      }),
+    ).toBeRevertedWithoutReason()
   })
 
   it('should reject signatures with non-matching algorithms', async () => {
-    const { dnssec } = await loadFixture(dnssecFixture)
+    const { dnssec } = await loadFixture()
 
     const baseKeys = rootKeys({ expiration, inception })
     const keys = {
@@ -144,13 +157,13 @@ describe('DNSSEC', () => {
       })),
     }
 
-    await expect(dnssec)
-      .read('verifyRRSet', [[hexEncodeSignedSet(keys)]])
-      .toBeRevertedWithCustomError('NoMatchingProof')
+    await expect(
+      dnssec.read.verifyRRSet([[hexEncodeSignedSet(keys)]]),
+    ).toBeRevertedWithCustomError('NoMatchingProof')
   })
 
   it('should reject signatures with non-matching keytags', async () => {
-    const { dnssec } = await loadFixture(dnssecFixture)
+    const { dnssec } = await loadFixture()
 
     const baseKeys = rootKeys({ expiration, inception })
     const keys = {
@@ -171,13 +184,13 @@ describe('DNSSEC', () => {
       ],
     } as const
 
-    await expect(dnssec)
-      .read('verifyRRSet', [[hexEncodeSignedSet(keys)]])
-      .toBeRevertedWithCustomError('NoMatchingProof')
+    await expect(
+      dnssec.read.verifyRRSet([[hexEncodeSignedSet(keys)]]),
+    ).toBeRevertedWithCustomError('NoMatchingProof')
   })
 
   it('should accept odd-length public keys', async () => {
-    const { dnssec } = await loadFixture(dnssecFixture)
+    const { dnssec } = await loadFixture()
 
     const baseKeys = rootKeys({ expiration, inception })
     const keys = {
@@ -195,13 +208,13 @@ describe('DNSSEC', () => {
       ],
     } as const
 
-    await expect(dnssec)
-      .read('verifyRRSet', [[hexEncodeSignedSet(keys)]])
-      .not.toBeReverted()
+    await expect(
+      dnssec.read.verifyRRSet([[hexEncodeSignedSet(keys)]]),
+    ).not.toBeReverted()
   })
 
   it('should reject signatures by keys without the ZK bit set', async () => {
-    const { dnssec } = await loadFixture(dnssecFixture)
+    const { dnssec } = await loadFixture()
 
     const baseKeys = rootKeys({ expiration, inception })
     const keys = {
@@ -222,23 +235,23 @@ describe('DNSSEC', () => {
       ],
     } as const
 
-    await expect(dnssec)
-      .read('verifyRRSet', [[hexEncodeSignedSet(keys)]])
-      .toBeRevertedWithCustomError('NoMatchingProof')
+    await expect(
+      dnssec.read.verifyRRSet([[hexEncodeSignedSet(keys)]]),
+    ).toBeRevertedWithCustomError('NoMatchingProof')
   })
 
   it('should accept a root DNSKEY', async () => {
-    const { dnssec } = await loadFixture(dnssecFixture)
+    const { dnssec } = await loadFixture()
 
     const keys = rootKeys({ expiration, inception })
 
-    await expect(dnssec)
-      .read('verifyRRSet', [[hexEncodeSignedSet(keys)]])
-      .not.toBeReverted()
+    await expect(
+      dnssec.read.verifyRRSet([[hexEncodeSignedSet(keys)]]),
+    ).not.toBeReverted()
   })
 
   it('should accept a signed rrset', async () => {
-    const { dnssec } = await loadFixture(dnssecFixture)
+    const { dnssec } = await loadFixture()
 
     const set = [
       hexEncodeSignedSet(rootKeys({ expiration, inception })),
@@ -273,11 +286,11 @@ describe('DNSSEC', () => {
       }),
     ]
 
-    await expect(dnssec).read('verifyRRSet', [set]).not.toBeReverted()
+    await expect(dnssec.read.verifyRRSet([set])).not.toBeReverted()
   })
 
   it('should reject signatures with non-IN classes', async () => {
-    const { dnssec } = await loadFixture(dnssecFixture)
+    const { dnssec } = await loadFixture()
 
     const set = [
       hexEncodeSignedSet(rootKeys({ expiration, inception })),
@@ -312,13 +325,13 @@ describe('DNSSEC', () => {
       }),
     ]
 
-    await expect(dnssec)
-      .read('verifyRRSet', [set])
-      .toBeRevertedWithCustomError('InvalidClass')
+    await expect(dnssec.read.verifyRRSet([set])).toBeRevertedWithCustomError(
+      'InvalidClass',
+    )
   })
 
   it('should reject signatures with the wrong type covered', async () => {
-    const { dnssec } = await loadFixture(dnssecFixture)
+    const { dnssec } = await loadFixture()
 
     const set = [
       hexEncodeSignedSet(rootKeys({ expiration, inception })),
@@ -353,13 +366,13 @@ describe('DNSSEC', () => {
       }),
     ]
 
-    await expect(dnssec)
-      .read('verifyRRSet', [set])
-      .toBeRevertedWithCustomError('SignatureTypeMismatch')
+    await expect(dnssec.read.verifyRRSet([set])).toBeRevertedWithCustomError(
+      'SignatureTypeMismatch',
+    )
   })
 
   it('should reject signatures with too many labels', async () => {
-    const { dnssec } = await loadFixture(dnssecFixture)
+    const { dnssec } = await loadFixture()
 
     const set = [
       hexEncodeSignedSet(rootKeys({ expiration, inception })),
@@ -394,13 +407,13 @@ describe('DNSSEC', () => {
       }),
     ]
 
-    await expect(dnssec)
-      .read('verifyRRSet', [set])
-      .toBeRevertedWithCustomError('InvalidLabelCount')
+    await expect(dnssec.read.verifyRRSet([set])).toBeRevertedWithCustomError(
+      'InvalidLabelCount',
+    )
   })
 
   it('should reject signatures with invalid signer names', async () => {
-    const { dnssec } = await loadFixture(dnssecFixture)
+    const { dnssec } = await loadFixture()
 
     const set = [
       hexEncodeSignedSet(rootKeys({ expiration, inception })),
@@ -435,13 +448,13 @@ describe('DNSSEC', () => {
       }),
     ]
 
-    await expect(dnssec)
-      .read('verifyRRSet', [set])
-      .toBeRevertedWithCustomError('InvalidSignerName')
+    await expect(dnssec.read.verifyRRSet([set])).toBeRevertedWithCustomError(
+      'InvalidSignerName',
+    )
   })
 
   it('should reject signatures with invalid signer names (2)', async () => {
-    const { dnssec } = await loadFixture(dnssecFixture)
+    const { dnssec } = await loadFixture()
 
     const set = [
       hexEncodeSignedSet(rootKeys({ expiration, inception })),
@@ -509,13 +522,13 @@ describe('DNSSEC', () => {
       }),
     ]
 
-    await expect(dnssec)
-      .read('verifyRRSet', [set])
-      .toBeRevertedWithCustomError('InvalidSignerName')
+    await expect(dnssec.read.verifyRRSet([set])).toBeRevertedWithCustomError(
+      'InvalidSignerName',
+    )
   })
 
   it('should reject signatures with unknown algorithms', async () => {
-    const { dnssec } = await loadFixture(dnssecFixture)
+    const { dnssec } = await loadFixture()
 
     const set = [
       hexEncodeSignedSet(rootKeys({ expiration, inception })),
@@ -583,13 +596,13 @@ describe('DNSSEC', () => {
       }),
     ]
 
-    await expect(dnssec)
-      .read('verifyRRSet', [set])
-      .toBeRevertedWithCustomError('NoMatchingProof')
+    await expect(dnssec.read.verifyRRSet([set])).toBeRevertedWithCustomError(
+      'NoMatchingProof',
+    )
   })
 
   it('should reject entries with expirations in the past', async () => {
-    const { dnssec } = await loadFixture(dnssecFixture)
+    const { dnssec } = await loadFixture()
 
     const baseKeys = rootKeys({ expiration, inception })
     const keys = {
@@ -603,13 +616,13 @@ describe('DNSSEC', () => {
       },
     }
 
-    await expect(dnssec)
-      .read('verifyRRSet', [[hexEncodeSignedSet(keys)]])
-      .toBeRevertedWithCustomError('SignatureExpired')
+    await expect(
+      dnssec.read.verifyRRSet([[hexEncodeSignedSet(keys)]]),
+    ).toBeRevertedWithCustomError('SignatureExpired')
   })
 
   it('should reject entries with inceptions in the future', async () => {
-    const { dnssec } = await loadFixture(dnssecFixture)
+    const { dnssec } = await loadFixture()
 
     const baseKeys = rootKeys({ expiration, inception })
     const keys = {
@@ -623,18 +636,18 @@ describe('DNSSEC', () => {
       },
     }
 
-    await expect(dnssec)
-      .read('verifyRRSet', [[hexEncodeSignedSet(keys)]])
-      .toBeRevertedWithCustomError('SignatureNotValidYet')
+    await expect(
+      dnssec.read.verifyRRSet([[hexEncodeSignedSet(keys)]]),
+    ).toBeRevertedWithCustomError('SignatureNotValidYet')
   })
 
   it('should reject invalid RSA signatures', async () => {
-    const { dnssec } = await loadFixture(dnssecFixture)
+    const { dnssec } = await loadFixture()
 
     const sig = test_rrsets[0][2]
 
-    await expect(dnssec)
-      .read('verifyRRSet', [
+    await expect(
+      dnssec.read.verifyRRSet([
         [
           {
             rrset: test_rrsets[0][1],
@@ -642,12 +655,12 @@ describe('DNSSEC', () => {
           },
         ],
         TEST_RRSET_TIMESTAMP,
-      ])
-      .toBeRevertedWithCustomError('NoMatchingProof')
+      ]),
+    ).toBeRevertedWithCustomError('NoMatchingProof')
   })
 
   it('should reject DS proofs with the wrong name', async () => {
-    const { dnssec } = await loadFixture(dnssecFixture)
+    const { dnssec } = await loadFixture()
 
     const set = [
       hexEncodeSignedSet(rootKeys({ expiration, inception })),
@@ -720,13 +733,13 @@ describe('DNSSEC', () => {
       }),
     ]
 
-    await expect(dnssec)
-      .read('verifyRRSet', [set])
-      .toBeRevertedWithCustomError('ProofNameMismatch')
+    await expect(dnssec.read.verifyRRSet([set])).toBeRevertedWithCustomError(
+      'ProofNameMismatch',
+    )
   })
 
   it('should accept a self-signed set using DS records', async () => {
-    const { dnssec } = await loadFixture(dnssecFixture)
+    const { dnssec } = await loadFixture()
 
     const set = [
       hexEncodeSignedSet(rootKeys({ expiration, inception })),
@@ -799,6 +812,6 @@ describe('DNSSEC', () => {
       }),
     ]
 
-    await expect(dnssec).read('verifyRRSet', [set]).not.toBeReverted()
+    await expect(dnssec.read.verifyRRSet([set])).not.toBeReverted()
   })
 })

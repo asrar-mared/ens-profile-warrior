@@ -1,63 +1,51 @@
-import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
-import { expect } from 'chai'
 import hre from 'hardhat'
 import { labelhash, namehash, zeroAddress, zeroHash } from 'viem'
+import { describe, expect, it } from 'vitest'
 import { toLabelId } from '../fixtures/utils.js'
 
-const getAccounts = async () => {
-  const [ownerClient, controllerClient, registrantClient, otherClient] =
-    await hre.viem.getWalletClients()
-  return {
-    ownerAccount: ownerClient.account,
-    ownerClient,
-    controllerAccount: controllerClient.account,
-    controllerClient,
-    registrantAccount: registrantClient.account,
-    registrantClient,
-    otherAccount: otherClient.account,
-    otherClient,
-  }
-}
+const connection = await hre.network.connect()
+const publicClient = await connection.viem.getPublicClient()
+const [ownerClient, controllerClient, registrantClient, otherClient] =
+  await connection.viem.getWalletClients()
+const ownerAccount = ownerClient.account
+const controllerAccount = controllerClient.account
+const registrantAccount = registrantClient.account
+const otherAccount = otherClient.account
 
 async function fixture() {
-  const publicClient = await hre.viem.getPublicClient()
-  const accounts = await getAccounts()
-  const ensRegistry = await hre.viem.deployContract('ENSRegistry', [])
-  const baseRegistrar = await hre.viem.deployContract(
+  const ensRegistry = await connection.viem.deployContract('ENSRegistry', [])
+  const baseRegistrar = await connection.viem.deployContract(
     'BaseRegistrarImplementation',
     [ensRegistry.address, namehash('eth')],
   )
 
-  await baseRegistrar.write.addController([accounts.controllerAccount.address])
+  await baseRegistrar.write.addController([controllerAccount.address])
   await ensRegistry.write.setSubnodeOwner([
     zeroHash,
     labelhash('eth'),
     baseRegistrar.address,
   ])
 
-  return { ensRegistry, baseRegistrar, publicClient, ...accounts }
+  return { ensRegistry, baseRegistrar }
 }
+const loadFixture = async () => connection.networkHelpers.loadFixture(fixture)
 
 async function fixtureWithRegistration() {
-  const existing = await loadFixture(fixture)
+  const existing = await loadFixture()
   await existing.baseRegistrar.write.register(
-    [toLabelId('newname'), existing.registrantAccount.address, 86400n],
+    [toLabelId('newname'), registrantAccount.address, 86400n],
     {
-      account: existing.controllerAccount,
+      account: controllerAccount,
     },
   )
   return existing
 }
+const loadFixtureWithRegistration = async () =>
+  connection.networkHelpers.loadFixture(fixtureWithRegistration)
 
 describe('BaseRegistrar', () => {
   it('should allow new registrations', async () => {
-    const {
-      ensRegistry,
-      baseRegistrar,
-      controllerAccount,
-      registrantAccount,
-      publicClient,
-    } = await loadFixture(fixture)
+    const { ensRegistry, baseRegistrar } = await loadFixture()
 
     const hash = await baseRegistrar.write.register(
       [toLabelId('newname'), registrantAccount.address, 86400n],
@@ -80,13 +68,7 @@ describe('BaseRegistrar', () => {
   })
 
   it('should allow registrations without updating the registry', async () => {
-    const {
-      ensRegistry,
-      baseRegistrar,
-      controllerAccount,
-      registrantAccount,
-      publicClient,
-    } = await loadFixture(fixture)
+    const { ensRegistry, baseRegistrar } = await loadFixture()
 
     const hash = await baseRegistrar.write.registerOnly(
       [toLabelId('silentname'), registrantAccount.address, 86400n],
@@ -109,9 +91,7 @@ describe('BaseRegistrar', () => {
   })
 
   it('should allow renewals', async () => {
-    const { baseRegistrar, controllerAccount } = await loadFixture(
-      fixtureWithRegistration,
-    )
+    const { baseRegistrar } = await loadFixtureWithRegistration()
 
     const oldExpires = await baseRegistrar.read.nameExpires([
       toLabelId('newname'),
@@ -127,54 +107,53 @@ describe('BaseRegistrar', () => {
   })
 
   it('should only allow the controller to register', async () => {
-    const { baseRegistrar, otherAccount } = await loadFixture(fixture)
+    const { baseRegistrar } = await loadFixture()
 
-    await expect(baseRegistrar)
-      .write('register', [toLabelId('foo'), otherAccount.address, 86400n], {
-        account: otherAccount,
-      })
-      .toBeRevertedWithoutReason()
+    await expect(
+      baseRegistrar.write.register(
+        [toLabelId('foo'), otherAccount.address, 86400n],
+        {
+          account: otherAccount,
+        },
+      ),
+    ).toBeRevertedWithoutReason()
   })
 
   it('should only allow the controller to renew', async () => {
-    const { baseRegistrar, otherAccount } = await loadFixture(fixture)
+    const { baseRegistrar } = await loadFixture()
 
-    await expect(baseRegistrar)
-      .write('renew', [toLabelId('foo'), 86400n], {
+    await expect(
+      baseRegistrar.write.renew([toLabelId('foo'), 86400n], {
         account: otherAccount,
-      })
-      .toBeRevertedWithoutReason()
+      }),
+    ).toBeRevertedWithoutReason()
   })
 
   it('should not permit registration of already registered names', async () => {
-    const { baseRegistrar, controllerAccount, registrantAccount } =
-      await loadFixture(fixtureWithRegistration)
+    const { baseRegistrar } = await loadFixtureWithRegistration()
 
-    await expect(baseRegistrar)
-      .write(
-        'register',
+    await expect(
+      baseRegistrar.write.register(
         [toLabelId('newname'), registrantAccount.address, 86400n],
         {
           account: controllerAccount,
         },
-      )
-      .toBeRevertedWithoutReason()
+      ),
+    ).toBeRevertedWithoutReason()
   })
 
   it('should not permit renewing a name that is not registered', async () => {
-    const { baseRegistrar, controllerAccount } = await loadFixture(fixture)
+    const { baseRegistrar } = await loadFixture()
 
-    await expect(baseRegistrar)
-      .write('renew', [toLabelId('newname'), 86400n], {
+    await expect(
+      baseRegistrar.write.renew([toLabelId('newname'), 86400n], {
         account: controllerAccount,
-      })
-      .toBeRevertedWithoutReason()
+      }),
+    ).toBeRevertedWithoutReason()
   })
 
   it('should permit the owner to reclaim a name', async () => {
-    const { ensRegistry, baseRegistrar, registrantAccount } = await loadFixture(
-      fixtureWithRegistration,
-    )
+    const { ensRegistry, baseRegistrar } = await loadFixtureWithRegistration()
 
     await ensRegistry.write.setOwner([namehash('newname.eth'), zeroAddress], {
       account: registrantAccount,
@@ -192,23 +171,24 @@ describe('BaseRegistrar', () => {
   })
 
   it('should prohibit anyone else from reclaiming a name', async () => {
-    const { ensRegistry, baseRegistrar, registrantAccount, otherAccount } =
-      await loadFixture(fixtureWithRegistration)
+    const { ensRegistry, baseRegistrar } = await loadFixtureWithRegistration()
 
     await ensRegistry.write.setOwner([namehash('newname.eth'), zeroAddress], {
       account: registrantAccount,
     })
 
-    await expect(baseRegistrar)
-      .write('reclaim', [toLabelId('newname'), registrantAccount.address], {
-        account: otherAccount,
-      })
-      .toBeRevertedWithoutReason()
+    await expect(
+      baseRegistrar.write.reclaim(
+        [toLabelId('newname'), registrantAccount.address],
+        {
+          account: otherAccount,
+        },
+      ),
+    ).toBeRevertedWithoutReason()
   })
 
   it('should permit the owner to transfer a registration', async () => {
-    const { ensRegistry, baseRegistrar, registrantAccount, otherAccount } =
-      await loadFixture(fixtureWithRegistration)
+    const { ensRegistry, baseRegistrar } = await loadFixtureWithRegistration()
 
     await baseRegistrar.write.transferFrom(
       [registrantAccount.address, otherAccount.address, toLabelId('newname')],
@@ -233,51 +213,47 @@ describe('BaseRegistrar', () => {
   })
 
   it('should prohibit anyone else from transferring a registration', async () => {
-    const { baseRegistrar, otherAccount } = await loadFixture(
-      fixtureWithRegistration,
-    )
+    const { baseRegistrar } = await loadFixtureWithRegistration()
 
-    await expect(baseRegistrar)
-      .write(
-        'transferFrom',
+    await expect(
+      baseRegistrar.write.transferFrom(
         [otherAccount.address, otherAccount.address, toLabelId('newname')],
         {
           account: otherAccount,
         },
-      )
-      .toBeRevertedWithString('ERC721: caller is not token owner or approved')
+      ),
+    ).toBeRevertedWithString('ERC721: caller is not token owner or approved')
   })
 
   it('should not permit transfer or reclaim during the grace period', async () => {
-    const { baseRegistrar, registrantAccount, otherAccount } =
-      await loadFixture(fixtureWithRegistration)
-    const testClient = await hre.viem.getTestClient()
+    const { baseRegistrar } = await loadFixtureWithRegistration()
+    const testClient = await connection.viem.getTestClient()
 
     await testClient.increaseTime({ seconds: 86400 + 3600 })
     await testClient.mine({ blocks: 1 })
 
-    await expect(baseRegistrar)
-      .write(
-        'transferFrom',
+    await expect(
+      baseRegistrar.write.transferFrom(
         [registrantAccount.address, otherAccount.address, toLabelId('newname')],
         {
           account: registrantAccount,
         },
-      )
-      .toBeRevertedWithoutReason()
+      ),
+    ).toBeRevertedWithoutReason()
 
-    await expect(baseRegistrar)
-      .write('reclaim', [toLabelId('newname'), registrantAccount.address], {
-        account: registrantAccount,
-      })
-      .toBeRevertedWithoutReason()
+    await expect(
+      baseRegistrar.write.reclaim(
+        [toLabelId('newname'), registrantAccount.address],
+        {
+          account: registrantAccount,
+        },
+      ),
+    ).toBeRevertedWithoutReason()
   })
 
   it('should allow renewal during the grace period', async () => {
-    const { baseRegistrar, controllerAccount } = await loadFixture(
-      fixtureWithRegistration,
-    )
-    const testClient = await hre.viem.getTestClient()
+    const { baseRegistrar } = await loadFixtureWithRegistration()
+    const testClient = await connection.viem.getTestClient()
 
     await testClient.increaseTime({ seconds: 86400 + 3600 })
     await testClient.mine({ blocks: 1 })
@@ -288,9 +264,8 @@ describe('BaseRegistrar', () => {
   })
 
   it('should allow registration of an expired domain', async () => {
-    const { baseRegistrar, controllerAccount, otherAccount } =
-      await loadFixture(fixtureWithRegistration)
-    const testClient = await hre.viem.getTestClient()
+    const { baseRegistrar } = await loadFixtureWithRegistration()
+    const testClient = await connection.viem.getTestClient()
 
     const gracePeriod = await baseRegistrar.read.GRACE_PERIOD()
 
@@ -299,9 +274,9 @@ describe('BaseRegistrar', () => {
     })
     await testClient.mine({ blocks: 1 })
 
-    await expect(baseRegistrar)
-      .read('ownerOf', [toLabelId('newname')])
-      .toBeRevertedWithoutReason()
+    await expect(
+      baseRegistrar.read.ownerOf([toLabelId('newname')]),
+    ).toBeRevertedWithoutReason()
 
     await baseRegistrar.write.register(
       [toLabelId('newname'), otherAccount.address, 86400n],
@@ -316,8 +291,7 @@ describe('BaseRegistrar', () => {
   })
 
   it('should allow the owner to set a resolver address', async () => {
-    const { ensRegistry, baseRegistrar, ownerAccount, controllerAccount } =
-      await loadFixture(fixture)
+    const { ensRegistry, baseRegistrar } = await loadFixture()
 
     await baseRegistrar.write.setResolver([controllerAccount.address], {
       account: ownerAccount,

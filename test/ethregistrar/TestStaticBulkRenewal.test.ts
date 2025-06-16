@@ -1,26 +1,26 @@
-import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
-import { expect } from 'chai'
 import hre from 'hardhat'
 import { labelhash, namehash, zeroAddress, zeroHash } from 'viem'
-import { getInterfaceId } from '../fixtures/createInterfaceId.js'
-import { toLabelId } from '../fixtures/utils.js'
+import { describe, expect, it } from 'vitest'
+
+import { getAccounts, toLabelId } from '../fixtures/utils.js'
+
+const connection = await hre.network.connect()
+const accounts = await getAccounts(connection)
 
 async function fixture() {
-  const accounts = await hre.viem
-    .getWalletClients()
-    .then((clients) => clients.map((c) => c.account))
   // Create a registry
-  const ensRegistry = await hre.viem.deployContract('ENSRegistry', [])
+  const ensRegistry = await connection.viem.deployContract('ENSRegistry', [])
   // Create a base registrar
-  const baseRegistrar = await hre.viem.deployContract(
+  const baseRegistrar = await connection.viem.deployContract(
     'BaseRegistrarImplementation',
     [ensRegistry.address, namehash('eth')],
   )
 
   // Setup reverse registrar
-  const reverseRegistrar = await hre.viem.deployContract('ReverseRegistrar', [
-    ensRegistry.address,
-  ])
+  const reverseRegistrar = await connection.viem.deployContract(
+    'ReverseRegistrar',
+    [ensRegistry.address],
+  )
 
   await ensRegistry.write.setSubnodeOwner([
     zeroHash,
@@ -34,34 +34,37 @@ async function fixture() {
   ])
 
   // Create a name wrapper
-  const nameWrapper = await hre.viem.deployContract('NameWrapper', [
+  const nameWrapper = await connection.viem.deployContract('NameWrapper', [
     ensRegistry.address,
     baseRegistrar.address,
     accounts[0].address,
   ])
   // Create a public resolver
-  const publicResolver = await hre.viem.deployContract('PublicResolver', [
-    ensRegistry.address,
-    nameWrapper.address,
-    zeroAddress,
-    zeroAddress,
-  ])
+  const publicResolver = await connection.viem.deployContract(
+    'PublicResolver',
+    [ensRegistry.address, nameWrapper.address, zeroAddress, zeroAddress],
+  )
 
   // Set up a dummy price oracle and a controller
-  const dummyOracle = await hre.viem.deployContract('DummyOracle', [100000000n])
-  const priceOracle = await hre.viem.deployContract('StablePriceOracle', [
-    dummyOracle.address,
-    [0n, 0n, 4n, 2n, 1n],
+  const dummyOracle = await connection.viem.deployContract('DummyOracle', [
+    100000000n,
   ])
-  const controller = await hre.viem.deployContract('ETHRegistrarController', [
-    baseRegistrar.address,
-    priceOracle.address,
-    600n,
-    86400n,
-    zeroAddress,
-    nameWrapper.address,
-    ensRegistry.address,
-  ])
+  const priceOracle = await connection.viem.deployContract(
+    'StablePriceOracle',
+    [dummyOracle.address, [0n, 0n, 4n, 2n, 1n]],
+  )
+  const controller = await connection.viem.deployContract(
+    'ETHRegistrarController',
+    [
+      baseRegistrar.address,
+      priceOracle.address,
+      600n,
+      86400n,
+      zeroAddress,
+      nameWrapper.address,
+      ensRegistry.address,
+    ],
+  )
 
   await baseRegistrar.write.addController([controller.address])
   await baseRegistrar.write.addController([accounts[0].address])
@@ -69,24 +72,18 @@ async function fixture() {
   await nameWrapper.write.setController([controller.address, true])
 
   // Create the bulk renewal contract
-  const bulkRenewal = await hre.viem.deployContract('BulkRenewal', [
-    ensRegistry.address,
-  ])
+  const bulkRenewal = await connection.viem.deployContract(
+    'StaticBulkRenewal',
+    [controller.address],
+  )
 
-  // Configure a resolver for .eth and register the controller interface
-  // then transfer the .eth node to the base registrar.
+  // Transfer .eth node to base registrar
   await ensRegistry.write.setSubnodeRecord([
     zeroHash,
     labelhash('eth'),
     accounts[0].address,
     publicResolver.address,
     0n,
-  ])
-  const interfaceId = await getInterfaceId('IETHRegistrarController')
-  await publicResolver.write.setInterface([
-    namehash('eth'),
-    interfaceId,
-    controller.address,
   ])
   await ensRegistry.write.setOwner([namehash('eth'), baseRegistrar.address])
 
@@ -99,12 +96,13 @@ async function fixture() {
     ])
   }
 
-  return { ensRegistry, baseRegistrar, bulkRenewal, accounts }
+  return { ensRegistry, baseRegistrar, bulkRenewal }
 }
+const loadFixture = async () => connection.networkHelpers.loadFixture(fixture)
 
-describe('BulkRenewal', () => {
+describe('StaticBulkRenewal', () => {
   it('should return the cost of a bulk renewal', async () => {
-    const { bulkRenewal } = await loadFixture(fixture)
+    const { bulkRenewal } = await loadFixture()
 
     await expect(
       bulkRenewal.read.rentPrice([['test1', 'test2'], 86400n]),
@@ -112,16 +110,16 @@ describe('BulkRenewal', () => {
   })
 
   it('should raise an error trying to renew a nonexistent name', async () => {
-    const { bulkRenewal } = await loadFixture(fixture)
+    const { bulkRenewal } = await loadFixture()
 
-    await expect(bulkRenewal)
-      .write('renewAll', [['foobar'], 86400n])
-      .toBeRevertedWithoutReason()
+    await expect(
+      bulkRenewal.write.renewAll([['foobar'], 86400n]),
+    ).toBeRevertedWithoutReason()
   })
 
   it('should permit bulk renewal of names', async () => {
-    const { baseRegistrar, bulkRenewal } = await loadFixture(fixture)
-    const publicClient = await hre.viem.getPublicClient()
+    const { baseRegistrar, bulkRenewal } = await loadFixture()
+    const publicClient = await connection.viem.getPublicClient()
 
     const oldExpiry = await baseRegistrar.read.nameExpires([toLabelId('test2')])
 

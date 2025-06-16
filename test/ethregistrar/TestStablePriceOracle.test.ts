@@ -1,26 +1,28 @@
-import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
-import { expect } from 'chai'
 import hre from 'hardhat'
+import { describe, expect, it } from 'vitest'
+
+const connection = await hre.network.connect()
 
 async function fixture() {
   // Dummy oracle with 1 ETH == 10 USD
-  const dummyOracle = await hre.viem.deployContract('DummyOracle', [
+  const dummyOracle = await connection.viem.deployContract('DummyOracle', [
     1000000000n,
   ])
 
   return { dummyOracle }
 }
+const loadFixture = async () => connection.networkHelpers.loadFixture(fixture)
 
 describe('StablePriceOracle', () => {
   it('should return correct prices', async () => {
-    const { dummyOracle } = await loadFixture(fixture)
+    const { dummyOracle } = await loadFixture()
 
     // 4 attousd per second for 3 character names, 2 attousd per second for 4 character names,
     // 1 attousd per second for longer names.
-    const priceOracle = await hre.viem.deployContract('StablePriceOracle', [
-      dummyOracle.address,
-      [0n, 0n, 4n, 2n, 1n],
-    ])
+    const priceOracle = await connection.viem.deployContract(
+      'StablePriceOracle',
+      [dummyOracle.address, [0n, 0n, 4n, 2n, 1n]],
+    )
 
     await expect(
       priceOracle.read.price(['foo', 0n, 3600n]),
@@ -37,21 +39,24 @@ describe('StablePriceOracle', () => {
   })
 
   it('should work with larger volumes', async () => {
-    const { dummyOracle } = await loadFixture(fixture)
+    const { dummyOracle } = await loadFixture()
 
     // 4 attousd per second for 3 character names, 2 attousd per second for 4 character names,
     // 1 attousd per second for longer names.
-    const priceOracle = await hre.viem.deployContract('StablePriceOracle', [
-      dummyOracle.address,
+    const priceOracle = await connection.viem.deployContract(
+      'StablePriceOracle',
       [
-        0n,
-        0n,
-        // 1 USD per second!
-        1000000000000000000n,
-        2n,
-        1n,
+        dummyOracle.address,
+        [
+          0n,
+          0n,
+          // 1 USD per second!
+          1000000000000000000n,
+          2n,
+          1n,
+        ],
       ],
-    ])
+    )
 
     await expect(
       priceOracle.read.price(['foo', 0n, 86400n]),
