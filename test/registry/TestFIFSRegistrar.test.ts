@@ -1,35 +1,39 @@
-import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
-import { expect } from 'chai'
 import hre from 'hardhat'
 import { labelhash, namehash, zeroHash } from 'viem'
+import { describe, expect, it } from 'vitest'
+
+import { getAccounts } from '../fixtures/utils.js'
+
+const connection = await hre.network.connect()
+const accounts = await getAccounts(connection)
 
 async function fixture() {
-  const accounts = await hre.viem
-    .getWalletClients()
-    .then((clients) => clients.map((c) => c.account))
-  const ensRegistry = await hre.viem.deployContract('ENSRegistry', [])
-  const fifsRegistrar = await hre.viem.deployContract('FIFSRegistrar', [
+  const ensRegistry = await connection.viem.deployContract('ENSRegistry', [])
+  const fifsRegistrar = await connection.viem.deployContract('FIFSRegistrar', [
     ensRegistry.address,
     zeroHash,
   ])
 
   await ensRegistry.write.setOwner([zeroHash, fifsRegistrar.address])
 
-  return { ensRegistry, fifsRegistrar, accounts }
+  return { ensRegistry, fifsRegistrar }
 }
+const loadFixture = async () => connection.networkHelpers.loadFixture(fixture)
 
 async function fixtureWithEthSet() {
-  const existing = await loadFixture(fixture)
+  const existing = await loadFixture()
   await existing.fifsRegistrar.write.register([
     labelhash('eth'),
-    existing.accounts[0].address,
+    accounts[0].address,
   ])
   return existing
 }
+const loadFixtureWithEthSet = async () =>
+  connection.networkHelpers.loadFixture(fixtureWithEthSet)
 
 describe('FIFSRegistrar', () => {
   it('should allow registration of names', async () => {
-    const { ensRegistry, fifsRegistrar, accounts } = await loadFixture(fixture)
+    const { ensRegistry, fifsRegistrar } = await loadFixture()
 
     await fifsRegistrar.write.register([labelhash('eth'), accounts[0].address])
 
@@ -43,9 +47,7 @@ describe('FIFSRegistrar', () => {
 
   describe('transferring names', () => {
     it('should allow transferring name to your own', async () => {
-      const { fifsRegistrar, ensRegistry, accounts } = await loadFixture(
-        fixtureWithEthSet,
-      )
+      const { fifsRegistrar, ensRegistry } = await loadFixtureWithEthSet()
 
       await fifsRegistrar.write.register([
         labelhash('eth'),
@@ -58,13 +60,13 @@ describe('FIFSRegistrar', () => {
     })
 
     it('forbids transferring the name you do not own', async () => {
-      const { fifsRegistrar, accounts } = await loadFixture(fixtureWithEthSet)
+      const { fifsRegistrar } = await loadFixtureWithEthSet()
 
-      await expect(fifsRegistrar)
-        .write('register', [labelhash('eth'), accounts[1].address], {
+      await expect(
+        fifsRegistrar.write.register([labelhash('eth'), accounts[1].address], {
           account: accounts[1],
-        })
-        .toBeRevertedWithoutReason()
+        }),
+      ).toBeRevertedWithoutReason()
     })
   })
 })

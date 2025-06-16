@@ -61,6 +61,12 @@ const config = {
       },
     ],
   },
+  paths: {
+    sources: [
+      './contracts',
+      './node_modules/@openzeppelin/contracts/utils/introspection/',
+    ],
+  },
   plugins: [
     HardhatNetworkHelpersPlugin,
     HardhatChaiMatchersViemPlugin,

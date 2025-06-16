@@ -1,26 +1,28 @@
-import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
-import { expect } from 'chai'
 import hre from 'hardhat'
 import { labelhash, namehash, zeroHash } from 'viem'
+import { describe, expect, it } from 'vitest'
+
+import { getAccounts } from '../fixtures/utils.js'
+
+const connection = await hre.network.connect()
+const accounts = await getAccounts(connection)
 
 async function fixture() {
-  const accounts = await hre.viem
-    .getWalletClients()
-    .then((clients) => clients.map((c) => c.account))
-  const ensRegistry = await hre.viem.deployContract('ENSRegistry', [])
-  const testRegistrar = await hre.viem.deployContract('TestRegistrar', [
+  const ensRegistry = await connection.viem.deployContract('ENSRegistry', [])
+  const testRegistrar = await connection.viem.deployContract('TestRegistrar', [
     ensRegistry.address,
     zeroHash,
   ])
 
   await ensRegistry.write.setOwner([zeroHash, testRegistrar.address])
 
-  return { ensRegistry, testRegistrar, accounts }
+  return { ensRegistry, testRegistrar }
 }
+const loadFixture = async () => connection.networkHelpers.loadFixture(fixture)
 
 describe('TestRegistrar', () => {
   it('registers names', async () => {
-    const { ensRegistry, testRegistrar, accounts } = await loadFixture(fixture)
+    const { ensRegistry, testRegistrar } = await loadFixture()
 
     await testRegistrar.write.register([labelhash('eth'), accounts[0].address])
 
@@ -33,18 +35,18 @@ describe('TestRegistrar', () => {
   })
 
   it('forbids transferring names within the test period', async () => {
-    const { testRegistrar, accounts } = await loadFixture(fixture)
+    const { testRegistrar } = await loadFixture()
 
     await testRegistrar.write.register([labelhash('eth'), accounts[1].address])
 
-    await expect(testRegistrar)
-      .write('register', [labelhash('eth'), accounts[0].address])
-      .toBeRevertedWithoutReason()
+    await expect(
+      testRegistrar.write.register([labelhash('eth'), accounts[0].address]),
+    ).toBeRevertedWithoutReason()
   })
 
   it('allows claiming a name after the test period expires', async () => {
-    const { ensRegistry, testRegistrar, accounts } = await loadFixture(fixture)
-    const testClient = await hre.viem.getTestClient()
+    const { ensRegistry, testRegistrar } = await loadFixture()
+    const testClient = await connection.viem.getTestClient()
 
     await testRegistrar.write.register([labelhash('eth'), accounts[1].address])
     await expect(

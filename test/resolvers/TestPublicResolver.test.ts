@@ -1,5 +1,3 @@
-import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
-import { expect } from 'chai'
 import hre from 'hardhat'
 import {
   Address,
@@ -7,28 +5,39 @@ import {
   Hex,
   decodeFunctionResult,
   encodeFunctionData,
+  getAddress,
   keccak256,
   labelhash,
   namehash,
   padHex,
+  stringToHex,
   zeroAddress,
   zeroHash,
 } from 'viem'
+import { describe, expect, it } from 'vitest'
+
+import { shouldSupportInterfaces } from '@ensdomains/hardhat-chai-matchers-viem/behaviour'
 import { createInterfaceId } from '../fixtures/createInterfaceId.js'
 import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
+import { getAccounts } from '../fixtures/utils.js'
 
 const targetNode = namehash('eth')
 
+const connection = await hre.network.connect()
+const accounts = await getAccounts(connection)
+
 async function fixture() {
-  const walletClients = await hre.viem.getWalletClients()
-  const accounts = walletClients.map((c) => c.account)
-  const ensRegistry = await hre.viem.deployContract('ENSRegistry', [])
-  const nameWrapper = await hre.viem.deployContract('DummyNameWrapper', [])
+  const ensRegistry = await connection.viem.deployContract('ENSRegistry', [])
+  const nameWrapper = await connection.viem.deployContract(
+    'DummyNameWrapper',
+    [],
+  )
 
   // setup reverse registrar
-  const reverseRegistrar = await hre.viem.deployContract('ReverseRegistrar', [
-    ensRegistry.address,
-  ])
+  const reverseRegistrar = await connection.viem.deployContract(
+    'ReverseRegistrar',
+    [ensRegistry.address],
+  )
 
   await ensRegistry.write.setSubnodeOwner([
     zeroHash,
@@ -41,12 +50,15 @@ async function fixture() {
     reverseRegistrar.address,
   ])
 
-  const publicResolver = await hre.viem.deployContract('PublicResolver', [
-    ensRegistry.address,
-    nameWrapper.address,
-    accounts[9].address,
-    reverseRegistrar.address,
-  ])
+  const publicResolver = await connection.viem.deployContract(
+    'PublicResolver',
+    [
+      ensRegistry.address,
+      nameWrapper.address,
+      accounts[9].address,
+      reverseRegistrar.address,
+    ],
+  )
 
   await reverseRegistrar.write.setDefaultResolver([publicResolver.address])
 
@@ -61,13 +73,12 @@ async function fixture() {
     nameWrapper,
     reverseRegistrar,
     publicResolver,
-    walletClients,
-    accounts,
   }
 }
+const loadFixture = async () => connection.networkHelpers.loadFixture(fixture)
 
 async function fixtureWithDnsRecords() {
-  const existing = await loadFixture(fixture)
+  const existing = await loadFixture()
   // a.eth. 3600 IN A 1.2.3.4
   const arec = '016103657468000001000100000e10000401020304' as const
   // b.eth. 3600 IN A 2.3.4.5
@@ -78,73 +89,60 @@ async function fixtureWithDnsRecords() {
   const soarec =
     '03657468000006000100015180003a036e733106657468646e730378797a000a686f73746d6173746572057465737431036574680078492cbd00003d0400000708001baf8000003840' as const
   const rec = `0x${arec}${b1rec}${b2rec}${soarec}` as const
-  const hash = await existing.publicResolver.write.setDNSRecords([
-    targetNode,
-    rec,
-  ])
-  return { ...existing, rec, arec, b1rec, b2rec, soarec, hash }
+  const tx = existing.publicResolver.write.setDNSRecords([targetNode, rec])
+  return { ...existing, rec, arec, b1rec, b2rec, soarec, tx }
 }
+const loadFixtureWithDnsRecords = async () =>
+  connection.networkHelpers.loadFixture(fixtureWithDnsRecords)
 
 describe('PublicResolver', () => {
+  shouldSupportInterfaces({
+    contract: () => loadFixture().then(({ publicResolver }) => publicResolver),
+    interfaces: [
+      'IAddrResolver',
+      'IAddressResolver',
+      'INameResolver',
+      'IABIResolver',
+      'IPubkeyResolver',
+      'ITextResolver',
+      'IContentHashResolver',
+      'IDNSRecordResolver',
+      'IDNSZoneResolver',
+      'IInterfaceResolver',
+    ],
+  })
+
   describe('fallback function', () => {
     it('forbids calls to the fallback function with 0 value', async () => {
-      const { publicResolver, walletClients } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
-      await expect(publicResolver)
-        .transaction(
-          walletClients[0].sendTransaction({
-            to: publicResolver.address,
-            gas: 3000000n,
-          }),
-        )
-        .toBeRevertedWithoutReason()
+      await expect(
+        publicResolver.arbitrary({
+          to: publicResolver.address,
+          value: 0n,
+          gas: 3000000n,
+          account: accounts[0],
+        }),
+      ).toBeRevertedWithoutReason()
     })
 
     it('forbids calls to the fallback function with 1 value', async () => {
-      const { publicResolver, walletClients } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
-      await expect(publicResolver)
-        .transaction(
-          walletClients[0].sendTransaction({
-            to: publicResolver.address,
-            value: 1n,
-            gas: 3000000n,
-          }),
-        )
-        .toBeRevertedWithoutReason()
+      await expect(
+        publicResolver.arbitrary({
+          to: publicResolver.address,
+          value: 1n,
+          gas: 3000000n,
+          account: accounts[0],
+        }),
+      ).toBeRevertedWithoutReason()
     })
   })
 
   describe('supportsInterface function', () => {
-    it('supports known interfaces', async () => {
-      const { publicResolver } = await loadFixture(fixture)
-
-      const expectedArtifactSupport = [
-        await hre.artifacts.readArtifact('IAddrResolver'),
-        await hre.artifacts.readArtifact('IAddressResolver'),
-        await hre.artifacts.readArtifact('INameResolver'),
-        await hre.artifacts.readArtifact('IABIResolver'),
-        await hre.artifacts.readArtifact('IPubkeyResolver'),
-        await hre.artifacts.readArtifact('ITextResolver'),
-        await hre.artifacts.readArtifact('IContentHashResolver'),
-        await hre.artifacts.readArtifact('IDNSRecordResolver'),
-        await hre.artifacts.readArtifact('IDNSZoneResolver'),
-        await hre.artifacts.readArtifact('IInterfaceResolver'),
-      ] as const
-
-      const interfaceIds = expectedArtifactSupport.map((a) =>
-        createInterfaceId(a.abi),
-      )
-
-      for (const interfaceId of interfaceIds) {
-        await expect(
-          publicResolver.read.supportsInterface([interfaceId]),
-        ).resolves.toEqual(true)
-      }
-    })
-
     it('does not support a random interface', async () => {
-      const { publicResolver } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await expect(
         publicResolver.read.supportsInterface(['0x3b3b57df']),
@@ -154,33 +152,29 @@ describe('PublicResolver', () => {
 
   describe('recordVersion', () => {
     it('permits clearing records', async () => {
-      const { publicResolver } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
-      await expect(publicResolver)
-        .write('clearRecords', [targetNode])
+      await expect(publicResolver.write.clearRecords([targetNode]))
         .toEmitEvent('VersionChanged')
-        .withArgs(targetNode, 1n)
+        .withArgs({ node: targetNode, newVersion: 1n })
     })
   })
 
   describe('addr', () => {
     it('permits setting address by owner', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
-      const hash = await publicResolver.write.setAddr([
-        targetNode,
-        accounts[1].address,
-      ])
+      const tx = publicResolver.write.setAddr([targetNode, accounts[1].address])
 
-      await expect(publicResolver)
-        .transaction(hash)
-        .toEmitEvent('AddressChanged')
-        .withArgs(targetNode, 60n, accounts[1].address)
+      await expect(tx).toEmitEvent('AddressChanged').withArgs({
+        node: targetNode,
+        coinType: 60n,
+        newAddress: accounts[1].address,
+      })
 
-      await expect(publicResolver)
-        .transaction(hash)
+      await expect(tx)
         .toEmitEvent('AddrChanged')
-        .withArgs(targetNode, accounts[1].address)
+        .withArgs({ node: targetNode, a: getAddress(accounts[1].address) })
 
       await expect(
         publicResolver.read.addr([targetNode]) as Promise<Address>,
@@ -188,7 +182,7 @@ describe('PublicResolver', () => {
     })
 
     it('can overwrite previously set address', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setAddr([targetNode, accounts[1].address])
       await expect(
@@ -202,7 +196,7 @@ describe('PublicResolver', () => {
     })
 
     it('can overwrite to same address', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setAddr([targetNode, accounts[1].address])
       await expect(
@@ -216,41 +210,41 @@ describe('PublicResolver', () => {
     })
 
     it('forbids setting new address by non-owners', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
-      await expect(publicResolver)
-        .write('setAddr', [targetNode, accounts[1].address], {
+      await expect(
+        publicResolver.write.setAddr([targetNode, accounts[1].address], {
           account: accounts[1],
-        })
-        .toBeRevertedWithoutReason()
+        }),
+      ).toBeRevertedWithoutReason()
     })
 
     it('forbids writing same address by non-owners', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setAddr([targetNode, accounts[1].address])
 
-      await expect(publicResolver)
-        .write('setAddr', [targetNode, accounts[1].address], {
+      await expect(
+        publicResolver.write.setAddr([targetNode, accounts[1].address], {
           account: accounts[1],
-        })
-        .toBeRevertedWithoutReason()
+        }),
+      ).toBeRevertedWithoutReason()
     })
 
     it('forbids overwriting existing address by non-owners', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setAddr([targetNode, accounts[1].address])
 
-      await expect(publicResolver)
-        .write('setAddr', [targetNode, accounts[0].address], {
+      await expect(
+        publicResolver.write.setAddr([targetNode, accounts[0].address], {
           account: accounts[1],
-        })
-        .toBeRevertedWithoutReason()
+        }),
+      ).toBeRevertedWithoutReason()
     })
 
     it('returns zero when fetching nonexistent addresses', async () => {
-      const { publicResolver } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await expect(
         publicResolver.read.addr([targetNode]) as Promise<Address>,
@@ -258,7 +252,7 @@ describe('PublicResolver', () => {
     })
 
     it('permits setting and retrieving addresses for other coin types', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setAddr([
         targetNode,
@@ -272,50 +266,47 @@ describe('PublicResolver', () => {
     })
 
     it('returns ETH address for coin type 60', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
-      const hash = await publicResolver.write.setAddr([
-        targetNode,
-        accounts[1].address,
-      ])
+      const tx = publicResolver.write.setAddr([targetNode, accounts[1].address])
 
-      await expect(publicResolver)
-        .transaction(hash)
-        .toEmitEvent('AddressChanged')
-        .withArgs(targetNode, 60n, accounts[1].address)
-      await expect(publicResolver)
-        .transaction(hash)
+      await expect(tx).toEmitEvent('AddressChanged').withArgs({
+        node: targetNode,
+        coinType: 60n,
+        newAddress: accounts[1].address,
+      })
+      await expect(tx)
         .toEmitEvent('AddrChanged')
-        .withArgs(targetNode, accounts[1].address)
+        .withArgs({ node: targetNode, a: getAddress(accounts[1].address) })
       await expect(
         publicResolver.read.addr([targetNode, 60n]) as Promise<Hex>,
-      ).resolves.toEqual(accounts[1].address.toLowerCase() as Address)
+      ).resolves.toEqualAddress(accounts[1].address)
     })
 
     it('setting coin type 60 updates ETH address', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
-      const hash = await publicResolver.write.setAddr([
+      const tx = publicResolver.write.setAddr([
         targetNode,
         60n,
         accounts[2].address,
       ])
 
-      await expect(publicResolver)
-        .transaction(hash)
-        .toEmitEvent('AddressChanged')
-        .withArgs(targetNode, 60n, accounts[2].address)
-      await expect(publicResolver)
-        .transaction(hash)
+      await expect(tx).toEmitEvent('AddressChanged').withArgs({
+        node: targetNode,
+        coinType: 60n,
+        newAddress: accounts[2].address,
+      })
+      await expect(tx)
         .toEmitEvent('AddrChanged')
-        .withArgs(targetNode, accounts[2].address)
+        .withArgs({ node: targetNode, a: getAddress(accounts[2].address) })
       await expect(
         publicResolver.read.addr([targetNode]) as Promise<Address>,
       ).resolves.toEqualAddress(accounts[2].address)
     })
 
     it('resets record on version change', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setAddr([targetNode, accounts[1].address])
 
@@ -333,19 +324,18 @@ describe('PublicResolver', () => {
 
   describe('name', () => {
     it('permits setting name by owner', async () => {
-      const { publicResolver } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
-      await expect(publicResolver)
-        .write('setName', [targetNode, 'name1'])
+      await expect(publicResolver.write.setName([targetNode, 'name1']))
         .toEmitEvent('NameChanged')
-        .withArgs(targetNode, 'name1')
+        .withArgs({ node: targetNode, name: 'name1' })
       await expect(publicResolver.read.name([targetNode])).resolves.toEqual(
         'name1',
       )
     })
 
     it('can overwrite previously set names', async () => {
-      const { publicResolver } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setName([targetNode, 'name1'])
       await expect(publicResolver.read.name([targetNode])).resolves.toEqual(
@@ -359,23 +349,23 @@ describe('PublicResolver', () => {
     })
 
     it('forbids setting name by non-owners', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
-      await expect(publicResolver)
-        .write('setName', [targetNode, 'name2'], {
+      await expect(
+        publicResolver.write.setName([targetNode, 'name2'], {
           account: accounts[1],
-        })
-        .toBeRevertedWithoutReason()
+        }),
+      ).toBeRevertedWithoutReason()
     })
 
     it('returns empty when fetching nonexistent name', async () => {
-      const { publicResolver } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await expect(publicResolver.read.name([targetNode])).resolves.toEqual('')
     })
 
     it('resets record on version change', async () => {
-      const { publicResolver } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setName([targetNode, 'name1'])
 
@@ -401,7 +391,7 @@ describe('PublicResolver', () => {
     ]
 
     it('returns empty when fetching nonexistent values', async () => {
-      const { publicResolver } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await expect(
         publicResolver.read.pubkey([targetNode]),
@@ -409,12 +399,11 @@ describe('PublicResolver', () => {
     })
 
     it('permits setting public key by owner', async () => {
-      const { publicResolver } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
-      await expect(publicResolver)
-        .write('setPubkey', [targetNode, ...pubkey1])
+      await expect(publicResolver.write.setPubkey([targetNode, ...pubkey1]))
         .toEmitEvent('PubkeyChanged')
-        .withArgs(targetNode, ...pubkey1)
+        .withArgs({ node: targetNode, x: pubkey1[0], y: pubkey1[1] })
 
       await expect(
         publicResolver.read.pubkey([targetNode]),
@@ -422,7 +411,7 @@ describe('PublicResolver', () => {
     })
 
     it('can overwrite previously set value', async () => {
-      const { publicResolver } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setPubkey([targetNode, ...pubkey1])
       await expect(
@@ -436,7 +425,7 @@ describe('PublicResolver', () => {
     })
 
     it('can overwrite to same value', async () => {
-      const { publicResolver } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setPubkey([targetNode, ...pubkey1])
       await expect(
@@ -450,41 +439,41 @@ describe('PublicResolver', () => {
     })
 
     it('forbids setting value by non-owners', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
-      await expect(publicResolver)
-        .write('setPubkey', [targetNode, ...pubkey1], {
+      await expect(
+        publicResolver.write.setPubkey([targetNode, ...pubkey1], {
           account: accounts[1],
-        })
-        .toBeRevertedWithoutReason()
+        }),
+      ).toBeRevertedWithoutReason()
     })
 
     it('forbids writing same value by non-owners', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setPubkey([targetNode, ...pubkey1])
 
-      await expect(publicResolver)
-        .write('setPubkey', [targetNode, ...pubkey1], {
+      await expect(
+        publicResolver.write.setPubkey([targetNode, ...pubkey1], {
           account: accounts[1],
-        })
-        .toBeRevertedWithoutReason()
+        }),
+      ).toBeRevertedWithoutReason()
     })
 
     it('forbids overwriting existing value by non-owners', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setPubkey([targetNode, ...pubkey1])
 
-      await expect(publicResolver)
-        .write('setPubkey', [targetNode, ...pubkey2], {
+      await expect(
+        publicResolver.write.setPubkey([targetNode, ...pubkey2], {
           account: accounts[1],
-        })
-        .toBeRevertedWithoutReason()
+        }),
+      ).toBeRevertedWithoutReason()
     })
 
     it('resets record on version change', async () => {
-      const { publicResolver } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setPubkey([targetNode, ...pubkey1])
 
@@ -502,7 +491,7 @@ describe('PublicResolver', () => {
 
   describe('ABI', () => {
     it('returns a contentType of 0 when nothing is available', async () => {
-      const { publicResolver } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await expect(
         publicResolver.read.ABI([targetNode, 0xffffffffn]),
@@ -510,7 +499,7 @@ describe('PublicResolver', () => {
     })
 
     it('returns an ABI after it has been set', async () => {
-      const { publicResolver } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setABI([targetNode, 1n, '0x666f6f'])
 
@@ -520,7 +509,7 @@ describe('PublicResolver', () => {
     })
 
     it('returns the first valid ABI', async () => {
-      const { publicResolver } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setABI([targetNode, 0x2n, '0x666f6f'])
       await publicResolver.write.setABI([targetNode, 0x4n, '0x626172'])
@@ -535,7 +524,7 @@ describe('PublicResolver', () => {
     })
 
     it('allows deleting ABIs', async () => {
-      const { publicResolver } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setABI([targetNode, 1n, '0x666f6f'])
 
@@ -551,25 +540,25 @@ describe('PublicResolver', () => {
     })
 
     it('rejects invalid content types', async () => {
-      const { publicResolver } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
-      await expect(publicResolver)
-        .write('setABI', [targetNode, 0x3n, '0x12'])
-        .toBeRevertedWithoutReason()
+      await expect(
+        publicResolver.write.setABI([targetNode, 0x3n, '0x12']),
+      ).toBeRevertedWithoutReason()
     })
 
     it('forbids setting value by non-owners', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
-      await expect(publicResolver)
-        .write('setABI', [targetNode, 1n, '0x666f6f'], {
+      await expect(
+        publicResolver.write.setABI([targetNode, 1n, '0x666f6f'], {
           account: accounts[1],
-        })
-        .toBeRevertedWithoutReason()
+        }),
+      ).toBeRevertedWithoutReason()
     })
 
     it('resets on version change', async () => {
-      const { publicResolver } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setABI([targetNode, 1n, '0x666f6f'])
 
@@ -585,7 +574,7 @@ describe('PublicResolver', () => {
     })
 
     it('can try all content types', async () => {
-      const { publicResolver } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
       await expect(
         publicResolver.read.ABI([targetNode, (1n << 256n) - 1n]),
       ).resolves.toMatchObject([0n, '0x'])
@@ -597,12 +586,16 @@ describe('PublicResolver', () => {
     const url2 = 'https://github.com/ethereum'
 
     it('permits setting text by owner', async () => {
-      const { publicResolver } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
-      await expect(publicResolver)
-        .write('setText', [targetNode, 'url', url1])
+      await expect(publicResolver.write.setText([targetNode, 'url', url1]))
         .toEmitEvent('TextChanged')
-        .withArgs(targetNode, 'url', 'url', url1)
+        .withArgs({
+          node: targetNode,
+          indexedKey: keccak256(stringToHex('url')),
+          key: 'url',
+          value: url1,
+        })
 
       await expect(
         publicResolver.read.text([targetNode, 'url']),
@@ -610,7 +603,7 @@ describe('PublicResolver', () => {
     })
 
     it('can overwrite previously set text', async () => {
-      const { publicResolver } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setText([targetNode, 'url', url1])
       await expect(
@@ -624,7 +617,7 @@ describe('PublicResolver', () => {
     })
 
     it('can overwrite to same text', async () => {
-      const { publicResolver } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setText([targetNode, 'url', url1])
       await expect(
@@ -638,41 +631,41 @@ describe('PublicResolver', () => {
     })
 
     it('forbids setting text by non-owners', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
-      await expect(publicResolver)
-        .write('setText', [targetNode, 'url', url1], {
+      await expect(
+        publicResolver.write.setText([targetNode, 'url', url1], {
           account: accounts[1],
-        })
-        .toBeRevertedWithoutReason()
+        }),
+      ).toBeRevertedWithoutReason()
     })
 
     it('forbids writing same text by non-owners', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setText([targetNode, 'url', url1])
 
-      await expect(publicResolver)
-        .write('setText', [targetNode, 'url', url1], {
+      await expect(
+        publicResolver.write.setText([targetNode, 'url', url1], {
           account: accounts[1],
-        })
-        .toBeRevertedWithoutReason()
+        }),
+      ).toBeRevertedWithoutReason()
     })
 
     it('forbids overwriting existing text by non-owners', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setText([targetNode, 'url', url1])
 
-      await expect(publicResolver)
-        .write('setText', [targetNode, 'url', url2], {
+      await expect(
+        publicResolver.write.setText([targetNode, 'url', url2], {
           account: accounts[1],
-        })
-        .toBeRevertedWithoutReason()
+        }),
+      ).toBeRevertedWithoutReason()
     })
 
     it('resets record on version change', async () => {
-      const { publicResolver } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setText([targetNode, 'url', url1])
 
@@ -693,12 +686,13 @@ describe('PublicResolver', () => {
     const contenthash2 = padHex('0x02', { dir: 'left', size: 32 })
 
     it('permits setting contenthash by owner', async () => {
-      const { publicResolver } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
-      await expect(publicResolver)
-        .write('setContenthash', [targetNode, contenthash1])
+      await expect(
+        publicResolver.write.setContenthash([targetNode, contenthash1]),
+      )
         .toEmitEvent('ContenthashChanged')
-        .withArgs(targetNode, contenthash1)
+        .withArgs({ node: targetNode, hash: contenthash1 })
 
       await expect(
         publicResolver.read.contenthash([targetNode]),
@@ -706,7 +700,7 @@ describe('PublicResolver', () => {
     })
 
     it('can overwrite previously set contenthash', async () => {
-      const { publicResolver } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setContenthash([targetNode, contenthash1])
       await expect(
@@ -720,7 +714,7 @@ describe('PublicResolver', () => {
     })
 
     it('can overwrite to same contenthash', async () => {
-      const { publicResolver } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setContenthash([targetNode, contenthash1])
       await expect(
@@ -734,29 +728,29 @@ describe('PublicResolver', () => {
     })
 
     it('forbids setting contenthash by non-owners', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
-      await expect(publicResolver)
-        .write('setContenthash', [targetNode, contenthash1], {
+      await expect(
+        publicResolver.write.setContenthash([targetNode, contenthash1], {
           account: accounts[1],
-        })
-        .toBeRevertedWithoutReason()
+        }),
+      ).toBeRevertedWithoutReason()
     })
 
     it('forbids writing same contenthash by non-owners', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setContenthash([targetNode, contenthash1])
 
-      await expect(publicResolver)
-        .write('setContenthash', [targetNode, contenthash1], {
+      await expect(
+        publicResolver.write.setContenthash([targetNode, contenthash1], {
           account: accounts[1],
-        })
-        .toBeRevertedWithoutReason()
+        }),
+      ).toBeRevertedWithoutReason()
     })
 
     it('returns empty when fetching nonexistent contenthash', async () => {
-      const { publicResolver } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await expect(
         publicResolver.read.contenthash([targetNode]),
@@ -764,7 +758,7 @@ describe('PublicResolver', () => {
     })
 
     it('resets record on version change', async () => {
-      const { publicResolver } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setContenthash([targetNode, contenthash1])
 
@@ -783,12 +777,10 @@ describe('PublicResolver', () => {
   describe('dns', () => {
     describe('records', () => {
       it('permits setting name by owner', async () => {
-        const { publicResolver, hash, arec, b1rec, b2rec, soarec } =
-          await loadFixture(fixtureWithDnsRecords)
+        const { publicResolver, tx, arec, b1rec, b2rec, soarec } =
+          await loadFixtureWithDnsRecords()
 
-        await expect(publicResolver)
-          .transaction(hash)
-          .toEmitEvent('DNSRecordChanged')
+        await expect(tx).toEmitEvent('DNSRecordChanged')
 
         await expect(
           publicResolver.read.dnsRecord([
@@ -816,7 +808,7 @@ describe('PublicResolver', () => {
       })
 
       it('should update existing records', async () => {
-        const { publicResolver } = await loadFixture(fixtureWithDnsRecords)
+        const { publicResolver } = await loadFixtureWithDnsRecords()
 
         // a.eth. 3600 IN A 4.5.6.7
         const arec = '016103657468000001000100000e10000404050607' as const
@@ -844,7 +836,7 @@ describe('PublicResolver', () => {
       })
 
       it('should keep track of entries', async () => {
-        const { publicResolver } = await loadFixture(fixtureWithDnsRecords)
+        const { publicResolver } = await loadFixtureWithDnsRecords()
 
         // c.eth. 3600 IN A 1.2.3.4
         const crec = '016303657468000001000100000e10000401020304' as const
@@ -891,7 +883,7 @@ describe('PublicResolver', () => {
       })
 
       it('should handle single-record updates', async () => {
-        const { publicResolver } = await loadFixture(fixtureWithDnsRecords)
+        const { publicResolver } = await loadFixtureWithDnsRecords()
 
         // e.eth. 3600 IN A 1.2.3.4
         const erec = '016503657468000001000100000e10000401020304' as const
@@ -909,23 +901,21 @@ describe('PublicResolver', () => {
       })
 
       it('forbids setting DNS records by non-owners', async () => {
-        const { publicResolver, accounts } = await loadFixture(
-          fixtureWithDnsRecords,
-        )
+        const { publicResolver } = await loadFixtureWithDnsRecords()
 
         // f.eth. 3600 IN A 1.2.3.4
         const frec = '016603657468000001000100000e10000401020304' as const
         const rec = `0x${frec}` as const
 
-        await expect(publicResolver)
-          .write('setDNSRecords', [targetNode, rec], {
+        await expect(
+          publicResolver.write.setDNSRecords([targetNode, rec], {
             account: accounts[1],
-          })
-          .toBeRevertedWithoutReason()
+          }),
+        ).toBeRevertedWithoutReason()
       })
 
       it('resets record on version change', async () => {
-        const { publicResolver } = await loadFixture(fixtureWithDnsRecords)
+        const { publicResolver } = await loadFixtureWithDnsRecords()
 
         await publicResolver.write.clearRecords([targetNode])
 
@@ -958,11 +948,11 @@ describe('PublicResolver', () => {
       const zonehash2 = padHex('0x02', { dir: 'left', size: 32 })
 
       it('permits setting zonehash by owner', async () => {
-        const { publicResolver } = await loadFixture(fixture)
+        const { publicResolver } = await loadFixture()
 
-        await expect(publicResolver)
-          .write('setZonehash', [targetNode, zonehash1])
-          .toEmitEvent('DNSZonehashChanged')
+        await expect(
+          publicResolver.write.setZonehash([targetNode, zonehash1]),
+        ).toEmitEvent('DNSZonehashChanged')
 
         await expect(
           publicResolver.read.zonehash([targetNode]),
@@ -970,7 +960,7 @@ describe('PublicResolver', () => {
       })
 
       it('can overwrite previously set zonehash', async () => {
-        const { publicResolver } = await loadFixture(fixture)
+        const { publicResolver } = await loadFixture()
 
         await publicResolver.write.setZonehash([targetNode, zonehash1])
         await expect(
@@ -984,7 +974,7 @@ describe('PublicResolver', () => {
       })
 
       it('can overwrite to same zonehash', async () => {
-        const { publicResolver } = await loadFixture(fixture)
+        const { publicResolver } = await loadFixture()
 
         await publicResolver.write.setZonehash([targetNode, zonehash1])
         await expect(
@@ -998,29 +988,29 @@ describe('PublicResolver', () => {
       })
 
       it('forbids setting zonehash by non-owners', async () => {
-        const { publicResolver, accounts } = await loadFixture(fixture)
+        const { publicResolver } = await loadFixture()
 
-        await expect(publicResolver)
-          .write('setZonehash', [targetNode, zonehash1], {
+        await expect(
+          publicResolver.write.setZonehash([targetNode, zonehash1], {
             account: accounts[1],
-          })
-          .toBeRevertedWithoutReason()
+          }),
+        ).toBeRevertedWithoutReason()
       })
 
       it('forbids writing same zonehash by non-owners', async () => {
-        const { publicResolver, accounts } = await loadFixture(fixture)
+        const { publicResolver } = await loadFixture()
 
         await publicResolver.write.setZonehash([targetNode, zonehash1])
 
-        await expect(publicResolver)
-          .write('setZonehash', [targetNode, zonehash1], {
+        await expect(
+          publicResolver.write.setZonehash([targetNode, zonehash1], {
             account: accounts[1],
-          })
-          .toBeRevertedWithoutReason()
+          }),
+        ).toBeRevertedWithoutReason()
       })
 
       it('returns empty when fetching nonexistent zonehash', async () => {
-        const { publicResolver } = await loadFixture(fixture)
+        const { publicResolver } = await loadFixture()
 
         await expect(
           publicResolver.read.zonehash([targetNode]),
@@ -1028,26 +1018,35 @@ describe('PublicResolver', () => {
       })
 
       it('emits the correct event', async () => {
-        const { publicResolver } = await loadFixture(fixture)
+        const { publicResolver } = await loadFixture()
 
-        await expect(publicResolver)
-          .write('setZonehash', [targetNode, zonehash1])
+        await expect(publicResolver.write.setZonehash([targetNode, zonehash1]))
           .toEmitEvent('DNSZonehashChanged')
-          .withArgs(targetNode, zeroHash, zonehash1)
+          .withArgs({
+            node: targetNode,
+            lastzonehash: '0x',
+            zonehash: zonehash1,
+          })
 
-        await expect(publicResolver)
-          .write('setZonehash', [targetNode, zonehash2])
+        await expect(publicResolver.write.setZonehash([targetNode, zonehash2]))
           .toEmitEvent('DNSZonehashChanged')
-          .withArgs(targetNode, zonehash1, zonehash2)
+          .withArgs({
+            node: targetNode,
+            lastzonehash: zonehash1,
+            zonehash: zonehash2,
+          })
 
-        await expect(publicResolver)
-          .write('setZonehash', [targetNode, zeroHash])
+        await expect(publicResolver.write.setZonehash([targetNode, '0x']))
           .toEmitEvent('DNSZonehashChanged')
-          .withArgs(targetNode, zonehash2, zeroHash)
+          .withArgs({
+            node: targetNode,
+            lastzonehash: zonehash2,
+            zonehash: '0x',
+          })
       })
 
       it('resets record on version change', async () => {
-        const { publicResolver } = await loadFixture(fixture)
+        const { publicResolver } = await loadFixture()
 
         await publicResolver.write.setZonehash([targetNode, zonehash1])
 
@@ -1068,12 +1067,21 @@ describe('PublicResolver', () => {
     const interface1 = '0x12345678'
 
     it('permits setting interface by owner', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
-      await expect(publicResolver)
-        .write('setInterface', [targetNode, interface1, accounts[0].address])
+      await expect(
+        publicResolver.write.setInterface([
+          targetNode,
+          interface1,
+          accounts[0].address,
+        ]),
+      )
         .toEmitEvent('InterfaceChanged')
-        .withArgs(targetNode, interface1, accounts[0].address)
+        .withArgs({
+          node: targetNode,
+          interfaceID: interface1,
+          implementer: getAddress(accounts[0].address),
+        })
 
       await expect(
         publicResolver.read.interfaceImplementer([targetNode, interface1]),
@@ -1081,7 +1089,7 @@ describe('PublicResolver', () => {
     })
 
     it('can update previously set interface', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setInterface([
         targetNode,
@@ -1103,17 +1111,20 @@ describe('PublicResolver', () => {
     })
 
     it('forbids setting interface by non-owner', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
-      await expect(publicResolver)
-        .write('setInterface', [targetNode, interface1, accounts[0].address], {
-          account: accounts[1],
-        })
-        .toBeRevertedWithoutReason()
+      await expect(
+        publicResolver.write.setInterface(
+          [targetNode, interface1, accounts[0].address],
+          {
+            account: accounts[1],
+          },
+        ),
+      ).toBeRevertedWithoutReason()
     })
 
     it('returns zero when fetching nonexistent interface', async () => {
-      const { publicResolver } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await expect(
         publicResolver.read.interfaceImplementer([targetNode, interface1]),
@@ -1121,7 +1132,7 @@ describe('PublicResolver', () => {
     })
 
     it('falls back to calling implementsInterface on addr', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       // Set addr to the resolver itself, since it has interface implementations.
       await publicResolver.write.setAddr([targetNode, publicResolver.address])
@@ -1135,7 +1146,7 @@ describe('PublicResolver', () => {
     })
 
     it('returns 0 on fallback when target contract does not implement interface', async () => {
-      const { publicResolver } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setAddr([targetNode, publicResolver.address])
 
@@ -1145,7 +1156,7 @@ describe('PublicResolver', () => {
     })
 
     it('returns 0 on fallback when target contract does not support implementsInterface', async () => {
-      const { ensRegistry, publicResolver } = await loadFixture(fixture)
+      const { ensRegistry, publicResolver } = await loadFixture()
 
       // Set addr to the ENS registry, which doesn't implement supportsInterface.
       await publicResolver.write.setAddr([targetNode, ensRegistry.address])
@@ -1166,7 +1177,7 @@ describe('PublicResolver', () => {
     })
 
     it('returns 0 on fallback when target is not a contract', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setAddr([targetNode, accounts[0].address])
 
@@ -1186,7 +1197,7 @@ describe('PublicResolver', () => {
     })
 
     it('resets record on version change', async () => {
-      const { publicResolver } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setInterface([
         targetNode,
@@ -1208,12 +1219,17 @@ describe('PublicResolver', () => {
 
   describe('authorisations', () => {
     it('permits authorisations to be set', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
-      await expect(publicResolver)
-        .write('setApprovalForAll', [accounts[1].address, true])
+      await expect(
+        publicResolver.write.setApprovalForAll([accounts[1].address, true]),
+      )
         .toEmitEvent('ApprovalForAll')
-        .withArgs(accounts[0].address, accounts[1].address, true)
+        .withArgs({
+          owner: getAddress(accounts[0].address),
+          operator: getAddress(accounts[1].address),
+          approved: true,
+        })
 
       await expect(
         publicResolver.read.isApprovedForAll([
@@ -1224,7 +1240,7 @@ describe('PublicResolver', () => {
     })
 
     it('permits authorised users to make changes', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setApprovalForAll([accounts[1].address, true])
 
@@ -1238,21 +1254,21 @@ describe('PublicResolver', () => {
     })
 
     it('permits authorisations to be cleared', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setApprovalForAll([accounts[1].address, true])
 
       await publicResolver.write.setApprovalForAll([accounts[1].address, false])
 
-      await expect(publicResolver)
-        .write('setAddr', [targetNode, accounts[1].address], {
+      await expect(
+        publicResolver.write.setAddr([targetNode, accounts[1].address], {
           account: accounts[1],
-        })
-        .toBeRevertedWithoutReason()
+        }),
+      ).toBeRevertedWithoutReason()
     })
 
     it('permits non-owners to set authorisations', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setApprovalForAll(
         [accounts[2].address, true],
@@ -1262,17 +1278,15 @@ describe('PublicResolver', () => {
       )
 
       // The authorisation should have no effect, because accounts[1] is not the owner.
-      await expect(publicResolver)
-        .write('setAddr', [targetNode, accounts[0].address], {
+      await expect(
+        publicResolver.write.setAddr([targetNode, accounts[0].address], {
           account: accounts[2],
-        })
-        .toBeRevertedWithoutReason()
+        }),
+      ).toBeRevertedWithoutReason()
     })
 
     it('checks the authorisation for the current owner', async () => {
-      const { ensRegistry, publicResolver, accounts } = await loadFixture(
-        fixture,
-      )
+      const { ensRegistry, publicResolver } = await loadFixture()
 
       await publicResolver.write.setApprovalForAll(
         [accounts[2].address, true],
@@ -1290,7 +1304,7 @@ describe('PublicResolver', () => {
     })
 
     it('trusted contract can bypass authorisation', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setAddr([targetNode, accounts[9].address], {
         account: accounts[9],
@@ -1302,34 +1316,40 @@ describe('PublicResolver', () => {
     })
 
     it('emits an ApprovalForAll log', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
-      await expect(publicResolver)
-        .write('setApprovalForAll', [accounts[1].address, true])
+      await expect(
+        publicResolver.write.setApprovalForAll([accounts[1].address, true]),
+      )
         .toEmitEvent('ApprovalForAll')
-        .withArgs(accounts[0].address, accounts[1].address, true)
+        .withArgs({
+          owner: getAddress(accounts[0].address),
+          operator: getAddress(accounts[1].address),
+          approved: true,
+        })
     })
 
     it('reverts if attempting to approve self as an operator', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
-      await expect(publicResolver)
-        .write('setApprovalForAll', [accounts[1].address, true], {
+      await expect(
+        publicResolver.write.setApprovalForAll([accounts[1].address, true], {
           account: accounts[1],
-        })
-        .toBeRevertedWithString('ERC1155: setting approval status for self')
+        }),
+      ).toBeRevertedWithString('ERC1155: setting approval status for self')
     })
 
     it('permits name wrapper owner to make changes if owner is set to name wrapper address', async () => {
-      const { ensRegistry, nameWrapper, publicResolver, accounts } =
-        await loadFixture(fixture)
+      const { ensRegistry, nameWrapper, publicResolver } = await loadFixture()
 
       const owner = accounts[0]
       const operator = accounts[2]
 
-      await expect(publicResolver)
-        .write('setAddr', [targetNode, owner.address], { account: operator })
-        .toBeRevertedWithoutReason()
+      await expect(
+        publicResolver.write.setAddr([targetNode, owner.address], {
+          account: operator,
+        }),
+      ).toBeRevertedWithoutReason()
 
       await ensRegistry.write.setOwner([targetNode, nameWrapper.address], {
         account: owner,
@@ -1347,7 +1367,7 @@ describe('PublicResolver', () => {
 
   describe('token approvals', async () => {
     it('permits delegate to be approved', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.approve([
         targetNode,
@@ -1365,7 +1385,7 @@ describe('PublicResolver', () => {
     })
 
     it('permits delegated users to make changes', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.approve([
         targetNode,
@@ -1391,7 +1411,7 @@ describe('PublicResolver', () => {
     })
 
     it('permits delegations to be cleared', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.approve([
         targetNode,
@@ -1405,15 +1425,15 @@ describe('PublicResolver', () => {
         false,
       ])
 
-      await expect(publicResolver)
-        .write('setAddr', [targetNode, accounts[0].address], {
+      await expect(
+        publicResolver.write.setAddr([targetNode, accounts[0].address], {
           account: accounts[1],
-        })
-        .toBeRevertedWithoutReason()
+        }),
+      ).toBeRevertedWithoutReason()
     })
 
     it('permits non-owners to set delegations', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.approve(
         [targetNode, accounts[2].address, true],
@@ -1423,17 +1443,15 @@ describe('PublicResolver', () => {
       )
 
       // The delegation should have no effect, because accounts[1] is not the owner.
-      await expect(publicResolver)
-        .write('setAddr', [targetNode, accounts[0].address], {
+      await expect(
+        publicResolver.write.setAddr([targetNode, accounts[0].address], {
           account: accounts[2],
-        })
-        .toBeRevertedWithoutReason()
+        }),
+      ).toBeRevertedWithoutReason()
     })
 
     it('checks the delegation for the current owner', async () => {
-      const { ensRegistry, publicResolver, accounts } = await loadFixture(
-        fixture,
-      )
+      const { ensRegistry, publicResolver } = await loadFixture()
 
       await publicResolver.write.approve(
         [targetNode, accounts[2].address, true],
@@ -1451,25 +1469,29 @@ describe('PublicResolver', () => {
     })
 
     it('emits an Approved log', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       const owner = accounts[0].address
       const delegate = accounts[1].address
 
-      await expect(publicResolver)
-        .write('approve', [targetNode, delegate, true])
+      await expect(publicResolver.write.approve([targetNode, delegate, true]))
         .toEmitEvent('Approved')
-        .withArgs(owner, targetNode, delegate, true)
+        .withArgs({
+          owner: getAddress(owner),
+          node: targetNode,
+          delegate: getAddress(delegate),
+          approved: true,
+        })
     })
 
     it('reverts if attempting to delegate to self', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
-      await expect(publicResolver)
-        .write('approve', [targetNode, accounts[1].address, true], {
+      await expect(
+        publicResolver.write.approve([targetNode, accounts[1].address, true], {
           account: accounts[1],
-        })
-        .toBeRevertedWithString('Setting delegate status for self')
+        }),
+      ).toBeRevertedWithString('Setting delegate status for self')
     })
   })
 
@@ -1477,7 +1499,7 @@ describe('PublicResolver', () => {
     const urlValue = 'https://ethereum.org/'
 
     it('allows setting multiple fields', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       const setAddrCall = encodeFunctionData({
         abi: publicResolver.abi,
@@ -1490,22 +1512,24 @@ describe('PublicResolver', () => {
         args: [targetNode, 'url', urlValue],
       })
 
-      const hash = await publicResolver.write.multicall([
-        [setAddrCall, setTextCall],
-      ])
+      const tx = publicResolver.write.multicall([[setAddrCall, setTextCall]])
 
-      await expect(publicResolver)
-        .transaction(hash)
+      await expect(tx)
         .toEmitEvent('AddrChanged')
-        .withArgs(targetNode, accounts[1].address)
-      await expect(publicResolver)
-        .transaction(hash)
-        .toEmitEvent('AddressChanged')
-        .withArgs(targetNode, 60n, accounts[1].address)
-      await expect(publicResolver)
-        .transaction(hash)
+        .withArgs({ node: targetNode, a: getAddress(accounts[1].address) })
+      await expect(tx).toEmitEvent('AddressChanged').withArgs({
+        node: targetNode,
+        coinType: 60n,
+        newAddress: accounts[1].address,
+      })
+      await expect(tx)
         .toEmitEvent('TextChanged')
-        .withArgs(targetNode, 'url', 'url', urlValue)
+        .withArgs({
+          node: targetNode,
+          indexedKey: keccak256(stringToHex('url')),
+          key: 'url',
+          value: urlValue,
+        })
 
       await expect(
         publicResolver.read.addr([targetNode]) as Promise<Address>,
@@ -1516,7 +1540,7 @@ describe('PublicResolver', () => {
     })
 
     it('allows reading multiple fields', async () => {
-      const { publicResolver, accounts } = await loadFixture(fixture)
+      const { publicResolver } = await loadFixture()
 
       await publicResolver.write.setAddr([targetNode, accounts[1].address])
       await publicResolver.write.setText([targetNode, 'url', urlValue])

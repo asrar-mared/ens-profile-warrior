@@ -1,11 +1,9 @@
-import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
 import {
   AbiParameter,
   AbiParametersToPrimitiveTypes,
   ExtractAbiFunction,
   ExtractAbiFunctionNames,
 } from 'abitype'
-import { expect } from 'chai'
 import hre from 'hardhat'
 import {
   Abi,
@@ -16,6 +14,8 @@ import {
   namehash,
   stringToHex,
 } from 'viem'
+import { describe, expect, it } from 'vitest'
+
 import { packetToBytes } from '../fixtures/dnsEncodeName.js'
 
 type GetNodeFunctions<
@@ -40,10 +40,15 @@ type GetNodeFunctions<
     : never
 }
 
+const connection = await hre.network.connect()
+const { abi: publicResolverAbi } = await hre.artifacts.readArtifact(
+  'PublicResolver',
+)
+
 async function fixture() {
-  const resolver = await hre.viem.deployContract('ExtendedDNSResolver', [])
-  const { abi: publicResolverAbi } = await hre.artifacts.readArtifact(
-    'PublicResolver',
+  const resolver = await connection.viem.deployContract(
+    'ExtendedDNSResolver',
+    [],
   )
   type ResolverMethods = GetNodeFunctions<typeof publicResolverAbi>
   type OneOfResolverMethods = {
@@ -53,7 +58,7 @@ async function fixture() {
     }
   }[keyof ResolverMethods]
 
-  async function resolve({
+  function resolve({
     name,
     context,
     ...encodeParams
@@ -74,11 +79,12 @@ async function fixture() {
 
   return { resolver, resolve }
 }
+const loadFixture = async () => connection.networkHelpers.loadFixture(fixture)
 
 describe('ExtendedDNSResolver', () => {
   describe('a records', async () => {
     it('resolves Ethereum addresses using addr(bytes32)', async () => {
-      const { resolve } = await loadFixture(fixture)
+      const { resolve } = await loadFixture()
 
       const name = 'test.test'
       const testAddress = '0xfefeFEFeFEFEFEFEFeFefefefefeFEfEfefefEfe'
@@ -96,7 +102,7 @@ describe('ExtendedDNSResolver', () => {
     })
 
     it('resolves Ethereum addresses using addr(bytes32,uint256)', async () => {
-      const { resolve } = await loadFixture(fixture)
+      const { resolve } = await loadFixture()
 
       const coinType = 60n
       const name = 'test.test'
@@ -115,7 +121,7 @@ describe('ExtendedDNSResolver', () => {
     })
 
     it('ignores records with the wrong cointype', async () => {
-      const { resolve } = await loadFixture(fixture)
+      const { resolve } = await loadFixture()
 
       const coinType = 0n
       const name = 'test.test'
@@ -132,25 +138,23 @@ describe('ExtendedDNSResolver', () => {
     })
 
     it('raises an error for invalid hex data', async () => {
-      const { resolver, resolve } = await loadFixture(fixture)
+      const { resolver, resolve } = await loadFixture()
 
       const name = 'test.test'
       const testAddress = '0xfoobar'
 
-      await expect(resolver)
-        .transaction(
-          resolve({
-            name,
-            functionName: 'addr',
-            args: [],
-            context: `a[60]=${testAddress}`,
-          }),
-        )
-        .toBeRevertedWithCustomError('InvalidAddressFormat')
+      await expect(
+        resolve({
+          name,
+          functionName: 'addr',
+          args: [],
+          context: `a[60]=${testAddress}`,
+        }),
+      ).toBeRevertedWithCustomError('InvalidAddressFormat')
     })
 
     it('works if the record comes after an unrelated one', async () => {
-      const { resolve } = await loadFixture(fixture)
+      const { resolve } = await loadFixture()
 
       const name = 'test.test'
       const testAddress = '0xfefeFEFeFEFEFEFEFeFefefefefeFEfEfefefEfe'
@@ -168,7 +172,7 @@ describe('ExtendedDNSResolver', () => {
     })
 
     it('handles multiple spaces between records', async () => {
-      const { resolve } = await loadFixture(fixture)
+      const { resolve } = await loadFixture()
 
       const name = 'test.test'
       const testAddress = '0xfefeFEFeFEFEFEFEFeFefefefefeFEfEfefefEfe'
@@ -186,7 +190,7 @@ describe('ExtendedDNSResolver', () => {
     })
 
     it('handles multiple spaces between quoted records', async () => {
-      const { resolve } = await loadFixture(fixture)
+      const { resolve } = await loadFixture()
 
       const name = 'test.test'
       const testAddress = '0xfefeFEFeFEFEFEFEFeFefefefefeFEfEfefefEfe'
@@ -204,7 +208,7 @@ describe('ExtendedDNSResolver', () => {
     })
 
     it('handles no spaces between quoted records', async () => {
-      const { resolve } = await loadFixture(fixture)
+      const { resolve } = await loadFixture()
 
       const name = 'test.test'
       const testAddress = '0xfefeFEFeFEFEFEFEFeFefefefefeFEfEfefefEfe'
@@ -222,7 +226,7 @@ describe('ExtendedDNSResolver', () => {
     })
 
     it('works if the record comes after one for another cointype', async () => {
-      const { resolve } = await loadFixture(fixture)
+      const { resolve } = await loadFixture()
 
       const name = 'test.test'
       const testAddress = '0xfefeFEFeFEFEFEFEFeFefefefefeFEfEfefefEfe'
@@ -240,7 +244,7 @@ describe('ExtendedDNSResolver', () => {
     })
 
     it('uses the first matching record it finds', async () => {
-      const { resolve } = await loadFixture(fixture)
+      const { resolve } = await loadFixture()
 
       const name = 'test.test'
       const testAddress = '0xfefeFEFeFEFEFEFEFeFefefefefeFEfEfefefEfe'
@@ -258,7 +262,7 @@ describe('ExtendedDNSResolver', () => {
     })
 
     it('resolves addresses with coin types', async () => {
-      const { resolve } = await loadFixture(fixture)
+      const { resolve } = await loadFixture()
 
       const optimismChainId = 10
       const optimismCoinType = BigInt((0x80000000 | optimismChainId) >>> 0)
@@ -280,7 +284,7 @@ describe('ExtendedDNSResolver', () => {
 
   describe('t records', () => {
     it('decodes an unquoted t record', async () => {
-      const { resolve } = await loadFixture(fixture)
+      const { resolve } = await loadFixture()
 
       const name = 'test.test'
 
@@ -297,7 +301,7 @@ describe('ExtendedDNSResolver', () => {
     })
 
     it('returns 0x for a missing key', async () => {
-      const { resolve } = await loadFixture(fixture)
+      const { resolve } = await loadFixture()
 
       const name = 'test.test'
 
@@ -312,7 +316,7 @@ describe('ExtendedDNSResolver', () => {
     })
 
     it('decodes a quoted t record', async () => {
-      const { resolve } = await loadFixture(fixture)
+      const { resolve } = await loadFixture()
 
       const name = 'test.test'
 
@@ -329,7 +333,7 @@ describe('ExtendedDNSResolver', () => {
     })
 
     it('handles escaped quotes', async () => {
-      const { resolve } = await loadFixture(fixture)
+      const { resolve } = await loadFixture()
 
       const name = 'test.test'
 
@@ -346,7 +350,7 @@ describe('ExtendedDNSResolver', () => {
     })
 
     it('rejects a record with an unterminated quoted string', async () => {
-      const { resolve } = await loadFixture(fixture)
+      const { resolve } = await loadFixture()
 
       const name = 'test.test'
 
