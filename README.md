@@ -187,6 +187,8 @@ Mainnet Safe address: `0x353530FE74098903728Ddb66Ecdb70f52e568eC1`
 NODE_OPTIONS='--experimental-loader ts-node/esm/transpile-only' bun run hardhat --network <network_name> deploy
 ```
 
+When readying a new deployment of certain contracts, bump the deploy script version number to the appropriate new version. Doing this ensures that the new deployment script will run for each network.
+
 Full list of available networks for deployment is [here](hardhat.config.cts#L38).
 
 ### Release flow
