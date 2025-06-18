@@ -25,10 +25,12 @@ const func: DeployFunction = async function (hre) {
     console.log(`Transfer ownership to ${owner.address} (tx: ${hash})...`)
     await hre.viem.waitForTransactionSuccess(hash)
   }
+
+  return true
 }
 
-func.id = 'universal-resolver'
-func.tags = ['utils', 'UniversalResolver']
-func.dependencies = ['registry']
+func.id = 'UniversalResolver v1.0.0'
+func.tags = ['category:utils', 'UniversalResolver']
+func.dependencies = ['ENSRegistry']
 
 export default func

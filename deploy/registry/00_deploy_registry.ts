@@ -76,7 +76,7 @@ const func: DeployFunction = async function (hre) {
   return true
 }
 
-func.id = 'ens'
-func.tags = ['registry', 'ENSRegistry']
+func.id = 'ENSRegistry v1.0.0'
+func.tags = ['category:registry', 'ENSRegistry']
 
 export default func

@@ -47,9 +47,12 @@ const func: DeployFunction = async function (hre) {
     throw new Error('UniversalSigValidator not deployed')
 
   console.log(`UniversalSigValidator deployed at ${usvAddress}`)
+
+  return true
 }
 
-func.tags = ['UniversalSigValidator', 'utils']
+func.id = 'UniversalSigValidator v1.0.0'
+func.tags = ['category:utils', 'UniversalSigValidator']
 func.skip = async (hre) => {
   const { viem } = hre
   const publicClient = await viem.getPublicClient()

@@ -40,7 +40,7 @@ const config = {
   networks: {
     hardhat: {
       saveDeployments: false,
-      tags: ['test', 'legacy', 'use_root'],
+      tags: ['test', 'legacy', 'use_root', 'local'],
       allowUnlimitedContractSize: false,
       chainId: process.env.FORKING_ENABLED ? 1 : 31337,
       forking: {
@@ -51,7 +51,7 @@ const config = {
     localhost: {
       url: 'http://127.0.0.1:8545/',
       saveDeployments: false,
-      tags: ['test', 'legacy', 'use_root'],
+      tags: ['test', 'legacy', 'use_root', 'local'],
     },
     anvil: {
       url: `http://localhost:${parseInt(process.env['RPC_PORT'] || '8545')}`,
@@ -61,6 +61,14 @@ const config = {
       tags: ['test', 'legacy', 'use_root', 'testnet'],
       chainId: 11155111,
       accounts: real_accounts,
+      ...(process.env.IMPERSONATION_PROXY_ENABLED
+        ? {
+            url: 'http://127.0.0.1:8546',
+            tags: ['test', 'legacy', 'use_root', 'testnet', 'tenderly'],
+            accounts: 'remote',
+            saveDeployments: false,
+          }
+        : {}),
     },
     optimismSepolia: {
       url: 'https://sepolia.optimism.io',
@@ -112,15 +120,31 @@ const config = {
     },
     holesky: {
       url: `https://holesky.gateway.tenderly.co`,
-      tags: ['test', 'legacy', 'use_root'],
+      tags: ['test', 'legacy', 'use_root', 'testnet'],
       chainId: 17000,
       accounts: real_accounts,
+      ...(process.env.IMPERSONATION_PROXY_ENABLED
+        ? {
+            url: 'http://127.0.0.1:8546',
+            tags: ['test', 'legacy', 'use_root', 'testnet', 'tenderly'],
+            accounts: 'remote',
+            saveDeployments: false,
+          }
+        : {}),
     },
     mainnet: {
       url: `https://mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
       tags: ['legacy', 'use_root'],
       chainId: 1,
       accounts: real_accounts,
+      ...(process.env.IMPERSONATION_PROXY_ENABLED
+        ? {
+            url: 'http://127.0.0.1:8546',
+            tags: ['legacy', 'use_root', 'tenderly'],
+            accounts: 'remote',
+            saveDeployments: false,
+          }
+        : {}),
     },
   },
   mocha: {},
@@ -194,6 +218,8 @@ const config = {
     owner: {
       default: process.env.OWNER_KEY ? 1 : 0,
       1: '0xFe89cc7aBB2C4183683ab71653C4cdc9B02D44b7',
+      11155111: '0x0F32b753aFc8ABad9Ca6fE589F707755f4df2353',
+      17000: '0x0F32b753aFc8ABad9Ca6fE589F707755f4df2353',
     },
   },
   gasReporter: {

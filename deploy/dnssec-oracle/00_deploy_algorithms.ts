@@ -8,9 +8,19 @@ const func: DeployFunction = async function (hre) {
   await viem.deploy('P256SHA256Algorithm', [])
 
   if (network.tags.test) await viem.deploy('DummyAlgorithm', [])
+
+  return true
 }
 
-func.tags = ['dnssec-algorithms']
-func.dependencies = ['BaseRegistrarImplementation'] // not necessary but allows registrar to be deployed first
+func.id = 'dnssec-algorithms v1.0.0'
+func.tags = [
+  'category:dnssec-oracle',
+  'dnssec-algorithms',
+  'RSASHA1Algorithm',
+  'RSASHA256Algorithm',
+  'P256SHA256Algorithm',
+  'DummyAlgorithm',
+]
+func.dependencies = []
 
 export default func

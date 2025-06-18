@@ -4,10 +4,12 @@ const func: DeployFunction = async function (hre) {
   const { viem } = hre
 
   await viem.deploy('DefaultReverseRegistrar', [])
+
+  return true
 }
 
-func.id = 'default-reverse-registrar'
-func.tags = ['DefaultReverseRegistrar']
-func.dependencies = ['root']
+func.id = 'DefaultReverseRegistrar v1.0.0'
+func.tags = ['category:reverseregistrar', 'DefaultReverseRegistrar']
+func.dependencies = []
 
 export default func

@@ -54,8 +54,8 @@ const func: DeployFunction = async function (hre) {
   return true
 }
 
-func.id = 'setupRoot'
-func.tags = ['setupRoot']
-func.dependencies = ['Root']
+func.id = 'Root:setup v1.0.0'
+func.tags = ['category:root', 'Root', 'Root:setup']
+func.dependencies = ['Root:contract']
 
 export default func

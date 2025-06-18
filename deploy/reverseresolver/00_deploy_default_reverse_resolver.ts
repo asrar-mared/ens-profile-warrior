@@ -15,7 +15,7 @@ const func: DeployFunction = async function (hre) {
   ])
 
   // Only attempt to make controller etc changes directly on testnets
-  if (network.name === 'mainnet') return
+  if (network.name === 'mainnet' && !network.tags.tenderly) return
 
   const registry = await viem.getContract('ENSRegistry')
   const root = await viem.getContract('Root')
@@ -51,10 +51,12 @@ const func: DeployFunction = async function (hre) {
     `Setting resolver of .reverse to DefaultReverseResolver on registry (tx: ${setResolverHash})...`,
   )
   await viem.waitForTransactionSuccess(setResolverHash)
+
+  return true
 }
 
-func.id = 'default-reverse-resolver'
-func.tags = ['DefaultReverseResolver']
-func.dependencies = ['DefaultReverseRegistrar']
+func.id = 'DefaultReverseResolver v1.0.0'
+func.tags = ['category:reverseresolver', 'DefaultReverseResolver']
+func.dependencies = ['ENSRegistry', 'Root', 'DefaultReverseRegistrar']
 
 export default func

@@ -118,9 +118,12 @@ const func: DeployFunction = async function (hre) {
   await Promise.all(
     transactions.map(async (hash) => viem.waitForTransactionSuccess(hash)),
   )
+
+  return true
 }
 
-func.tags = ['dnssec-oracle']
+func.id = 'DNSSECImpl v1.0.0'
+func.tags = ['category:dnssec-oracle', 'DNSSECImpl']
 func.dependencies = ['dnssec-algorithms', 'dnssec-digests']
 
 export default func

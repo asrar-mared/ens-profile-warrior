@@ -5,15 +5,17 @@ import { createInterfaceId } from '../../test/fixtures/createInterfaceId.js'
 const func: DeployFunction = async function (hre) {
   const { deployments, network, viem } = hre
 
-  const registry = await viem.getContract('ENSRegistry')
-  const controller = await viem.getContract('ETHRegistrarController')
+  const { owner } = await viem.getNamedClients()
+
+  const registry = await viem.getContract('ENSRegistry', owner)
+  const controller = await viem.getContract('ETHRegistrarController', owner)
 
   const bulkRenewal = await viem.deploy('StaticBulkRenewal', [
     controller.address,
   ])
 
   // Only attempt to make resolver etc changes directly on testnets
-  if (network.name === 'mainnet') return
+  if (network.name === 'mainnet' && !network.tags.tenderly) return
 
   const artifact = await deployments.getArtifact('IBulkRenewal')
   const interfaceId = createInterfaceId(artifact.abi)
@@ -26,7 +28,7 @@ const func: DeployFunction = async function (hre) {
     return
   }
 
-  const ethOwnedResolver = await viem.getContract('OwnedResolver')
+  const ethOwnedResolver = await viem.getContract('OwnedResolver', owner)
   const setInterfaceHash = await ethOwnedResolver.write.setInterface([
     namehash('eth'),
     interfaceId,
@@ -40,8 +42,8 @@ const func: DeployFunction = async function (hre) {
   return true
 }
 
-func.id = 'bulk-renewal'
-func.tags = ['BulkRenewal']
-func.dependencies = ['registry']
+func.id = 'StaticBulkRenewal v1.0.0'
+func.tags = ['category:ethregistrar', 'StaticBulkRenewal']
+func.dependencies = ['ENSRegistry', 'ETHRegistrarController', 'OwnedResolver']
 
 export default func

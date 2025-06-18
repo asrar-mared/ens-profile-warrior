@@ -11,9 +11,12 @@ const func: DeployFunction = async function (hre) {
     dnssec.address,
     'https://dnssec-oracle.ens.domains/',
   ])
+
+  return true
 }
 
-func.tags = ['OffchainDNSResolver']
-func.dependencies = ['registry', 'dnssec-oracle']
+func.id = 'OffchainDNSResolver v1.0.0'
+func.tags = ['category:dnsregistrar', 'OffchainDNSResolver']
+func.dependencies = ['ENSRegistry', 'DNSSECImpl']
 
 export default func

@@ -29,7 +29,7 @@ const func: DeployFunction = async function (hre) {
   }
 
   // Only attempt to make controller etc changes directly on testnets
-  if (network.name === 'mainnet') return
+  if (network.name === 'mainnet' && !network.tags.tenderly) return
 
   const addControllerHash = await registrar.write.addController([
     nameWrapper.address,
@@ -58,14 +58,17 @@ const func: DeployFunction = async function (hre) {
     `Setting NameWrapper interface ID ${interfaceId} on .eth resolver (tx: ${setInterfaceHash})...`,
   )
   await viem.waitForTransactionSuccess(setInterfaceHash)
+
+  return true
 }
 
-func.id = 'name-wrapper'
-func.tags = ['wrapper', 'NameWrapper']
+func.id = 'NameWrapper v1.0.0'
+func.tags = ['category:wrapper', 'NameWrapper']
 func.dependencies = [
   'StaticMetadataService',
-  'registry',
-  'ReverseRegistrar',
+  'ENSRegistry',
+  'BaseRegistrarImplementation',
+  'StaticMetadataService',
   'OwnedResolver',
 ]
 

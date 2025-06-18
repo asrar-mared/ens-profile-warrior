@@ -24,7 +24,7 @@ const func: DeployFunction = async function (hre) {
   }
 
   // Only attempt to make controller etc changes directly on testnets
-  if (network.name === 'mainnet') return
+  if (network.name === 'mainnet' && !network.tags.tenderly) return
 
   const root = await viem.getContract('Root')
 
@@ -45,10 +45,12 @@ const func: DeployFunction = async function (hre) {
     `Setting owner of .addr.reverse to ReverseRegistrar on registry (tx: ${setAddrOwnerHash})...`,
   )
   await viem.waitForTransactionSuccess(setAddrOwnerHash)
+
+  return true
 }
 
-func.id = 'reverse-registrar'
-func.tags = ['ReverseRegistrar']
-func.dependencies = ['root']
+func.id = 'ReverseRegistrar v1.0.0'
+func.tags = ['category:reverseregistrar', 'ReverseRegistrar']
+func.dependencies = ['ENSRegistry', 'Root']
 
 export default func

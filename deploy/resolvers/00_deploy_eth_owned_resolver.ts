@@ -21,11 +21,11 @@ const func: DeployFunction = async function (hre) {
 
   const resolver = await registry.read.resolver([namehash('eth')])
   console.log(`set resolver for .eth to ${resolver}`)
-  if (!ethOwnedResolver.newlyDeployed) return
+  return true
 }
 
-func.id = 'eth-owned-resolver'
-func.tags = ['resolvers', 'OwnedResolver', 'EthOwnedResolver']
-func.dependencies = ['Registry']
+func.id = 'EthOwnedResolver v1.0.0'
+func.tags = ['category:resolvers', 'OwnedResolver', 'EthOwnedResolver']
+func.dependencies = ['ENSRegistry', 'BaseRegistrarImplementation']
 
 export default func

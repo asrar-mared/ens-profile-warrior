@@ -17,10 +17,12 @@ const func: DeployFunction = async function (hre) {
     console.log(`Transfer ownership to ${owner.address} (tx: ${hash})...`)
     await viem.waitForTransactionSuccess(hash)
   }
+
+  return true
 }
 
-func.id = 'migration-helper'
-func.tags = ['utils', 'MigrationHelper']
+func.id = 'MigrationHelper v1.0.0'
+func.tags = ['category:utils', 'MigrationHelper']
 func.dependencies = ['BaseRegistrarImplementation', 'NameWrapper']
 
 export default func

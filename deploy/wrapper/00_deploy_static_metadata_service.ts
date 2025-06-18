@@ -13,10 +13,12 @@ const func: DeployFunction = async function (hre) {
   const metadataUrl = `${metadataHost}/name/0x{id}`
 
   await viem.deploy('StaticMetadataService', [metadataUrl])
+
+  return true
 }
 
-func.id = 'metadata'
-func.tags = ['wrapper', 'StaticMetadataService']
+func.id = 'StaticMetadataService v1.0.0'
+func.tags = ['category:wrapper', 'StaticMetadataService']
 // technically not a dep, but we want to make sure it's deployed first for the consistent address
 func.dependencies = ['BaseRegistrarImplementation']
 

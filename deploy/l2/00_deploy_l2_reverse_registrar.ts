@@ -312,9 +312,17 @@ const func: DeployFunction = async function (hre) {
 
     await viem.deploy('L2ReverseRegistrar', [coinType])
   }
+
+  return true
 }
 
+func.id = 'L2ReverseRegistrar v1.0.0'
+func.tags = ['category:reverseregistrar', 'L2ReverseRegistrar']
 func.dependencies = ['UniversalSigValidator']
-func.tags = ['L2ReverseRegistrar', 'l2']
+func.skip = async function (hre) {
+  if (hre.network.tags.l2) return false
+  if (hre.network.tags.local) return false
+  return true
+}
 
 export default func

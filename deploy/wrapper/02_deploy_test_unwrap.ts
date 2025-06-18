@@ -17,9 +17,6 @@ const func: DeployFunction = async function (hre) {
   const unnamedClients = await viem.getUnnamedClients()
   const clients = [deployer, owner, ...unnamedClients]
 
-  // only deploy on testnets
-  if (network.name === 'mainnet') return
-
   const registry = await viem.getContract('ENSRegistry', owner)
   const registrar = await viem.getContract('BaseRegistrarImplementation', owner)
 
@@ -108,10 +105,16 @@ const func: DeployFunction = async function (hre) {
     console.log(`Approving wrapper ${wrapperAddress} (tx: ${hash})...`)
     await viem.waitForTransactionSuccess(hash)
   }
+
+  return true
 }
 
-func.id = 'test-unwrap'
-func.tags = ['wrapper', 'TestUnwrap']
-func.dependencies = ['BaseRegistrarImplementation', 'registry']
+func.id = 'TestUnwrap v1.0.0'
+func.tags = ['category:wrapper', 'TestUnwrap']
+func.dependencies = ['BaseRegistrarImplementation', 'ENSRegistry']
+func.skip = async function (hre) {
+  if (hre.network.name === 'mainnet') return true
+  return false
+}
 
 export default func

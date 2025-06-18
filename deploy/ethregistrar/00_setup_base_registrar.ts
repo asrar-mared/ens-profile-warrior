@@ -33,11 +33,16 @@ const func: DeployFunction = async function (hre) {
     `Setting owner of eth node to registrar on root (tx: ${setSubnodeOwnerHash})...`,
   )
   await viem.waitForTransactionSuccess(setSubnodeOwnerHash)
+
+  return true
 }
 
-func.id = 'setupRegistrar'
-func.tags = ['setupRegistrar']
-//Runs after the root is setup
-func.dependencies = ['setupRoot']
+func.id = 'BaseRegistrarImplementation:setup v1.0.0'
+func.tags = [
+  'category:ethregistrar',
+  'BaseRegistrarImplementation',
+  'BaseRegistrarImplementation:setup',
+]
+func.dependencies = ['Root', 'BaseRegistrarImplementation:contract']
 
 export default func

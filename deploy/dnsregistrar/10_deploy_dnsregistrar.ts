@@ -35,15 +35,18 @@ const func: DeployFunction = async function (hre) {
       `${owner.address} is not the owner of the root; you will need to call setController('${deployment.address}', true) manually`,
     )
   }
+
+  return true
 }
 
-func.tags = ['DNSRegistrar']
+func.id = 'DNSRegistrar:contract v1.0.0'
+func.tags = ['category:dnsregistrar', 'DNSRegistrar', 'DNSRegistrar:contract']
 func.dependencies = [
-  'registry',
-  'dnssec-oracle',
+  'ENSRegistry',
+  'DNSSECImpl',
   'OffchainDNSResolver',
   'Root',
-  'setupRoot',
+  'SimplePublicSuffixList',
 ]
 
 export default func
