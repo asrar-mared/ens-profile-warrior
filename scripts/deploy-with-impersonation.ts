@@ -1,36 +1,84 @@
 #!/usr/bin/env bun
+import { execSync } from 'child_process'
 import { createServer } from 'http'
+import {
+  http,
+  isAddress,
+  type Address,
+  type EIP1193RequestFn,
+  type HttpTransportConfig,
+  type PublicRpcSchema,
+  type TestRpcSchema,
+  type Transport,
+} from 'viem'
+import * as chains_ from 'viem/chains'
+const chains = chains_ as unknown as (typeof chains_)['default']
 
 // parse cli args
 const args = process.argv.slice(2)
 let rpcUrl = ''
-let port = '8545'
-const accounts: string[] = []
+const port = '8546'
+const accounts: Address[] = []
+let tags: string = ''
 
 for (let i = 0; i < args.length; i++) {
   switch (args[i]) {
     case '--rpc-url':
       rpcUrl = args[++i]
       break
-    case '--port':
-      port = args[++i]
-      break
     case '--accounts':
       while (args[i + 1] && !args[i + 1].startsWith('--')) {
-        accounts.push(args[++i])
+        const account = args[++i]
+        if (!isAddress(account)) {
+          console.error(`invalid account: ${account}`)
+          process.exit(1)
+        }
+        accounts.push(account)
       }
+      break
+    case '--tags':
+      tags = args[++i]
       break
   }
 }
 
 if (!rpcUrl || accounts.length === 0) {
   console.error(
-    'usage: --rpc-url <url> --accounts <addr1> [addr2 ...] [--port <port>]',
+    'usage: --rpc-url <url> --accounts <addr1> [addr2 ...] [--tags <tags>]',
   )
   process.exit(1)
 }
 
-createServer((req, res) => {
+type HttpTransport = Transport<
+  'http',
+  {
+    fetchOptions?: HttpTransportConfig['fetchOptions'] | undefined
+    url?: string | undefined
+  },
+  EIP1193RequestFn<[...PublicRpcSchema, ...TestRpcSchema<'anvil'>]>
+>
+
+const rpcClient = (
+  http(rpcUrl, { batch: false, retryCount: 0 }) as HttpTransport
+)({})
+
+const chainId = await rpcClient.request({ method: 'eth_chainId' }).then(Number)
+const chain = Object.entries(chains).find(([_, c]) => c.id === chainId)
+if (!chain) {
+  console.error(`unknown chain id: ${chainId}`)
+  process.exit(1)
+}
+const network = chain[0]
+
+const clientVersion = await rpcClient.request({ method: 'web3_clientVersion' })
+if (clientVersion.startsWith('anvil/'))
+  for (const account of accounts)
+    await rpcClient.request({
+      method: 'anvil_impersonateAccount',
+      params: [account],
+    })
+
+const server = createServer((req, res) => {
   if (req.method !== 'POST') return res.writeHead(405).end()
 
   let body = ''
@@ -64,6 +112,34 @@ createServer((req, res) => {
       res.writeHead(502).end()
     }
   })
-}).listen(Number(port), () => {
+})
+
+server.listen(Number(port), () => {
   console.log(`proxy on :${port} → ${rpcUrl}`)
 })
+
+const exitHandler = async (c: number) => {
+  if (process.env.CI) process.exit(c)
+  else {
+    server.close()
+    process.exit(c)
+  }
+}
+
+process.on('exit', exitHandler)
+process.on('beforeExit', exitHandler)
+
+execSync(
+  `bun run hardhat --network ${network} deploy${tags ? ` --tags ${tags}` : ''}`,
+  {
+    stdio: 'inherit',
+    env: {
+      ...process.env,
+      NODE_OPTIONS:
+        '--experimental-loader ts-node/esm/transpile-only --no-warnings',
+      IMPERSONATION_PROXY_ENABLED: '1',
+    },
+  },
+)
+
+await exitHandler(0)

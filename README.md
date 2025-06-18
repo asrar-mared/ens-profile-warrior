@@ -183,11 +183,48 @@ Mainnet Safe address: `0x353530FE74098903728Ddb66Ecdb70f52e568eC1`
 
 ### Deployment
 
+When readying a new deployment of certain contracts, bump the deploy script version number to the appropriate new version. Doing this ensures that the new deployment script will run for each network.
+
+Deployment scripts can be run for any specified network found in the [config](hardhat.config.cts#L38), with the following:
+
 ```
-NODE_OPTIONS='--experimental-loader ts-node/esm/transpile-only' bun run hardhat --network <network_name> deploy
+bun hh --network <network_name> deploy
 ```
 
-Full list of available networks for deployment is [here](hardhat.config.cts#L38).
+Only scripts that haven't been run on the specified network before will be run.
+
+### Deployment testing
+
+To test deploying contracts and the functionality of them after deployment, there are two basic paths for forking:
+
+- Run an anvil fork, useful for testing locally and iterating. (`anvil --fork-url <url>`)
+- Use a Tenderly Virtual TestNet, useful as a staging environment.
+
+When **access to the owner account is available** (testnet only - owner on mainnet is the DAO), you can deploy straight to the fork by replacing the forked network's URL in the hardhat config with your RPC:
+
+```typescript
+const config = {
+  // ... existing config
+  networks: {
+    targetNetwork: {
+      // ... other network config
+      url: 'tenderly-or-anvil-url-here',
+    },
+  },
+}
+```
+
+Without access to the owner account, you can deploy via the impersonation script, which makes impersonated accounts from an external node available to hardhat.
+
+```bash
+./scripts/deploy-with-impersonation.ts --rpc-url <url> --accounts <addr1> [addr2 ...] [--tags <tags>]
+
+# Testnet usage
+./scripts/deploy-with-impersonation.ts --rpc-url <url> --accounts 0x0F32b753aFc8ABad9Ca6fE589F707755f4df2353
+
+# Mainnet usage
+./scripts/deploy-with-impersonation.ts --rpc-url <url> --accounts 0xFe89cc7aBB2C4183683ab71653C4cdc9B02D44b7
+```
 
 ### Release flow
 
