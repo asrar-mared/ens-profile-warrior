@@ -11,14 +11,8 @@ interface IETHRegistrarController {
         bytes32 secret;
         address resolver;
         bytes[] data;
-        ReverseRecord reverseRecord;
+        uint8 reverseRecord;
         bytes32 referrer;
-    }
-
-    enum ReverseRecord {
-        None,
-        Ethereum,
-        Default
     }
 
     function rentPrice(
