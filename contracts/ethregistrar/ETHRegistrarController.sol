@@ -14,9 +14,6 @@ import {IDefaultReverseRegistrar} from "../reverseRegistrar/IDefaultReverseRegis
 import {IETHRegistrarController, IPriceOracle} from "./IETHRegistrarController.sol";
 import {ERC20Recoverable} from "../utils/ERC20Recoverable.sol";
 
-uint8 constant REVERSE_RECORD_ETHEREUM_BIT = 0x01;
-uint8 constant REVERSE_RECORD_DEFAULT_BIT = 0x02;
-
 /// @dev A registrar controller for registering and renewing names at fixed cost.
 contract ETHRegistrarController is
     Ownable,
@@ -25,6 +22,12 @@ contract ETHRegistrarController is
     ERC20Recoverable
 {
     using StringUtils for *;
+
+    /// @notice The bitmask for the Ethereum reverse record.
+    uint8 constant REVERSE_RECORD_ETHEREUM_BIT = 1;
+
+    /// @notice The bitmask for the default reverse record.
+    uint8 constant REVERSE_RECORD_DEFAULT_BIT = 2;
 
     /// @notice The minimum duration for a registration.
     uint256 public constant MIN_REGISTRATION_DURATION = 28 days;
@@ -86,8 +89,8 @@ contract ETHRegistrarController is
     /// @notice Thrown when data is supplied for a registration without a resolver.
     error ResolverRequiredWhenDataSupplied();
 
-    /// @notice Thrown when an Ethereum reverse record is requested without a resolver.
-    error ResolverRequiredForEthereumReverseRecord();
+    /// @notice Thrown when a reverse record is requested without a resolver.
+    error ResolverRequiredForReverseRecord();
 
     /// @notice Thrown when a matching unexpired commitment exists.
     error UnexpiredCommitmentExists(bytes32 commitment);
@@ -211,10 +214,9 @@ contract ETHRegistrarController is
             revert ResolverRequiredWhenDataSupplied();
 
         if (
-            ((registration.reverseRecord & REVERSE_RECORD_ETHEREUM_BIT != 0) ||
-                (registration.reverseRecord & REVERSE_RECORD_DEFAULT_BIT !=
-                    0)) && registration.resolver == address(0)
-        ) revert ResolverRequiredForEthereumReverseRecord();
+            registration.reverseRecord != 0 &&
+            registration.resolver == address(0)
+        ) revert ResolverRequiredForReverseRecord();
 
         if (registration.duration < MIN_REGISTRATION_DURATION)
             revert DurationTooShort(registration.duration);

@@ -808,7 +808,7 @@ describe('ETHRegistrarController', () => {
 
     await expect(ethRegistrarController)
       .read('makeCommitment', [args])
-      .toBeRevertedWithCustomError('ResolverRequiredForEthereumReverseRecord')
+      .toBeRevertedWithCustomError('ResolverRequiredForReverseRecord')
 
     await commitName(
       { ethRegistrarController },
@@ -820,7 +820,7 @@ describe('ETHRegistrarController', () => {
 
     await expect(ethRegistrarController)
       .write('register', [args], { value: BUFFERED_REGISTRATION_COST })
-      .toBeRevertedWithCustomError('ResolverRequiredForEthereumReverseRecord')
+      .toBeRevertedWithCustomError('ResolverRequiredForReverseRecord')
   })
 
   it('should not permit setting the ethereum reverse record without a resolver', async () => {
@@ -838,7 +838,7 @@ describe('ETHRegistrarController', () => {
 
     await expect(ethRegistrarController)
       .read('makeCommitment', [args])
-      .toBeRevertedWithCustomError('ResolverRequiredForEthereumReverseRecord')
+      .toBeRevertedWithCustomError('ResolverRequiredForReverseRecord')
 
     await commitName(
       { ethRegistrarController },
@@ -850,7 +850,7 @@ describe('ETHRegistrarController', () => {
 
     await expect(ethRegistrarController)
       .write('register', [args], { value: BUFFERED_REGISTRATION_COST })
-      .toBeRevertedWithCustomError('ResolverRequiredForEthereumReverseRecord')
+      .toBeRevertedWithCustomError('ResolverRequiredForReverseRecord')
   })
 
   it('should not permit setting both reverse records without a resolver', async () => {
@@ -868,7 +868,7 @@ describe('ETHRegistrarController', () => {
 
     await expect(ethRegistrarController)
       .read('makeCommitment', [args])
-      .toBeRevertedWithCustomError('ResolverRequiredForEthereumReverseRecord')
+      .toBeRevertedWithCustomError('ResolverRequiredForReverseRecord')
 
     await commitName(
       { ethRegistrarController },
@@ -880,7 +880,7 @@ describe('ETHRegistrarController', () => {
 
     await expect(ethRegistrarController)
       .write('register', [args], { value: BUFFERED_REGISTRATION_COST })
-      .toBeRevertedWithCustomError('ResolverRequiredForEthereumReverseRecord')
+      .toBeRevertedWithCustomError('ResolverRequiredForReverseRecord')
   })
 
   it('approval should reduce gas for registration', async () => {
