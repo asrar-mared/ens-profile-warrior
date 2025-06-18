@@ -3,12 +3,10 @@ import { expect } from 'chai'
 import hre from 'hardhat'
 import {
   Address,
-  encodeAbiParameters,
   encodeFunctionData,
   hexToBigInt,
   labelhash,
   namehash,
-  parseAbiParameters,
   zeroAddress,
   zeroHash,
 } from 'viem'
@@ -20,7 +18,6 @@ import {
   getRegisterNameParameters,
   registerName,
 } from '../fixtures/registerName.js'
-import { toNameId } from '../fixtures/utils.js'
 
 const REGISTRATION_TIME = 28n * DAY
 const BUFFERED_REGISTRATION_COST = REGISTRATION_TIME + 3n * DAY
@@ -89,7 +86,6 @@ async function fixture() {
     'ETHRegistrarController',
     [
       baseRegistrar.address,
-      nameWrapper.address,
       priceOracle.address,
       600n,
       86400n,
@@ -100,8 +96,6 @@ async function fixture() {
   )
 
   await baseRegistrar.write.addController([ethRegistrarController.address])
-  await baseRegistrar.write.addController([nameWrapper.address])
-  await nameWrapper.write.setController([ethRegistrarController.address, true])
   await reverseRegistrar.write.setController([
     ethRegistrarController.address,
     true,
@@ -142,7 +136,6 @@ async function fixture() {
     defaultReverseRegistrar,
     callData,
     publicClient,
-    nameWrapper,
     ...accounts,
   }
 }
@@ -583,7 +576,6 @@ describe('ETHRegistrarController', () => {
       },
     )
 
-    const nodehash = namehash('newname.eth')
     const expires = await baseRegistrar.read.nameExpires([labelId('newname')])
     const balanceBefore = await publicClient.getBalance({
       address: ethRegistrarController.address,
@@ -610,60 +602,48 @@ describe('ETHRegistrarController', () => {
     ).resolves.toEqual(balanceBefore + price)
   })
 
-  it('should allow wrapped names to renew', async () => {
+  it('should allow non-owner to renew a name', async () => {
     const {
       baseRegistrar,
       ethRegistrarController,
-      nameWrapper,
-      publicResolver,
-      ownerAccount,
+      publicClient,
+      registrantAccount,
+      otherAccount,
     } = await loadFixture(fixture)
-
-    const label = 'newname'
-    const name = `${label}.eth`
     await registerName(
+      { ethRegistrarController },
       {
-        ethRegistrarController,
-      },
-      {
-        label,
+        label: 'newname',
         duration: REGISTRATION_TIME,
-        ownerAddress: ownerAccount.address,
+        ownerAddress: registrantAccount.address,
       },
     )
 
-    await baseRegistrar.write.safeTransferFrom([
-      ownerAccount.address,
-      nameWrapper.address,
-      labelId(label),
-      encodeAbiParameters(
-        parseAbiParameters('string, address, uint16, address'),
-        [label, ownerAccount.address, 0, publicResolver.address],
-      ),
+    const expires = await baseRegistrar.read.nameExpires([labelId('newname')])
+    const balanceBefore = await publicClient.getBalance({
+      address: ethRegistrarController.address,
+    })
+
+    const duration = 86400n
+    const { base: price } = await ethRegistrarController.read.rentPrice([
+      'newname',
+      duration,
     ])
 
-    await expect(
-      nameWrapper.read.ownerOf([toNameId(name)]),
-    ).resolves.toEqualAddress(ownerAccount.address)
+    await ethRegistrarController.write.renew(['newname', duration, zeroHash], {
+      account: otherAccount,
+      value: price,
+    })
 
-    const registrarExpiryBefore = await baseRegistrar.read.nameExpires([
-      labelId(label),
-    ])
-    const [, , wrapperExpiryBefore] = await nameWrapper.read.getData([
-      toNameId(name),
+    const newExpires = await baseRegistrar.read.nameExpires([
+      labelId('newname'),
     ])
 
-    await ethRegistrarController.write.renew(
-      [label, REGISTRATION_TIME, zeroHash],
-      { value: REGISTRATION_TIME },
-    )
+    expect(newExpires - expires).toEqual(duration)
 
     await expect(
-      baseRegistrar.read.nameExpires([labelId(label)]),
-    ).resolves.toEqual(registrarExpiryBefore + REGISTRATION_TIME)
-    await expect(
-      nameWrapper.read.getData([toNameId(name)]),
-    ).resolves.toHaveProperty(2, wrapperExpiryBefore + REGISTRATION_TIME)
+      publicClient.getBalance({ address: ethRegistrarController.address }),
+    ).resolves.toEqual(balanceBefore + price)
   })
 
   it('should require sufficient value for a renewal', async () => {
@@ -773,38 +753,6 @@ describe('ETHRegistrarController', () => {
       defaultReverseRegistrar.read.nameForAddr([ownerAccount.address]),
     ).resolves.toEqual('')
   })
-
-  // it('should auto wrap the name and allow expiry to be set', async () => {
-  //   const {
-  //     publicClient,
-  //     ethRegistrarController,
-  //     nameWrapper,
-  //     registrantAccount,
-  //   } = await loadFixture(fixture)
-
-  //   const label = 'fuses'
-  //   const name = label + '.eth'
-
-  //   await registerName(
-  //     { ethRegistrarController },
-  //     {
-  //       label,
-  //       duration: REGISTRATION_TIME,
-  //       ownerAddress: registrantAccount.address,
-  //       ownerControlledFuses: 1,
-  //     },
-  //   )
-
-  //   const block = await publicClient.getBlock()
-
-  //   const [, fuses, expiry] = await nameWrapper.read.getData([
-  //     hexToBigInt(namehash(name)),
-  //   ])
-  //   expect(fuses).toEqual(
-  //     FUSES.PARENT_CANNOT_CONTROL | FUSES.CANNOT_UNWRAP | FUSES.IS_DOT_ETH,
-  //   )
-  //   expect(expiry).toEqual(REGISTRATION_TIME + GRACE_PERIOD + block.timestamp)
-  // })
 
   it('approval should reduce gas for registration', async () => {
     const {
@@ -976,154 +924,5 @@ describe('ETHRegistrarController', () => {
       .write('renew', [label, duration, referrer], { value: duration })
       .toEmitEvent('NameRenewed')
       .withArgs(label, labelhash(label), duration, expires + duration, referrer)
-  })
-
-  it('allows owner to set the price oracle', async () => {
-    const { ethRegistrarController } = await loadFixture(fixture)
-
-    const newDummyOracle = await hre.viem.deployContract('DummyOracle', [100n])
-    const newPriceOracle = await hre.viem.deployContract('StablePriceOracle', [
-      newDummyOracle.address,
-      [0n, 0n, 4n, 2n, 1n],
-    ])
-
-    await ethRegistrarController.write.setPrices([newPriceOracle.address])
-
-    const price = await ethRegistrarController.read.rentPrice([
-      'newname',
-      REGISTRATION_TIME,
-    ])
-    expect(price.base).toEqual(2419200000000n)
-    expect(price.premium).toEqual(0n)
-  })
-
-  it('does not allow non-owner to set the price oracle', async () => {
-    const { ethRegistrarController, otherAccount } = await loadFixture(fixture)
-
-    await expect(ethRegistrarController)
-      .write('setPrices', [otherAccount.address], { account: otherAccount })
-      .toBeRevertedWithString('Ownable: caller is not the owner')
-  })
-
-  it('allows owner to register a name without payment', async () => {
-    const {
-      ensRegistry,
-      ethRegistrarController,
-      baseRegistrar,
-      registrantAccount,
-      publicClient,
-    } = await loadFixture(fixture)
-
-    const label = 'newname'
-    const params = await getDefaultRegistrationOptions({
-      label,
-      duration: REGISTRATION_TIME,
-      ownerAddress: registrantAccount.address,
-    })
-    const args = getRegisterNameParameters(params)
-
-    await expect(ethRegistrarController)
-      .write('registerWithoutPayment', [args])
-      .toEmitEvent('NameRegistered')
-      .withArgs(
-        params.label,
-        labelhash(params.label),
-        params.ownerAddress,
-        0n,
-        0n,
-        expect.anyValue,
-        params.referrer,
-      )
-    const timestamp = await publicClient.getBlock().then((b) => b.timestamp)
-
-    await expect(
-      baseRegistrar.read.nameExpires([labelId(label)]),
-    ).resolves.toEqual(timestamp + params.duration)
-    await expect(
-      ensRegistry.read.owner([namehash(label + '.eth')]),
-    ).resolves.toEqualAddress(registrantAccount.address)
-    await expect(
-      baseRegistrar.read.ownerOf([labelId(label)]),
-    ).resolves.toEqualAddress(registrantAccount.address)
-  })
-
-  it('allows owner to register invalid name (2 chars)', async () => {
-    const {
-      ensRegistry,
-      ethRegistrarController,
-      baseRegistrar,
-      registrantAccount,
-      publicClient,
-    } = await loadFixture(fixture)
-
-    const label = 'l2'
-    const params = await getDefaultRegistrationOptions({
-      label,
-      duration: REGISTRATION_TIME,
-      ownerAddress: registrantAccount.address,
-    })
-    const args = getRegisterNameParameters(params)
-
-    await expect(ethRegistrarController)
-      .write('registerWithoutPayment', [args])
-      .toEmitEvent('NameRegistered')
-      .withArgs(
-        params.label,
-        labelhash(params.label),
-        params.ownerAddress,
-        0n,
-        0n,
-        expect.anyValue,
-        params.referrer,
-      )
-
-    const timestamp = await publicClient.getBlock().then((b) => b.timestamp)
-    await expect(
-      baseRegistrar.read.nameExpires([labelId(label)]),
-    ).resolves.toEqual(timestamp + params.duration)
-    await expect(
-      ensRegistry.read.owner([namehash(label + '.eth')]),
-    ).resolves.toEqualAddress(registrantAccount.address)
-    await expect(
-      baseRegistrar.read.ownerOf([labelId(label)]),
-    ).resolves.toEqualAddress(registrantAccount.address)
-  })
-  it('does not allow owner to register unavailable name', async () => {
-    const { ethRegistrarController, registrantAccount, otherAccount } =
-      await loadFixture(fixture)
-    const label = 'existingname'
-    await registerName(
-      { ethRegistrarController },
-      {
-        label,
-        duration: REGISTRATION_TIME,
-        ownerAddress: otherAccount.address,
-      },
-    )
-
-    const params = await getDefaultRegistrationOptions({
-      label,
-      duration: REGISTRATION_TIME,
-      ownerAddress: registrantAccount.address,
-    })
-    const args = getRegisterNameParameters(params)
-    await expect(ethRegistrarController)
-      .write('registerWithoutPayment', [args])
-      .toBeRevertedWithCustomError('NameNotAvailable')
-      .withArgs(label)
-  })
-  it('does not allow non-owner to register a name without payment', async () => {
-    const { ethRegistrarController, otherAccount } = await loadFixture(fixture)
-
-    const label = 'newname'
-    const params = await getDefaultRegistrationOptions({
-      label,
-      duration: REGISTRATION_TIME,
-      ownerAddress: otherAccount.address,
-    })
-    const args = getRegisterNameParameters(params)
-    await expect(ethRegistrarController)
-      .write('registerWithoutPayment', [args], { account: otherAccount })
-      .toBeRevertedWithString('Ownable: caller is not the owner')
   })
 })

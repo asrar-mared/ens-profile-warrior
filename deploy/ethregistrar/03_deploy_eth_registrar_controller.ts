@@ -18,11 +18,9 @@ const func: DeployFunction = async function (hre) {
   const defaultReverseRegistrar = await viem.getContract(
     'DefaultReverseRegistrar',
   )
-  const nameWrapper = await viem.getContract('NameWrapper', owner)
 
   const controllerDeployment = await viem.deploy('ETHRegistrarController', [
     registrar.address,
-    nameWrapper.address,
     priceOracle.address,
     600n,
     86400n,
@@ -55,20 +53,6 @@ const func: DeployFunction = async function (hre) {
       `Adding ETHRegistrarController as a controller of BaseRegistrarImplementation (tx: ${registrarAddControllerHash})...`,
     )
     await viem.waitForTransactionSuccess(registrarAddControllerHash)
-  }
-
-  const isNameWrapperController = await nameWrapper.read.controllers([
-    controller.address,
-  ])
-  if (!isNameWrapperController) {
-    const nameWrapperSetControllerHash = await nameWrapper.write.setController([
-      controller.address,
-      true,
-    ])
-    console.log(
-      `Adding ETHRegistrarController as a controller of NameWrapper (tx: ${nameWrapperSetControllerHash})...`,
-    )
-    await viem.waitForTransactionSuccess(nameWrapperSetControllerHash)
   }
 
   const isReverseRegistrarController = await reverseRegistrar.read.controllers([

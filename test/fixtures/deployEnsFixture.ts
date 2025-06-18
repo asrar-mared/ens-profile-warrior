@@ -204,7 +204,6 @@ export async function deployEnsStack(): Promise<EnsStack> {
     [
       baseRegistrarImplementation.address,
       exponentialPremiumPriceOracle.address,
-      nameWrapper.address,
       60n,
       86400n,
       reverseRegistrar.address,
