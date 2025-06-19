@@ -23,6 +23,12 @@ contract ETHRegistrarController is
 {
     using StringUtils for *;
 
+    /// @notice The bitmask for the Ethereum reverse record.
+    uint8 constant REVERSE_RECORD_ETHEREUM_BIT = 1;
+
+    /// @notice The bitmask for the default reverse record.
+    uint8 constant REVERSE_RECORD_DEFAULT_BIT = 2;
+
     /// @notice The minimum duration for a registration.
     uint256 public constant MIN_REGISTRATION_DURATION = 28 days;
 
@@ -82,6 +88,9 @@ contract ETHRegistrarController is
 
     /// @notice Thrown when data is supplied for a registration without a resolver.
     error ResolverRequiredWhenDataSupplied();
+
+    /// @notice Thrown when a reverse record is requested without a resolver.
+    error ResolverRequiredForReverseRecord();
 
     /// @notice Thrown when a matching unexpired commitment exists.
     error UnexpiredCommitmentExists(bytes32 commitment);
@@ -204,6 +213,11 @@ contract ETHRegistrarController is
         if (registration.data.length > 0 && registration.resolver == address(0))
             revert ResolverRequiredWhenDataSupplied();
 
+        if (
+            registration.reverseRecord != 0 &&
+            registration.resolver == address(0)
+        ) revert ResolverRequiredForReverseRecord();
+
         if (registration.duration < MIN_REGISTRATION_DURATION)
             revert DurationTooShort(registration.duration);
 
@@ -228,7 +242,7 @@ contract ETHRegistrarController is
     /// @param registration.duration The duration of the registration.
     /// @param registration.resolver The resolver for the name.
     /// @param registration.data The data for the name.
-    /// @param registration.reverseRecord The reverse record for the name.
+    /// @param registration.reverseRecord Which reverse record(s) to set.
     /// @param registration.referrer The referrer of the registration.
     function register(
         Registration calldata registration
@@ -302,14 +316,14 @@ contract ETHRegistrarController is
                 uint256(labelhash)
             );
 
-            if (registration.reverseRecord == ReverseRecord.Ethereum)
+            if (registration.reverseRecord & REVERSE_RECORD_ETHEREUM_BIT != 0)
                 reverseRegistrar.setNameForAddr(
                     msg.sender,
                     msg.sender,
                     registration.resolver,
                     string.concat(registration.label, ".eth")
                 );
-            else if (registration.reverseRecord == ReverseRecord.Default)
+            if (registration.reverseRecord & REVERSE_RECORD_DEFAULT_BIT != 0)
                 defaultReverseRegistrar.setNameForAddr(
                     msg.sender,
                     string.concat(registration.label, ".eth")

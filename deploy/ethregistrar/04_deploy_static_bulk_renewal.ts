@@ -28,7 +28,9 @@ const func: DeployFunction = async function (hre) {
     return
   }
 
-  const ethOwnedResolver = await viem.getContract('OwnedResolver', owner)
+  const ethOwnedResolver = await viem.getContractAt('OwnedResolver', resolver, {
+    client: owner,
+  })
   const setInterfaceHash = await ethOwnedResolver.write.setInterface([
     namehash('eth'),
     interfaceId,

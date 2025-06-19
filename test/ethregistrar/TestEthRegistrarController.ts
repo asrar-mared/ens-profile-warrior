@@ -676,6 +676,7 @@ describe('ETHRegistrarController', () => {
   it('should set the ethereum reverse record of the account', async () => {
     const {
       ethRegistrarController,
+      defaultReverseRegistrar,
       publicResolver,
       registrantAccount,
       ownerAccount,
@@ -688,7 +689,7 @@ describe('ETHRegistrarController', () => {
         duration: REGISTRATION_TIME,
         ownerAddress: registrantAccount.address,
         resolverAddress: publicResolver.address,
-        reverseRecord: 'ethereum',
+        reverseRecord: ['ethereum'],
       },
     )
 
@@ -697,6 +698,9 @@ describe('ETHRegistrarController', () => {
         namehash(getReverseName(ownerAccount.address)),
       ]),
     ).resolves.toEqual('reverse.eth')
+    await expect(
+      defaultReverseRegistrar.read.nameForAddr([ownerAccount.address]),
+    ).resolves.toEqual('')
   })
 
   it('should set the default reverse record of the account', async () => {
@@ -715,10 +719,45 @@ describe('ETHRegistrarController', () => {
         duration: REGISTRATION_TIME,
         ownerAddress: registrantAccount.address,
         resolverAddress: publicResolver.address,
-        reverseRecord: 'default',
+        reverseRecord: ['default'],
       },
     )
 
+    await expect(
+      publicResolver.read.name([
+        namehash(getReverseName(ownerAccount.address)),
+      ]),
+    ).resolves.toEqual('')
+    await expect(
+      defaultReverseRegistrar.read.nameForAddr([ownerAccount.address]),
+    ).resolves.toEqual('reverse.eth')
+  })
+
+  it('should set the ethereum and default reverse records of the account', async () => {
+    const {
+      ethRegistrarController,
+      defaultReverseRegistrar,
+      publicResolver,
+      registrantAccount,
+      ownerAccount,
+    } = await loadFixture(fixture)
+
+    await registerName(
+      { ethRegistrarController },
+      {
+        label: 'reverse',
+        duration: REGISTRATION_TIME,
+        ownerAddress: registrantAccount.address,
+        resolverAddress: publicResolver.address,
+        reverseRecord: ['ethereum', 'default'],
+      },
+    )
+
+    await expect(
+      publicResolver.read.name([
+        namehash(getReverseName(ownerAccount.address)),
+      ]),
+    ).resolves.toEqual('reverse.eth')
     await expect(
       defaultReverseRegistrar.read.nameForAddr([ownerAccount.address]),
     ).resolves.toEqual('reverse.eth')
@@ -740,7 +779,7 @@ describe('ETHRegistrarController', () => {
         duration: REGISTRATION_TIME,
         ownerAddress: registrantAccount.address,
         resolverAddress: publicResolver.address,
-        reverseRecord: 'none',
+        reverseRecord: [],
       },
     )
 
@@ -752,6 +791,96 @@ describe('ETHRegistrarController', () => {
     await expect(
       defaultReverseRegistrar.read.nameForAddr([ownerAccount.address]),
     ).resolves.toEqual('')
+  })
+
+  it('should not permit setting the default reverse record without a resolver', async () => {
+    const { ethRegistrarController, registrantAccount } = await loadFixture(
+      fixture,
+    )
+
+    const params = await getDefaultRegistrationOptions({
+      label: 'reverse',
+      duration: REGISTRATION_TIME,
+      ownerAddress: registrantAccount.address,
+      reverseRecord: ['default'],
+    })
+    const args = getRegisterNameParameters(params)
+
+    await expect(ethRegistrarController)
+      .read('makeCommitment', [args])
+      .toBeRevertedWithCustomError('ResolverRequiredForReverseRecord')
+
+    await commitName(
+      { ethRegistrarController },
+      {
+        ...params,
+        createLocalCommitmentHash: true,
+      },
+    )
+
+    await expect(ethRegistrarController)
+      .write('register', [args], { value: BUFFERED_REGISTRATION_COST })
+      .toBeRevertedWithCustomError('ResolverRequiredForReverseRecord')
+  })
+
+  it('should not permit setting the ethereum reverse record without a resolver', async () => {
+    const { ethRegistrarController, registrantAccount } = await loadFixture(
+      fixture,
+    )
+
+    const params = await getDefaultRegistrationOptions({
+      label: 'reverse',
+      duration: REGISTRATION_TIME,
+      ownerAddress: registrantAccount.address,
+      reverseRecord: ['ethereum'],
+    })
+    const args = getRegisterNameParameters(params)
+
+    await expect(ethRegistrarController)
+      .read('makeCommitment', [args])
+      .toBeRevertedWithCustomError('ResolverRequiredForReverseRecord')
+
+    await commitName(
+      { ethRegistrarController },
+      {
+        ...params,
+        createLocalCommitmentHash: true,
+      },
+    )
+
+    await expect(ethRegistrarController)
+      .write('register', [args], { value: BUFFERED_REGISTRATION_COST })
+      .toBeRevertedWithCustomError('ResolverRequiredForReverseRecord')
+  })
+
+  it('should not permit setting both reverse records without a resolver', async () => {
+    const { ethRegistrarController, registrantAccount } = await loadFixture(
+      fixture,
+    )
+
+    const params = await getDefaultRegistrationOptions({
+      label: 'reverse',
+      duration: REGISTRATION_TIME,
+      ownerAddress: registrantAccount.address,
+      reverseRecord: ['ethereum', 'default'],
+    })
+    const args = getRegisterNameParameters(params)
+
+    await expect(ethRegistrarController)
+      .read('makeCommitment', [args])
+      .toBeRevertedWithCustomError('ResolverRequiredForReverseRecord')
+
+    await commitName(
+      { ethRegistrarController },
+      {
+        ...params,
+        createLocalCommitmentHash: true,
+      },
+    )
+
+    await expect(ethRegistrarController)
+      .write('register', [args], { value: BUFFERED_REGISTRATION_COST })
+      .toBeRevertedWithCustomError('ResolverRequiredForReverseRecord')
   })
 
   it('approval should reduce gas for registration', async () => {
@@ -782,7 +911,7 @@ describe('ETHRegistrarController', () => {
             args: [node, registrantAccount.address],
           }),
         ],
-        reverseRecord: 'ethereum',
+        reverseRecord: ['ethereum'],
       },
     )
 

@@ -19,19 +19,19 @@ const func: DeployFunction = async function (hre) {
     'DefaultReverseRegistrar',
   )
 
-  const controllerDeployment = await viem.deploy('ETHRegistrarController', [
+  await viem.deploy('ETHRegistrarController', [
     registrar.address,
     priceOracle.address,
-    600n,
+    60n,
     86400n,
     reverseRegistrar.address,
     defaultReverseRegistrar.address,
     registry.address,
   ])
-
   const controller = await viem.getContract('ETHRegistrarController')
 
-  if (owner.address !== deployer.address) {
+  const controllerOwner = await controller.read.owner()
+  if (controllerOwner !== owner.address) {
     const hash = await controller.write.transferOwnership([owner.address])
     console.log(
       `Transferring ownership of ETHRegistrarController to ${owner.address} (tx: ${hash})...`,
@@ -94,7 +94,9 @@ const func: DeployFunction = async function (hre) {
     return
   }
 
-  const ethOwnedResolver = await viem.getContract('OwnedResolver', owner)
+  const ethOwnedResolver = await viem.getContractAt('OwnedResolver', resolver, {
+    client: owner,
+  })
   const hasInterfaceSet = await ethOwnedResolver.read
     .interfaceImplementer([namehash('eth'), interfaceId])
     .then((v) => getAddress(v) === getAddress(controller.address))

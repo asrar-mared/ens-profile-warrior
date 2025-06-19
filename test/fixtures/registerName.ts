@@ -1,5 +1,13 @@
 import hre from 'hardhat'
-import { Address, Hex, zeroAddress, zeroHash } from 'viem'
+import {
+  Address,
+  encodeAbiParameters,
+  Hex,
+  keccak256,
+  parseAbiParameters,
+  zeroAddress,
+  zeroHash,
+} from 'viem'
 import { EnsStack } from './deployEnsFixture.js'
 
 export type Mutable<T> = {
@@ -13,12 +21,11 @@ type RegisterNameOptions = {
   secret?: Hex
   resolverAddress?: Address
   data?: Hex[]
-  reverseRecord?: 'ethereum' | 'default' | 'none'
+  reverseRecord?: ('ethereum' | 'default')[]
   referrer?: Hex
 }
 
 const ReverseRecord = {
-  none: 0,
   ethereum: 1,
   default: 2,
 }
@@ -45,7 +52,7 @@ export const getDefaultRegistrationOptions = async ({
     '0x0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF',
   resolverAddress: resolverAddress ?? zeroAddress,
   data: data ?? [],
-  reverseRecord: reverseRecord ?? 'none',
+  reverseRecord: reverseRecord ?? [],
   referrer: referrer ?? zeroHash,
 })
 
@@ -66,15 +73,33 @@ export const getRegisterNameParameters = ({
     secret,
     resolver: resolverAddress,
     data,
-    reverseRecord: ReverseRecord[reverseRecord],
+    reverseRecord: reverseRecord.reduce(
+      (acc, record) => acc | ReverseRecord[record],
+      0,
+    ),
     referrer,
   } as const
   return immutable as Mutable<typeof immutable>
 }
 
+export const createCommitmentHash = (
+  args: ReturnType<typeof getRegisterNameParameters>,
+) =>
+  keccak256(
+    encodeAbiParameters(
+      parseAbiParameters(
+        '(string label,address owner,uint256 duration,bytes32 secret,address resolver,bytes[] data,uint8 reverseRecord,bytes32 referrer)',
+      ),
+      [args],
+    ),
+  )
+
 export const commitName = async (
   { ethRegistrarController }: Pick<EnsStack, 'ethRegistrarController'>,
-  params_: RegisterNameOptions,
+  {
+    createLocalCommitmentHash,
+    ...params_
+  }: RegisterNameOptions & { createLocalCommitmentHash?: boolean },
 ) => {
   const params = await getDefaultRegistrationOptions(params_)
   const args = getRegisterNameParameters(params)
@@ -82,9 +107,9 @@ export const commitName = async (
   const testClient = await hre.viem.getTestClient()
   const [deployer] = await hre.viem.getWalletClients()
 
-  const commitmentHash = await ethRegistrarController.read.makeCommitment([
-    args,
-  ])
+  const commitmentHash = createLocalCommitmentHash
+    ? createCommitmentHash(args)
+    : await ethRegistrarController.read.makeCommitment([args])
   await ethRegistrarController.write.commit([commitmentHash], {
     account: deployer.account,
   })
