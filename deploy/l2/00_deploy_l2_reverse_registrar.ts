@@ -178,7 +178,7 @@ const safeDeploy = async (
           JSON.stringify(pendingSafeTransactions, null, 2),
         )
 
-      return
+      return true
     }
   }
 
@@ -252,6 +252,7 @@ const safeDeploy = async (
     })
     if (receipt.status !== 'success') throw new Error('Transaction failed')
     await confirmAndSave({ deployment, receipt })
+    return true
   } else {
     const apiKit = new SafeApiKit({
       chainId: BigInt(hre.network.config.chainId!),
@@ -288,6 +289,7 @@ const safeDeploy = async (
     console.log(
       'Safe transaction saved. Confirm transaction on Safe, and re-run deploy script.',
     )
+    return false
   }
 }
 
@@ -302,7 +304,7 @@ const func: DeployFunction = async function (hre) {
   const REVERSENODE = namehash(REVERSE_NAMESPACE)
 
   if (process.env.SAFE_PROPOSER_KEY && hre.network.saveDeployments) {
-    await safeDeploy(hre, {
+    return await safeDeploy(hre, {
       reverseNode: REVERSENODE,
       coinType,
     })
@@ -312,8 +314,6 @@ const func: DeployFunction = async function (hre) {
 
     await viem.deploy('L2ReverseRegistrar', [coinType])
   }
-
-  return true
 }
 
 func.id = 'L2ReverseRegistrar v1.0.0'
