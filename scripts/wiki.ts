@@ -173,12 +173,13 @@ const createNewWiki = () => {
     const chain = chains.find(([name]) => name === chainName)![1]
     console.log(`# ${chainName}`)
 
-    const markdownTable = chainDeployments
-      .entries()
-      .reduce((acc, [contractName, contractAddress]) => {
+    const markdownTable = Array.from(chainDeployments.entries()).reduce(
+      (acc, [contractName, contractAddress]) => {
         return `${acc}
 | ${contractName} | [${contractAddress}](${chain.blockExplorers?.default.url}/address/${contractAddress}) |`
-      }, '| Assets | Contracts |\n|--------|----------|')
+      },
+      '| Assets | Contracts |\n|--------|----------|',
+    )
 
     console.log(markdownTable)
   }
