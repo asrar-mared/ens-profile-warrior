@@ -18,8 +18,8 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      - name: Run wikiCheck
-        run: bun run wikiCheck
+      - name: Run wiki check
+        run: bun wiki check
 
   build:
     runs-on: ubuntu-latest
