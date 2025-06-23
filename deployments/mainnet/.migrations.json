@@ -20,5 +20,6 @@
   "ExtendedDNSResolver v1.0.0": 1,
   "PublicResolver v1.0.0": 1,
   "PublicResolver v2.0.0": 1,
-  "UniversalResolver v1.0.0": 1
+  "UniversalResolver v1.0.0": 1,
+  "StaticMetadataService v1.0.0": 1
 }
