@@ -2,7 +2,7 @@ import type { DeployFunction } from 'hardhat-deploy/types.js'
 import { getAddress, namehash } from 'viem'
 
 const func: DeployFunction = async function (hre) {
-  const { viem } = hre
+  const { viem, network } = hre
 
   const { owner } = await viem.getNamedClients()
 
@@ -17,6 +17,9 @@ const func: DeployFunction = async function (hre) {
     controller.address,
     reverseRegistrar.address,
   ])
+
+  // Only attempt to make controller etc changes directly on testnets
+  if (network.name === 'mainnet' && !network.tags.tenderly) return
 
   const isReverseRegistrarDefaultResolver = await reverseRegistrar.read
     .defaultResolver()
