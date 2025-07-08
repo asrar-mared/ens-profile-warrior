@@ -14,7 +14,12 @@ export default execute(
   async ({ deploy, get, namedAccounts, network, viem, deployments }) => {
     const { deployer, owner, ...otherAccounts } = namedAccounts
     const unnamedClients = await viem.getUnnamedClients()
-    const clients = [deployer, owner, ...Object.values(otherAccounts), ...unnamedClients]
+    const clients = [
+      deployer,
+      owner,
+      ...Object.values(otherAccounts),
+      ...unnamedClients,
+    ]
 
     const registry = await get('ENSRegistry')
     const registrar = await get('BaseRegistrarImplementation')
@@ -84,10 +89,11 @@ export default execute(
               `WARNING: Can't modify wrapper ${wrapperAddress}, skipping setUpgradeContract()`,
             )
           } else {
-            const setUpgradeHash = await wrapperContract.write.setUpgradeContract(
-              [testUnwrap.address],
-              { account: wrapperOwnerClient.account },
-            )
+            const setUpgradeHash =
+              await wrapperContract.write.setUpgradeContract(
+                [testUnwrap.address],
+                { account: wrapperOwnerClient.account },
+              )
             console.log(
               `Setting upgrade contract for ${wrapperAddress} to ${testUnwrap.address} (tx: ${setUpgradeHash})...`,
             )

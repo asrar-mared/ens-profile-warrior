@@ -20,6 +20,6 @@ export default execute(
   {
     id: 'OffchainDNSResolver v1.0.0',
     tags: ['category:dnsregistrar', 'OffchainDNSResolver'],
-    dependencies: ['ENSRegistry', 'DNSSECImpl']
+    dependencies: ['ENSRegistry', 'DNSSECImpl'],
   },
 )

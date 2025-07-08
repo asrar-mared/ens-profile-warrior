@@ -37,8 +37,14 @@ const extractOneLicenseFromSourceFile = (source: string): string | null => {
 }
 
 task('multichain-verify', 'Verify contracts on multiple EVM chains')
-  .addPositionalArgument({ name: 'contractName', description: 'The contract name to verify' })
-  .addPositionalArgument({ name: 'address', description: 'The contract address to verify' })
+  .addPositionalArgument({
+    name: 'contractName',
+    description: 'The contract name to verify',
+  })
+  .addPositionalArgument({
+    name: 'address',
+    description: 'The contract address to verify',
+  })
   // .addVariadicPositionalArgument({ name: 'deployArgs', description: 'Constructor arguments' })
   .setAction(async (args, hre) => {
     const {
@@ -47,8 +53,9 @@ task('multichain-verify', 'Verify contracts on multiple EVM chains')
       // deployArgs: deployArgs_,
     } = args
     const deployArgs = [] // Default to empty array for now
-    const { metadata: metadataString, abi } =
-      await (hre as any).deployments.getExtendedArtifact(contractName_)
+    const { metadata: metadataString, abi } = await (
+      hre as any
+    ).deployments.getExtendedArtifact(contractName_)
     if (!metadataString) throw new Error('Metadata not found')
 
     const metadata = JSON.parse(metadataString)

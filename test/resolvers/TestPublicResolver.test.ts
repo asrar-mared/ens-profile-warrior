@@ -415,8 +415,9 @@ describe('PublicResolver', () => {
       const invalidAddr = '0x1234'
       const { publicResolver } = await loadFixture()
       for (const coinType of [COIN_TYPE_ETH, COIN_TYPE_DEFAULT]) {
-        await expect(publicResolver.write.setAddr([targetNode, coinType, invalidAddr]))
-          .toBeRevertedWithCustomError('InvalidEVMAddress')
+        await expect(
+          publicResolver.write.setAddr([targetNode, coinType, invalidAddr]),
+        ).toBeRevertedWithCustomError('InvalidEVMAddress')
       }
     })
 

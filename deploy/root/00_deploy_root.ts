@@ -3,10 +3,10 @@ import { execute, artifacts } from '../../rocketh.js'
 export default execute(
   async ({ deploy, get, namedAccounts }) => {
     const { deployer } = namedAccounts
-    
+
     // Get dependencies
     const registry = await get('ENSRegistry')
-    
+
     // Deploy Root
     await deploy('Root', {
       account: deployer,

@@ -5,18 +5,17 @@ import path from 'path'
 import { subtask } from 'hardhat/config'
 
 // Hook into the compile:solidity subtask
-subtask('compile:solidity')
-  .setAction(async (_, { config }, runSuper) => {
-    const superRes = await runSuper()
+subtask('compile:solidity').setAction(async (_, { config }, runSuper) => {
+  const superRes = await runSuper()
 
-    try {
-      await fs.writeFile(
-        path.join(config.paths.artifacts, 'package.json'),
-        '{ "type": "commonjs" }',
-      )
-    } catch (error) {
-      console.error('Error writing package.json: ', error)
-    }
+  try {
+    await fs.writeFile(
+      path.join(config.paths.artifacts, 'package.json'),
+      '{ "type": "commonjs" }',
+    )
+  } catch (error) {
+    console.error('Error writing package.json: ', error)
+  }
 
-    return superRes
-  })
+  return superRes
+})

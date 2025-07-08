@@ -90,9 +90,9 @@ export const commitNameWithConnection =
     const testClient = await connection.viem.getTestClient()
     const [deployer] = await connection.viem.getWalletClients()
 
-    const commitmentHash = await ethRegistrarController.read.makeCommitment(
-      [args],
-    )
+    const commitmentHash = await ethRegistrarController.read.makeCommitment([
+      args,
+    ])
     await ethRegistrarController.write.commit([commitmentHash], {
       account: deployer.account,
     })
@@ -122,9 +122,9 @@ export const registerNameWithConnection =
 
     const testClient = await connection.viem.getTestClient()
     const [deployer] = await connection.viem.getWalletClients()
-    const commitmentHash = await ethRegistrarController.read.makeCommitment(
-      [args],
-    )
+    const commitmentHash = await ethRegistrarController.read.makeCommitment([
+      args,
+    ])
     await ethRegistrarController.write.commit([commitmentHash], {
       account: deployer.account,
     })
@@ -133,10 +133,10 @@ export const registerNameWithConnection =
     await testClient.increaseTime({ seconds: Number(minCommitmentAge) })
     await testClient.mine({ blocks: 1 })
 
-    const price = await ethRegistrarController.read.rentPrice([
+    const price = (await ethRegistrarController.read.rentPrice([
       label,
       duration,
-    ]) as { base: bigint; premium: bigint }
+    ])) as { base: bigint; premium: bigint }
 
     const value = price.base + price.premium
 

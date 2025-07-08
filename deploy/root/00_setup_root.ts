@@ -32,7 +32,9 @@ export default execute(
         )
         await viem.waitForTransactionSuccess(transferOwnershipHash)
       case owner.address:
-        const ownerIsRootController = await root.read.controllers([owner.address])
+        const ownerIsRootController = await root.read.controllers([
+          owner.address,
+        ])
         if (!ownerIsRootController) {
           const setControllerHash = await root.write.setController(
             [owner.address, true],

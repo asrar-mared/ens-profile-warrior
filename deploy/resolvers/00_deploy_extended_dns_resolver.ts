@@ -3,7 +3,7 @@ import { execute, artifacts } from '../../rocketh.js'
 export default execute(
   async ({ deploy, namedAccounts }) => {
     const { deployer } = namedAccounts
-    
+
     // Deploy ExtendedDNSResolver
     await deploy('ExtendedDNSResolver', {
       account: deployer,

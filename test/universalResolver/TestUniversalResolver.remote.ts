@@ -46,9 +46,7 @@ const loadFixture = async () => connection.networkHelpers.loadFixture(fixture)
     })
     describe('reverse()', () => {
       for (const x of KNOWN_PRIMARIES) {
-        it(`${x.title}: ${shortCoin(x.coinType)} ${
-          x.address
-        }`, async () => {
+        it(`${x.title}: ${shortCoin(x.coinType)} ${x.address}`, async () => {
           const F = await loadFixture()
           const promise = F.read.reverse([x.address, x.coinType])
           if (x.expectError) {

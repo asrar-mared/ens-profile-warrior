@@ -11,7 +11,6 @@ const realAccounts = [
   configVariable('OWNER_KEY'),
 ]
 
-
 import './tasks/create_l2_safe.ts'
 import './tasks/etherscan-multichain.ts'
 

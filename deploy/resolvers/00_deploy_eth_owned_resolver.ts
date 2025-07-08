@@ -4,7 +4,7 @@ import { namehash } from 'viem'
 export default execute(
   async ({ deploy, get, namedAccounts, viem }) => {
     const { deployer, owner } = namedAccounts
-    
+
     // Deploy OwnedResolver
     const ethOwnedResolver = await deploy('OwnedResolver', {
       account: deployer,

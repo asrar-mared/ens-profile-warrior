@@ -15,7 +15,9 @@ export default execute(
 
     if (owner && owner.address !== deployer.address) {
       const migrationHelper = await get('MigrationHelper')
-      const hash = await migrationHelper.write.transferOwnership([owner.address])
+      const hash = await migrationHelper.write.transferOwnership([
+        owner.address,
+      ])
       console.log(`Transfer ownership to ${owner.address} (tx: ${hash})...`)
     }
   },

@@ -6,14 +6,14 @@ export default defineConfig({
       'test/**/*.test.ts',
       'test/reverseResolver/Test*.ts',
       'test/reverseRegistrar/Test*.ts',
-      'test/utils/TestFeatures.ts'
+      'test/utils/TestFeatures.ts',
     ],
     exclude: [
       'test/setup.ts',
       'test/**/*.behaviour.ts',
       'test/**/fixtures/**',
       'test/universalResolver/mainnet.ts',
-      'test/universalResolver/TestUniversalResolver.remote.ts'
+      'test/universalResolver/TestUniversalResolver.remote.ts',
     ],
     environment: 'node',
     globals: true,

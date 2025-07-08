@@ -3,13 +3,13 @@ import { execute, artifacts } from '../../rocketh.js'
 export default execute(
   async ({ deploy, get, namedAccounts }) => {
     const { deployer } = namedAccounts
-    
+
     // Get dependencies
     const registry = await get('ENSRegistry')
     const nameWrapper = await get('NameWrapper')
     const controller = await get('ETHRegistrarController')
     const reverseRegistrar = await get('ReverseRegistrar')
-    
+
     // Deploy PublicResolver
     await deploy('PublicResolver', {
       account: deployer,
