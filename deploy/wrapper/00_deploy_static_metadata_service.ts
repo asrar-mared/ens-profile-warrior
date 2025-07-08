@@ -1,4 +1,4 @@
-import { execute, artifacts } from '@rocketh'
+import { execute, artifacts } from '../../rocketh.js'
 
 export default execute(
   async ({ deploy, namedAccounts, network }) => {
@@ -20,8 +20,8 @@ export default execute(
     })
   },
   {
-    id: 'metadata',
-    tags: ['wrapper', 'StaticMetadataService'],
+    id: 'StaticMetadataService v1.0.0',
+    tags: ['category:wrapper', 'StaticMetadataService'],
     // technically not a dep, but we want to make sure it's deployed first for the consistent address
     dependencies: ['BaseRegistrarImplementation'],
   },

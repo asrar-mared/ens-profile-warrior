@@ -1,17 +1,19 @@
-import { execute, artifacts } from '@rocketh'
+import { execute, artifacts } from '../../rocketh.js'
 
 export default execute(
   async ({ deploy, namedAccounts }) => {
     const { deployer } = namedAccounts
-
+    
+    // Deploy ExtendedDNSResolver
     await deploy('ExtendedDNSResolver', {
       account: deployer,
       artifact: artifacts.ExtendedDNSResolver,
+      args: [],
     })
-
-    console.log('ExtendedDNSResolver deployed successfully')
   },
   {
-    tags: ['resolvers', 'ExtendedDNSResolver'],
+    id: 'ExtendedDNSResolver v1.0.0',
+    tags: ['category:resolvers', 'ExtendedDNSResolver'],
+    dependencies: [],
   },
 )

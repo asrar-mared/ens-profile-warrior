@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 import { dnsDecodeName } from '../fixtures/dnsDecodeName.js'
 import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
-import { getParentName } from '../universalResolver/utils.js'
+import { getParentName } from '../utils/resolutions.js'
 
 const connection = await hre.network.connect()
 

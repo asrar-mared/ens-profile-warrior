@@ -1,37 +1,27 @@
-import { execute, artifacts } from '@rocketh'
+import { execute, artifacts } from '../../rocketh.js'
 
 export default execute(
-  async ({ deploy, get, execute: executeContract, namedAccounts }) => {
+  async ({ deploy, get, namedAccounts }) => {
     const { deployer, owner } = namedAccounts
 
     const registrar = await get('BaseRegistrarImplementation')
     const wrapper = await get('NameWrapper')
 
-    const migrationHelper = await deploy('MigrationHelper', {
+    await deploy('MigrationHelper', {
       account: deployer,
       artifact: artifacts.MigrationHelper,
       args: [registrar.address, wrapper.address],
     })
 
-    if (!migrationHelper.newlyDeployed) {
-      return
-    }
-
-    console.log('MigrationHelper deployed successfully')
-
-    // Transfer ownership to owner if different from deployer
-    if (owner !== deployer) {
-      await executeContract(migrationHelper, {
-        functionName: 'transferOwnership',
-        args: [owner],
-        account: deployer,
-      })
-      console.log(`Transferred ownership to ${owner}`)
+    if (owner && owner.address !== deployer.address) {
+      const migrationHelper = await get('MigrationHelper')
+      const hash = await migrationHelper.write.transferOwnership([owner.address])
+      console.log(`Transfer ownership to ${owner.address} (tx: ${hash})...`)
     }
   },
   {
-    id: 'migration-helper',
-    tags: ['utils', 'MigrationHelper'],
+    id: 'MigrationHelper v1.0.0',
+    tags: ['category:utils', 'MigrationHelper'],
     dependencies: ['BaseRegistrarImplementation', 'NameWrapper'],
   },
 )

@@ -1,4 +1,4 @@
-import { execute, artifacts } from '@rocketh'
+import { execute, artifacts } from '../../rocketh.js'
 
 export default execute(
   async ({ deploy, get, namedAccounts }) => {
@@ -18,7 +18,8 @@ export default execute(
     })
   },
   {
-    tags: ['OffchainDNSResolver'],
-    dependencies: ['registry', 'dnssec-oracle'],
+    id: 'OffchainDNSResolver v1.0.0',
+    tags: ['category:dnsregistrar', 'OffchainDNSResolver'],
+    dependencies: ['ENSRegistry', 'DNSSECImpl']
   },
 )

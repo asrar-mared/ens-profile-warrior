@@ -1,15 +1,13 @@
-import { execute, artifacts } from '@rocketh'
+import { execute, artifacts } from '../../rocketh.js'
 
 export default execute(
-  async ({ deploy, get, namedAccounts, network }) => {
+  async ({ deploy, get, namedAccounts }) => {
     const { deployer } = namedAccounts
-
-    if (!network.tags?.use_root) {
-      return
-    }
-
+    
+    // Get dependencies
     const registry = await get('ENSRegistry')
-
+    
+    // Deploy Root
     await deploy('Root', {
       account: deployer,
       artifact: artifacts.Root,
@@ -17,8 +15,8 @@ export default execute(
     })
   },
   {
-    id: 'root',
-    tags: ['root', 'Root'],
+    id: 'Root:contract v1.0.0',
+    tags: ['category:root', 'Root', 'Root:contract'],
     dependencies: ['ENSRegistry'],
   },
 )

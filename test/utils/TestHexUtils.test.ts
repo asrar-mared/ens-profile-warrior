@@ -27,6 +27,13 @@ describe('HexUtils', () => {
         ).resolves.toStrictEqual([hex, true])
       })
     }
+    it('invalid range', async () => {
+      const F = await loadFixture(fixture)
+      await expect(F.read.hexToBytes(['0x', 1n, 0n])).resolves.toStrictEqual([
+        '0x',
+        false,
+      ])
+    })
   })
 
   describe('hexStringToBytes32()', () => {
@@ -103,6 +110,13 @@ describe('HexUtils', () => {
         ]),
       ).resolves.toMatchObject([zeroHash, false])
     })
+
+    it('invalid range', async () => {
+      const F = await loadFixture(fixture)
+      await expect(
+        F.read.hexStringToBytes32(['0x', 1n, 0n]),
+      ).resolves.toStrictEqual([zeroHash, false])
+    })
   })
 
   describe('hexToAddress()', async () => {
@@ -146,6 +160,13 @@ describe('HexUtils', () => {
           41n,
         ]),
       ).resolves.toMatchObject([zeroAddress, false])
+    })
+
+    it('invalid range', async () => {
+      const F = await loadFixture(fixture)
+      await expect(
+        F.read.hexToAddress([stringToHex('0x12'), 2n, 0n]),
+      ).resolves.toStrictEqual([zeroAddress, false])
     })
   })
 

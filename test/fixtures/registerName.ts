@@ -1,5 +1,5 @@
 import type { NetworkConnection } from 'hardhat/types/network'
-import { Address, getAddress, Hex, zeroAddress } from 'viem'
+import { Address, getAddress, Hex, zeroAddress, zeroHash } from 'viem'
 import { EnsStack } from './deployEnsFixture.js'
 
 export type Mutable<T> = {
@@ -13,8 +13,13 @@ type RegisterNameOptions = {
   secret?: Hex
   resolverAddress?: Address
   data?: Hex[]
-  shouldSetReverseRecord?: boolean
-  ownerControlledFuses?: number
+  reverseRecord?: ('ethereum' | 'default')[]
+  referrer?: Hex
+}
+
+const ReverseRecord = {
+  ethereum: 1,
+  default: 2,
 }
 
 export const getDefaultRegistrationOptionsWithConnection =
@@ -26,8 +31,8 @@ export const getDefaultRegistrationOptionsWithConnection =
     secret,
     resolverAddress,
     data,
-    shouldSetReverseRecord,
-    ownerControlledFuses,
+    reverseRecord,
+    referrer,
   }: RegisterNameOptions) => ({
     label,
     ownerAddress: await (async () => {
@@ -41,30 +46,33 @@ export const getDefaultRegistrationOptionsWithConnection =
       '0x0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF',
     resolverAddress: resolverAddress ?? zeroAddress,
     data: data ?? [],
-    shouldSetReverseRecord: shouldSetReverseRecord ?? false,
-    ownerControlledFuses: ownerControlledFuses ?? 0,
+    reverseRecord: reverseRecord ?? [],
+    referrer: referrer ?? zeroHash,
   })
 
-export const getRegisterNameParameterArray = ({
+export const getRegisterNameParameters = ({
   label,
   ownerAddress,
   duration,
   secret,
   resolverAddress,
   data,
-  shouldSetReverseRecord,
-  ownerControlledFuses,
+  reverseRecord,
+  referrer,
 }: Required<RegisterNameOptions>) => {
-  const immutable = [
+  const immutable = {
     label,
-    ownerAddress,
+    owner: ownerAddress,
     duration,
     secret,
-    resolverAddress,
+    resolver: resolverAddress,
     data,
-    shouldSetReverseRecord,
-    ownerControlledFuses,
-  ] as const
+    reverseRecord: reverseRecord.reduce(
+      (acc, record) => acc | ReverseRecord[record],
+      0,
+    ),
+    referrer,
+  } as const
   return immutable as Mutable<typeof immutable>
 }
 
@@ -77,13 +85,13 @@ export const commitNameWithConnection =
     const params = await getDefaultRegistrationOptionsWithConnection(
       connection,
     )(params_)
-    const args = getRegisterNameParameterArray(params)
+    const args = getRegisterNameParameters(params)
 
     const testClient = await connection.viem.getTestClient()
     const [deployer] = await connection.viem.getWalletClients()
 
     const commitmentHash = await ethRegistrarController.read.makeCommitment(
-      args,
+      [args],
     )
     await ethRegistrarController.write.commit([commitmentHash], {
       account: deployer.account,
@@ -109,13 +117,13 @@ export const registerNameWithConnection =
     const params = await getDefaultRegistrationOptionsWithConnection(
       connection,
     )(params_)
-    const args = getRegisterNameParameterArray(params)
+    const args = getRegisterNameParameters(params)
     const { label, duration } = params
 
     const testClient = await connection.viem.getTestClient()
     const [deployer] = await connection.viem.getWalletClients()
     const commitmentHash = await ethRegistrarController.read.makeCommitment(
-      args,
+      [args],
     )
     await ethRegistrarController.write.commit([commitmentHash], {
       account: deployer.account,
@@ -125,11 +133,14 @@ export const registerNameWithConnection =
     await testClient.increaseTime({ seconds: Number(minCommitmentAge) })
     await testClient.mine({ blocks: 1 })
 
-    const value = await ethRegistrarController.read
-      .rentPrice([label, duration])
-      .then(({ base, premium }) => base + premium)
+    const price = await ethRegistrarController.read.rentPrice([
+      label,
+      duration,
+    ]) as { base: bigint; premium: bigint }
 
-    await ethRegistrarController.write.register(args, {
+    const value = price.base + price.premium
+
+    await ethRegistrarController.write.register([args], {
       value,
       account: deployer.account,
     })

@@ -141,7 +141,8 @@ export default execute(
     console.log('DNSSEC oracle configuration completed')
   },
   {
-    tags: ['dnssec-oracle'],
+    id: 'DNSSECImpl v1.0.0',
+    tags: ['category:dnssec-oracle', 'DNSSECImpl'],
     dependencies: ['dnssec-algorithms', 'dnssec-digests'],
   },
 )

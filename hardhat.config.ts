@@ -11,6 +11,10 @@ const realAccounts = [
   configVariable('OWNER_KEY'),
 ]
 
+
+import './tasks/create_l2_safe.ts'
+import './tasks/etherscan-multichain.ts'
+
 // circular dependency shared with actions
 export const archivedDeploymentPath = './deployments/archive'
 
@@ -59,6 +63,21 @@ const config = {
           },
         },
       },
+      {
+        version: '0.8.25',
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 1200,
+          },
+        },
+      },
+    ],
+    remappings: [
+      '@unruggable/gateways/=node_modules/@unruggable/gateways/',
+      '@openzeppelin/contracts-v5/=node_modules/@openzeppelin/contracts-v5/',
+      '@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/',
+      'clones-with-immutable-args/=node_modules/clones-with-immutable-args/',
     ],
   },
   paths: {
