@@ -86,14 +86,17 @@ async function fixture() {
       600n,
       86400n,
       reverseRegistrar.address,
-      nameWrapper.address,
+      defaultReverseRegistrar.address,
       ensRegistry.address,
     ],
   )
 
-  await nameWrapper.write.setController([ethRegistrarController.address, true])
-  await baseRegistrar.write.addController([nameWrapper.address])
+  await baseRegistrar.write.addController([ethRegistrarController.address])
   await reverseRegistrar.write.setController([
+    ethRegistrarController.address,
+    true,
+  ])
+  await defaultReverseRegistrar.write.setController([
     ethRegistrarController.address,
     true,
   ])
@@ -125,11 +128,11 @@ async function fixture() {
     ensRegistry,
     baseRegistrar,
     reverseRegistrar,
-    nameWrapper,
     dummyOracle,
     priceOracle,
     ethRegistrarController,
     publicResolver,
+    defaultReverseRegistrar,
     callData,
   }
 }
@@ -246,7 +249,6 @@ describe('ETHRegistrarController', () => {
     const {
       ensRegistry,
       baseRegistrar,
-      nameWrapper,
       ethRegistrarController,
       callData,
       publicResolver,
@@ -290,20 +292,17 @@ describe('ETHRegistrarController', () => {
       publicResolver.address,
     )
     await expect(ensRegistry.read.owner([nodehash])).resolves.toEqualAddress(
-      nameWrapper.address,
+      registrantAccount.address,
     )
     await expect(
       baseRegistrar.read.ownerOf([labelId('newconfigname')]),
-    ).resolves.toEqualAddress(nameWrapper.address)
+    ).resolves.toEqualAddress(registrantAccount.address)
     await expect(
       publicResolver.read.addr([nodehash]) as Promise<Address>,
     ).resolves.toEqualAddress(registrantAccount.address)
     await expect(publicResolver.read.text([nodehash, 'url'])).resolves.toEqual(
       'ethereum.com',
     )
-    await expect(
-      nameWrapper.read.ownerOf([hexToBigInt(nodehash)]),
-    ).resolves.toEqualAddress(registrantAccount.address)
   })
 
   it('should not permit new registrations with data and 0 resolver', async () => {
@@ -483,7 +482,7 @@ describe('ETHRegistrarController', () => {
       },
     )
 
-    args[1] = registrantAccount.address
+    args.owner = registrantAccount.address
 
     await expect(
       ethRegistrarController.write.register(args, {
@@ -537,14 +536,21 @@ describe('ETHRegistrarController', () => {
       },
     )
 
+    const commitmentTimestamp = await ethRegistrarController.read.commitments([
+      hash,
+    ])
     const minCommitmentAge =
       await ethRegistrarController.read.minCommitmentAge()
     const maxCommitmentAge =
       await ethRegistrarController.read.maxCommitmentAge()
 
+    const timestampIncrease = maxCommitmentAge - minCommitmentAge + 1n
     await testClient.increaseTime({
-      seconds: Number(maxCommitmentAge - minCommitmentAge) + 1,
+      seconds: Number(timestampIncrease),
     })
+    const previousBlockTimestamp = await publicClient
+      .getBlock()
+      .then((b) => b.timestamp)
 
     await expect(
       ethRegistrarController.write.register(args, {
@@ -613,10 +619,6 @@ describe('ETHRegistrarController', () => {
       },
     )
 
-    const nodehash = namehash('newname.eth')
-    const fuseExpiry = await nameWrapper.read
-      .getData([hexToBigInt(nodehash)])
-      .then((d) => d[2])
     const expires = await baseRegistrar.read.nameExpires([labelId('newname')])
     const balanceBefore = await publicClient.getBalance({
       address: ethRegistrarController.address,
@@ -628,19 +630,15 @@ describe('ETHRegistrarController', () => {
       duration,
     ])
 
-    await ethRegistrarController.write.renew(['newname', duration], {
+    await ethRegistrarController.write.renew(['newname', duration, zeroHash], {
       value: price,
     })
 
     const newExpires = await baseRegistrar.read.nameExpires([
       labelId('newname'),
     ])
-    const newFuseExpiry = await nameWrapper.read
-      .getData([hexToBigInt(nodehash)])
-      .then((d) => d[2])
 
     expect(newExpires - expires).toEqual(duration)
-    expect(newFuseExpiry - fuseExpiry).toEqual(duration)
 
     await expect(
       publicClient.getBalance({ address: ethRegistrarController.address }),
@@ -670,24 +668,31 @@ describe('ETHRegistrarController', () => {
       ownerAccount.address,
     )
 
-    const expires = await baseRegistrar.read.nameExpires([tokenId])
+    const expires = await baseRegistrar.read.nameExpires([labelId('newname')])
+    const balanceBefore = await publicClient.getBalance({
+      address: ethRegistrarController.address,
+    })
+
+    const duration = 86400n
     const { base: price } = await ethRegistrarController.read.rentPrice([
-      label,
+      'newname',
       duration,
     ])
-    await ethRegistrarController.write.renew([label, duration], {
+
+    await ethRegistrarController.write.renew(['newname', duration, zeroHash], {
+      account: otherAccount,
       value: price,
     })
 
-    await expect(baseRegistrar.read.ownerOf([tokenId])).resolves.toEqualAddress(
-      ownerAccount.address,
-    )
-    await expect(
-      nameWrapper.read.ownerOf([hexToBigInt(nodehash)]),
-    ).resolves.toEqual(zeroAddress)
+    const newExpires = await baseRegistrar.read.nameExpires([
+      labelId('newname'),
+    ])
 
-    const newExpires = await baseRegistrar.read.nameExpires([tokenId])
     expect(newExpires - expires).toEqual(duration)
+
+    await expect(
+      publicClient.getBalance({ address: ethRegistrarController.address }),
+    ).resolves.toEqual(balanceBefore + price)
   })
 
   it('should require sufficient value for a renewal', async () => {
@@ -726,7 +731,7 @@ describe('ETHRegistrarController', () => {
         duration: REGISTRATION_TIME,
         ownerAddress: registrantAccount.address,
         resolverAddress: publicResolver.address,
-        shouldSetReverseRecord: true,
+        reverseRecord: ['ethereum'],
       },
     )
 
@@ -735,6 +740,9 @@ describe('ETHRegistrarController', () => {
         namehash(getReverseName(ownerAccount.address)),
       ]),
     ).resolves.toEqual('reverse.eth')
+    await expect(
+      defaultReverseRegistrar.read.nameForAddr([ownerAccount.address]),
+    ).resolves.toEqual('')
   })
 
   it('should not set the reverse record of the account when set to false', async () => {
@@ -747,14 +755,77 @@ describe('ETHRegistrarController', () => {
         duration: REGISTRATION_TIME,
         ownerAddress: registrantAccount.address,
         resolverAddress: publicResolver.address,
-        shouldSetReverseRecord: false,
+        reverseRecord: ['default'],
       },
     )
 
     await expect(
       publicResolver.read.name([
-        namehash(getReverseName(registrantAccount.address)),
+        namehash(getReverseName(ownerAccount.address)),
       ]),
+    ).resolves.toEqual('')
+    await expect(
+      defaultReverseRegistrar.read.nameForAddr([ownerAccount.address]),
+    ).resolves.toEqual('reverse.eth')
+  })
+
+  it('should set the ethereum and default reverse records of the account', async () => {
+    const {
+      ethRegistrarController,
+      defaultReverseRegistrar,
+      publicResolver,
+      registrantAccount,
+      ownerAccount,
+    } = await loadFixture(fixture)
+
+    await registerName(
+      { ethRegistrarController },
+      {
+        label: 'reverse',
+        duration: REGISTRATION_TIME,
+        ownerAddress: registrantAccount.address,
+        resolverAddress: publicResolver.address,
+        reverseRecord: ['ethereum', 'default'],
+      },
+    )
+
+    await expect(
+      publicResolver.read.name([
+        namehash(getReverseName(ownerAccount.address)),
+      ]),
+    ).resolves.toEqual('reverse.eth')
+    await expect(
+      defaultReverseRegistrar.read.nameForAddr([ownerAccount.address]),
+    ).resolves.toEqual('reverse.eth')
+  })
+
+  it('should not set the reverse record of the account when set to false', async () => {
+    const {
+      ethRegistrarController,
+      defaultReverseRegistrar,
+      publicResolver,
+      ownerAccount,
+      registrantAccount,
+    } = await loadFixture(fixture)
+
+    await registerName(
+      { ethRegistrarController },
+      {
+        label: 'reverse',
+        duration: REGISTRATION_TIME,
+        ownerAddress: registrantAccount.address,
+        resolverAddress: publicResolver.address,
+        reverseRecord: [],
+      },
+    )
+
+    await expect(
+      publicResolver.read.name([
+        namehash(getReverseName(ownerAccount.address)),
+      ]),
+    ).resolves.toEqual('')
+    await expect(
+      defaultReverseRegistrar.read.nameForAddr([ownerAccount.address]),
     ).resolves.toEqual('')
   })
 
@@ -762,54 +833,87 @@ describe('ETHRegistrarController', () => {
     const { ensRegistry, baseRegistrar, ethRegistrarController, nameWrapper } =
       await loadFixture()
 
-    const label = 'wrapper'
-    const name = label + '.eth'
-    await registerName(
+    const params = await getDefaultRegistrationOptions({
+      label: 'reverse',
+      duration: REGISTRATION_TIME,
+      ownerAddress: registrantAccount.address,
+      reverseRecord: ['default'],
+    })
+    const args = getRegisterNameParameters(params)
+
+    await expect(ethRegistrarController)
+      .read('makeCommitment', [args])
+      .toBeRevertedWithCustomError('ResolverRequiredForReverseRecord')
+
+    await commitName(
       { ethRegistrarController },
       {
-        label,
-        duration: REGISTRATION_TIME,
-        ownerAddress: registrantAccount.address,
+        ...params,
+        createLocalCommitmentHash: true,
       },
     )
 
-    await expect(
-      nameWrapper.read.ownerOf([hexToBigInt(namehash(name))]),
-    ).resolves.toEqualAddress(registrantAccount.address)
-
-    await expect(
-      ensRegistry.read.owner([namehash(name)]),
-    ).resolves.toEqualAddress(nameWrapper.address)
-    await expect(
-      baseRegistrar.read.ownerOf([labelId(label)]),
-    ).resolves.toEqualAddress(nameWrapper.address)
+    await expect(ethRegistrarController)
+      .write('register', [args], { value: BUFFERED_REGISTRATION_COST })
+      .toBeRevertedWithCustomError('ResolverRequiredForReverseRecord')
   })
 
   it('should auto wrap the name and allow fuses and expiry to be set', async () => {
     const { ethRegistrarController, nameWrapper } = await loadFixture()
 
-    const label = 'fuses'
-    const name = label + '.eth'
+    const params = await getDefaultRegistrationOptions({
+      label: 'reverse',
+      duration: REGISTRATION_TIME,
+      ownerAddress: registrantAccount.address,
+      reverseRecord: ['ethereum'],
+    })
+    const args = getRegisterNameParameters(params)
 
-    await registerName(
+    await expect(ethRegistrarController)
+      .read('makeCommitment', [args])
+      .toBeRevertedWithCustomError('ResolverRequiredForReverseRecord')
+
+    await commitName(
       { ethRegistrarController },
       {
-        label,
-        duration: REGISTRATION_TIME,
-        ownerAddress: registrantAccount.address,
-        ownerControlledFuses: 1,
+        ...params,
+        createLocalCommitmentHash: true,
       },
     )
 
-    const block = await publicClient.getBlock()
+    await expect(ethRegistrarController)
+      .write('register', [args], { value: BUFFERED_REGISTRATION_COST })
+      .toBeRevertedWithCustomError('ResolverRequiredForReverseRecord')
+  })
 
-    const [, fuses, expiry] = await nameWrapper.read.getData([
-      hexToBigInt(namehash(name)),
-    ])
-    expect(fuses).toEqual(
-      FUSES.PARENT_CANNOT_CONTROL | FUSES.CANNOT_UNWRAP | FUSES.IS_DOT_ETH,
+  it('should not permit setting both reverse records without a resolver', async () => {
+    const { ethRegistrarController, registrantAccount } = await loadFixture(
+      fixture,
     )
-    expect(expiry).toEqual(REGISTRATION_TIME + GRACE_PERIOD + block.timestamp)
+
+    const params = await getDefaultRegistrationOptions({
+      label: 'reverse',
+      duration: REGISTRATION_TIME,
+      ownerAddress: registrantAccount.address,
+      reverseRecord: ['ethereum', 'default'],
+    })
+    const args = getRegisterNameParameters(params)
+
+    await expect(ethRegistrarController)
+      .read('makeCommitment', [args])
+      .toBeRevertedWithCustomError('ResolverRequiredForReverseRecord')
+
+    await commitName(
+      { ethRegistrarController },
+      {
+        ...params,
+        createLocalCommitmentHash: true,
+      },
+    )
+
+    await expect(ethRegistrarController)
+      .write('register', [args], { value: BUFFERED_REGISTRATION_COST })
+      .toBeRevertedWithCustomError('ResolverRequiredForReverseRecord')
   })
 
   it('approval should reduce gas for registration', async () => {
@@ -839,12 +943,11 @@ describe('ETHRegistrarController', () => {
             args: [node, registrantAccount.address],
           }),
         ],
-        ownerControlledFuses: 1,
-        shouldSetReverseRecord: true,
+        reverseRecord: ['ethereum'],
       },
     )
 
-    const gasA = await ethRegistrarController.estimateGas.register(args, {
+    const gasA = await ethRegistrarController.estimateGas.register([args], {
       value: BUFFERED_REGISTRATION_COST,
       account: registrantAccount,
     })
@@ -854,12 +957,12 @@ describe('ETHRegistrarController', () => {
       { account: registrantAccount },
     )
 
-    const gasB = await ethRegistrarController.estimateGas.register(args, {
+    const gasB = await ethRegistrarController.estimateGas.register([args], {
       value: BUFFERED_REGISTRATION_COST,
       account: registrantAccount,
     })
 
-    const hash = await ethRegistrarController.write.register(args, {
+    const hash = await ethRegistrarController.write.register([args], {
       value: BUFFERED_REGISTRATION_COST,
       account: registrantAccount,
     })
@@ -871,14 +974,11 @@ describe('ETHRegistrarController', () => {
     console.log('Gas saved:', gasA - receipt.gasUsed)
 
     await expect(
-      nameWrapper.read.ownerOf([hexToBigInt(node)]),
+      baseRegistrar.read.ownerOf([labelId(label)]),
     ).resolves.toEqualAddress(registrantAccount.address)
     await expect(ensRegistry.read.owner([node])).resolves.toEqualAddress(
-      nameWrapper.address,
+      registrantAccount.address,
     )
-    await expect(
-      baseRegistrar.read.ownerOf([labelId(label)]),
-    ).resolves.toEqualAddress(nameWrapper.address)
     await expect<Promise<Address>>(
       publicResolver.read.addr([node]),
     ).resolves.toEqualAddress(registrantAccount.address)
@@ -920,5 +1020,68 @@ describe('ETHRegistrarController', () => {
         value: BUFFERED_REGISTRATION_COST,
       }),
     ).toBeRevertedWithoutReason()
+  })
+
+  it('should emit the referrer when a name is registered', async () => {
+    const {
+      ethRegistrarController,
+      registrantAccount,
+      otherAccount,
+      publicClient,
+    } = await loadFixture(fixture)
+
+    const timestamp = await publicClient.getBlock().then((b) => b.timestamp)
+
+    const referrer = namehash('referrer.eth')
+    const { args, params } = await commitName(
+      { ethRegistrarController },
+      {
+        label: 'newname',
+        duration: REGISTRATION_TIME,
+        ownerAddress: registrantAccount.address,
+        referrer,
+      },
+    )
+
+    await expect(ethRegistrarController)
+      .write('register', [args], { value: BUFFERED_REGISTRATION_COST })
+      .toEmitEvent('NameRegistered')
+      .withArgs(
+        params.label,
+        labelhash(params.label),
+        params.ownerAddress,
+        params.duration,
+        0n,
+        timestamp + params.duration,
+        referrer,
+      )
+  })
+
+  it('should emit the referrer when a name is renewed', async () => {
+    const {
+      baseRegistrar,
+      ethRegistrarController,
+      registrantAccount,
+      otherAccount,
+    } = await loadFixture(fixture)
+
+    const label = 'newname'
+    const referrer = namehash('referrer.eth')
+    const duration = 86400n
+    await registerName(
+      { ethRegistrarController },
+      {
+        label,
+        duration: REGISTRATION_TIME,
+        ownerAddress: registrantAccount.address,
+      },
+    )
+
+    const expires = await baseRegistrar.read.nameExpires([labelId(label)])
+
+    await expect(ethRegistrarController)
+      .write('renew', [label, duration, referrer], { value: duration })
+      .toEmitEvent('NameRenewed')
+      .withArgs(label, labelhash(label), duration, expires + duration, referrer)
   })
 })

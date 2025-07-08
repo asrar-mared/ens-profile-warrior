@@ -26,10 +26,10 @@ export const getDefaultRegistrationOptionsWithConnection =
   (connection: NetworkConnection) =>
   async ({
     label,
-    ownerAddress,
+    owner: ownerAddress,
     duration,
     secret,
-    resolverAddress,
+    resolver: resolverAddress,
     data,
     reverseRecord,
     referrer,
