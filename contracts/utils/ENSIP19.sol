@@ -17,6 +17,7 @@ string constant TLD_REVERSE = "reverse";
 /// https://docs.ens.domains/ensip/19
 library ENSIP19 {
     /// @dev The supplied address was `0x`.
+    ///      Error selector: `0x7138356f`
     error EmptyAddress();
 
     /// @dev Extract Chain ID from `coinType`.
@@ -66,7 +67,7 @@ library ENSIP19 {
     }
 
     /// @dev Parse Reverse Name into Address + Coin Type.
-    ///      Matches: /^[0-9a-fA-F]+\.([0-9a-f]{1,64}|addr|default)\.reverse$/.
+    ///      Matches: `/^[0-9a-fA-F]+\.([0-9a-f]{1,64}|addr|default)\.reverse$/`.
     ///      Reverts `DNSDecodingFailed`.
     /// @param name The DNS-encoded name.
     /// @return addressBytes The address or empty if invalid.
@@ -83,7 +84,7 @@ library ENSIP19 {
     }
 
     /// @dev Parse Reverse Namespace into Coin Type.
-    ///      Matches: /^([0-9a-f]{1,64}|addr|default)\.reverse$/.
+    ///      Matches: `/^([0-9a-f]{1,64}|addr|default)\.reverse$/`.
     ///      Reverts `DNSDecodingFailed`.
     /// @param name The DNS-encoded name.
     /// @param offset The offset to begin parsing.
