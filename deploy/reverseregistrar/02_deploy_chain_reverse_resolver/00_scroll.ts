@@ -16,7 +16,7 @@ export default createChainReverseResolverDeployer({
     },
     [mainnet.id]: {
       chain: scroll.id,
-      verifier: '0xc8d16f56ac528d9e0e67ecb6ece1e95cc8987968',
+      verifier: '0xe439F14Aaf43c87e3dfBDB0A470D9EB2C7f27d93',
       registrar: safeConfig.mainnet.expectedDeploymentAddress,
       gateways: [
         'https://lb.drpc.org/gateway/unruggable?network=scroll',

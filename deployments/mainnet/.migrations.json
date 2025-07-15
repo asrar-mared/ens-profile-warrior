@@ -28,6 +28,6 @@
   "ChainReverseResolver:Base v1.0.0": 1750654012,
   "ChainReverseResolver:Linea v1.0.0": 1750654036,
   "ChainReverseResolver:Optimism v1.0.0": 1750654201,
-  "ChainReverseResolver:Scroll v1.0.0": 1750654218,
-  "MigrationHelper v1.0.0": 1750654261
+  "MigrationHelper v1.0.0": 1750654261,
+  "ChainReverseResolver:Scroll v1.0.0": 1752542750
 }
