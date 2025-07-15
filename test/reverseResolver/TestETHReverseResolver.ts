@@ -19,18 +19,23 @@ async function fixture() {
   const reverseRegistrar = await connection.viem.deployContract(
     'DefaultReverseRegistrar',
   )
-  const reverseResolver = await connection.viem.deployContract('ETHReverseResolver', [
-    F.ensRegistry.address,
-    reverseRegistrar.address,
-    F.defaultReverseRegistrar.address,
-  ])
+  const reverseResolver = await connection.viem.deployContract(
+    'ETHReverseResolver',
+    [
+      F.ensRegistry.address,
+      reverseRegistrar.address,
+      F.defaultReverseRegistrar.address,
+    ],
+  )
   const reverseNamespace = getReverseNamespace(COIN_TYPE_ETH)
   await F.takeControl(reverseNamespace)
   await F.ensRegistry.write.setResolver([
     namehash(reverseNamespace),
     reverseResolver.address,
   ])
-  const shapeshift = await connection.viem.deployContract('DummyShapeshiftResolver')
+  const shapeshift = await connection.viem.deployContract(
+    'DummyShapeshiftResolver',
+  )
   return {
     ...F,
     shapeshift,
@@ -172,9 +177,9 @@ describe('ETHReverseResolver', () => {
       }
       const [res] = makeResolutions(kp)
       await expect(
-        F.reverseResolver.read.resolve([dnsEncodeName(kp.name), res.call])
+        F.reverseResolver.read.resolve([dnsEncodeName(kp.name), res.call]),
       ).toBeRevertedWithCustomError('UnsupportedResolverProfile')
-        // .withArgs(slice(res.call, 0, 4))
+      // .withArgs(slice(res.call, 0, 4))
     })
 
     it('addr("addr.reverse") = registrar', async () => {

@@ -41,9 +41,10 @@ async function fixture() {
     libs: { GatewayVM },
     connection,
   })
-  const reverseRegistrar = await connection.viem.deployContract('L2ReverseRegistrar', [
-    l2CoinType,
-  ])
+  const reverseRegistrar = await connection.viem.deployContract(
+    'L2ReverseRegistrar',
+    [l2CoinType],
+  )
   const reverseResolver = await connection.viem.deployContract(
     'ChainReverseResolver',
     [
@@ -109,9 +110,9 @@ describe('ChainReverseResolver', () => {
       }
       const [res] = makeResolutions(kp)
       await expect(
-        F.reverseResolver.read.resolve([dnsEncodeName(kp.name), res.call])
+        F.reverseResolver.read.resolve([dnsEncodeName(kp.name), res.call]),
       ).toBeRevertedWithCustomError('UnsupportedResolverProfile')
-        // .withArgs(slice(res.call, 0, 4))
+      // .withArgs(slice(res.call, 0, 4))
     })
 
     it('addr("{coinType}.reverse") = registrar', async () => {

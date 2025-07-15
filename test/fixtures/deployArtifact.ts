@@ -61,7 +61,7 @@ export async function deployArtifact(options: {
       }
     }
   }
-  const connection = options.connection || await hre.network.connect()
+  const connection = options.connection || (await hre.network.connect())
   const walletClient = options.from
     ? await connection.viem.getWalletClient(options.from)
     : await connection.viem.getWalletClients().then((x) => x[0])

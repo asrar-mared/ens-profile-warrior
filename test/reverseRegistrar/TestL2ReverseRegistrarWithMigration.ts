@@ -80,8 +80,7 @@ describe('L2ReverseRegistrarWithMigration', () => {
       l2ReverseRegistrar.write.batchSetName([[accounts[0].address]], {
         account: accounts[1],
       }),
-    )
-      .toBeRevertedWithCustomError('OwnableUnauthorizedAccount')
-      // .withArgs(getAddress(accounts[1].address))
+    ).toBeRevertedWithCustomError('OwnableUnauthorizedAccount')
+    // .withArgs(getAddress(accounts[1].address))
   })
 })
