@@ -1,5 +1,4 @@
 import { shouldSupportInterfaces } from '@ensdomains/hardhat-chai-matchers-viem/behaviour'
-import { loadFixture } from '@nomicfoundation/hardhat-network-helpers'
 import { expect } from 'chai'
 import hre from 'hardhat'
 import {
@@ -15,21 +14,23 @@ import {
 import { serializeErc6492Signature } from 'viem/experimental'
 import { deployUniversalSigValidator } from '../fixtures/universalSigValidator.js'
 
+const connection = await hre.network.connect()
+
 async function fixture() {
-  const accounts = await hre.viem
+  const accounts = await connection.viem
     .getWalletClients()
     .then((clients) => clients.map((c) => c.account))
 
   await deployUniversalSigValidator()
 
-  const defaultReverseRegistrar = await hre.viem.deployContract(
+  const defaultReverseRegistrar = await connection.viem.deployContract(
     'DefaultReverseRegistrar',
   )
-  const mockSmartContractAccount = await hre.viem.deployContract(
+  const mockSmartContractAccount = await connection.viem.deployContract(
     'MockSmartContractWallet',
     [accounts[0].address],
   )
-  const mockErc6492WalletFactory = await hre.viem.deployContract(
+  const mockErc6492WalletFactory = await connection.viem.deployContract(
     'MockERC6492WalletFactory',
   )
 
@@ -40,6 +41,8 @@ async function fixture() {
     accounts,
   }
 }
+
+const loadFixture = async () => connection.networkHelpers.loadFixture(fixture)
 
 const createMessageHash = ({
   contractAddress,
@@ -64,25 +67,25 @@ const createMessageHash = ({
 describe('DefaultReverseRegistrar', () => {
   shouldSupportInterfaces({
     contract: () =>
-      loadFixture(fixture).then(
+      loadFixture().then(
         ({ defaultReverseRegistrar }) => defaultReverseRegistrar,
       ),
     interfaces: [
       'IDefaultReverseRegistrar',
-      '@openzeppelin/contracts-v5/utils/introspection/IERC165.sol:IERC165',
+      'node_modules/@openzeppelin/contracts/utils/introspection/IERC165.sol:IERC165',
       'IStandaloneReverseRegistrar',
     ],
   })
 
   it('should deploy the contract', async () => {
-    const { defaultReverseRegistrar } = await loadFixture(fixture)
+    const { defaultReverseRegistrar } = await loadFixture()
 
     expect(defaultReverseRegistrar.address).not.toBeUndefined()
   })
 
   describe('setName', () => {
     async function setNameFixture() {
-      const initial = await loadFixture(fixture)
+      const initial = await loadFixture()
 
       const name = 'myname.eth'
 
@@ -118,7 +121,7 @@ describe('DefaultReverseRegistrar', () => {
 
   describe('setNameForAddrWithSignature', () => {
     async function setNameForAddrWithSignatureFixture() {
-      const initial = await loadFixture(fixture)
+      const initial = await loadFixture()
       const { defaultReverseRegistrar, accounts } = initial
 
       const name = 'myname.eth'
@@ -129,13 +132,13 @@ describe('DefaultReverseRegistrar', () => {
         ) as AbiFunction,
       )
 
-      const publicClient = await hre.viem.getPublicClient()
+      const publicClient = await connection.viem.getPublicClient()
       const blockTimestamp = await publicClient
         .getBlock()
         .then((b) => b.timestamp)
       const signatureExpiry = blockTimestamp + 3600n
 
-      const [walletClient] = await hre.viem.getWalletClients()
+      const [walletClient] = await connection.viem.getWalletClients()
       const messageHash = createMessageHash({
         contractAddress: defaultReverseRegistrar.address,
         functionSelector,

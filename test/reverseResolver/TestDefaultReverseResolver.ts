@@ -1,5 +1,4 @@
 import { shouldSupportInterfaces } from '@ensdomains/hardhat-chai-matchers-viem/behaviour'
-import { loadFixture } from '@nomicfoundation/hardhat-network-helpers'
 import { expect } from 'chai'
 import hre from 'hardhat'
 import { slice } from 'viem'
@@ -18,17 +17,21 @@ import { KnownProfile, makeResolutions } from '../utils/resolutions.js'
 const testName = 'test.eth'
 const coinTypes = [COIN_TYPE_ETH, COIN_TYPE_DEFAULT, 0n, 1n]
 
+const connection = await hre.network.connect()
+
 async function fixture() {
   const F = await deployDefaultReverseFixture()
   await F.defaultReverseRegistrar.write.setName([testName])
   return F
 }
 
+const loadFixture = async () => connection.networkHelpers.loadFixture(fixture)
+
 describe('DefaultReverseResolver', () => {
   shouldSupportInterfaces({
-    contract: () => loadFixture(fixture).then((F) => F.defaultReverseResolver),
+    contract: () => loadFixture().then((F) => F.defaultReverseResolver),
     interfaces: [
-      '@openzeppelin/contracts-v5/utils/introspection/IERC165.sol:IERC165',
+      'node_modules/@openzeppelin/contracts/utils/introspection/IERC165.sol:IERC165',
       'IExtendedResolver',
       'INameReverser',
     ],

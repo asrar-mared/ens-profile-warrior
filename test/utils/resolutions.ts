@@ -6,6 +6,7 @@ import {
   getAddress,
   namehash,
   parseAbi,
+  toHex,
 } from 'viem'
 import { expect } from 'vitest'
 import { COIN_TYPE_ETH, shortCoin } from '../fixtures/ensip19.js'
@@ -107,8 +108,19 @@ export function bundleCalls(resolutions: KnownResolution[]): KnownBundle {
     }),
     answer: encodeFunctionResult({
       abi: RESOLVE_MULTICALL,
-      // TODO: fix when we can use newer viem version
-      result: [resolutions.map((x) => x.answer)] as never,
+      functionName: 'multicall',
+      result: resolutions.map((x) => {
+        let answer = x.answer
+        if (typeof answer === 'string') {
+          // Handle empty hex string case
+          if (answer === '0x') {
+            answer = '0x00'
+          }
+        } else {
+          answer = toHex(answer)
+        }
+        return answer
+      }),
     }),
     resolutions,
     unbundle: (data) =>
@@ -148,7 +160,7 @@ export function makeResolutions(p: KnownProfile): KnownResolution[] {
             abi,
             functionName,
             // TODO: fix when we can use newer viem version
-            result: [value] as never,
+            result: value,
           }),
           expect(data) {
             const actual = decodeFunctionResult({
@@ -178,7 +190,7 @@ export function makeResolutions(p: KnownProfile): KnownResolution[] {
             abi,
             functionName,
             // TODO: fix when we can use newer viem version
-            result: [value] as never,
+            result: value,
           }),
           expect(data) {
             const actual = decodeFunctionResult({
@@ -213,7 +225,7 @@ export function makeResolutions(p: KnownProfile): KnownResolution[] {
           abi,
           functionName,
           // TODO: fix when we can use newer viem version
-          result: [value] as never,
+          result: value,
         }),
         expect(data) {
           const actual = decodeFunctionResult({
@@ -247,7 +259,7 @@ export function makeResolutions(p: KnownProfile): KnownResolution[] {
         abi,
         functionName,
         // TODO: fix when we can use newer viem version
-        result: [value] as never,
+        result: value,
       }),
       expect(data) {
         const actual = decodeFunctionResult({
