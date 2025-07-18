@@ -1,5 +1,4 @@
 import { zeroAddress } from 'viem'
-import { describe, expect, it } from 'vitest'
 
 import {
   DUMMY_ADDRESS,

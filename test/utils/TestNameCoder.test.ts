@@ -1,6 +1,5 @@
 import hre from 'hardhat'
 import { namehash, slice, toHex } from 'viem'
-import { describe, expect, it } from 'vitest'
 
 import { dnsDecodeName } from '../fixtures/dnsDecodeName.js'
 import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'

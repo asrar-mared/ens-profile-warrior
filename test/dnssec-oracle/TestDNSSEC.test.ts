@@ -6,7 +6,6 @@ import {
   type Hex,
   type ReadContractReturnType,
 } from 'viem'
-import { describe, expect, it } from 'vitest'
 
 import {
   expiration,

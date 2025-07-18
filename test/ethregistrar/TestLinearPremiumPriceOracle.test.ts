@@ -1,6 +1,5 @@
 import hre from 'hardhat'
 import { labelhash, namehash, zeroHash } from 'viem'
-import { describe, expect, it } from 'vitest'
 import { getAccounts } from '../fixtures/utils.js'
 
 const DAY = 86400n

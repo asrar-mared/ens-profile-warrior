@@ -7,7 +7,7 @@
     "compile": "hardhat compile && bun scripts/generate-artifacts.ts",
     "test": "NODE_OPTIONS=\"--disable-warning=ExperimentalWarning\" vitest",
     "test:remote": "FORKING_ENABLED=1 bun run test ./test/**/Test*.remote.ts",
-    "test:parallel": "bun run test ./test/**/Test*.ts --parallel",
+    "test:parallel": "bun run test ./test/**/Test*.ts --sequence.concurrent",
     "test:local": "bun run test --network localhost",
     "test:deploy": "bun ./scripts/deploy-test.ts",
     "l2:deploy": "bun run hh deploy --tags l2",
@@ -71,7 +71,8 @@
     "@rollup/rollup-darwin-x64": "^4.44.2",
     "@unruggable/gateways": "^1.2.2",
     "clones-with-immutable-args": "Arachnid/clones-with-immutable-args#feature/create2",
-    "dns-packet": "^5.3.0"
+    "dns-packet": "^5.3.0",
+    "glob": "^11.0.3"
   },
   "patchedDependencies": {
     "rocketh@0.11.20": "patches/rocketh@0.11.20.patch"

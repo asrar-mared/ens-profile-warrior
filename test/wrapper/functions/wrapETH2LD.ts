@@ -5,7 +5,6 @@ import {
   stringToBytes,
   zeroAddress,
 } from 'viem'
-import { describe, expect, it } from 'vitest'
 
 import { DAY } from '../../fixtures/constants.js'
 import { dnsEncodeName } from '../../fixtures/dnsEncodeName.js'

@@ -1,5 +1,4 @@
 import hre from 'hardhat'
-import { describe, expect, it } from 'vitest'
 
 import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
 

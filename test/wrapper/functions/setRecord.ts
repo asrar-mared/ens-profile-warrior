@@ -1,6 +1,5 @@
 import type { NetworkConnection } from 'hardhat/types/network'
 import { getAddress, namehash, zeroAddress } from 'viem'
-import { describe, expect, it } from 'vitest'
 
 import {
   CANNOT_SET_RESOLVER,

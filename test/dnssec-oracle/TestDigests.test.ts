@@ -1,6 +1,5 @@
 import hre from 'hardhat'
 import { stringToHex } from 'viem'
-import { describe, expect, it } from 'vitest'
 
 import { digests } from './fixtures/digests.js'
 

@@ -1,5 +1,4 @@
 import { evmChainIdToCoinType } from '@ensdomains/address-encoder/utils'
-import { expect } from 'chai'
 import hre from 'hardhat'
 import { getAddress, namehash, type Address } from 'viem'
 import { base } from 'viem/chains'
@@ -54,7 +53,7 @@ const loadFixture = async () => connection.networkHelpers.loadFixture(fixture)
 describe('L2ReverseRegistrarWithMigration', () => {
   it('should migrate names', async () => {
     const { l2ReverseRegistrar, oldReverseResolver, accounts } =
-      await loadFixture(fixture)
+      await loadFixture()
 
     await l2ReverseRegistrar.write.batchSetName([
       accounts.map((a) => a.address),

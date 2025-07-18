@@ -1,6 +1,5 @@
 import hre from 'hardhat'
 import { labelhash, namehash, zeroAddress, zeroHash } from 'viem'
-import { describe, expect, it } from 'vitest'
 import { toLabelId } from '../fixtures/utils.js'
 
 const connection = await hre.network.connect()

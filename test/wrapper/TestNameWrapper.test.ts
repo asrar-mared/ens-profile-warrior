@@ -2,7 +2,6 @@ import { shouldSupportInterfaces } from '@ensdomains/hardhat-chai-matchers-viem/
 import type { Fixture } from '@nomicfoundation/hardhat-network-helpers/types'
 import hre from 'hardhat'
 import { getAddress, labelhash, namehash, zeroAddress, zeroHash } from 'viem'
-import { describe, expect, it } from 'vitest'
 
 import { DAY } from '../fixtures/constants.js'
 import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'

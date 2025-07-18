@@ -1,5 +1,4 @@
 import hre from 'hardhat'
-import { describe, expect, it } from 'vitest'
 
 import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
 import { shortCoin } from '../fixtures/ensip19.js'
@@ -14,7 +13,7 @@ const connection = await hre.network.connect()
 
 async function fixture() {
   const bg = await serveBatchGateway()
-  after(bg.shutdown)
+  afterAll(bg.shutdown)
   return connection.viem.deployContract(
     'UniversalResolver',
     [ENS_REGISTRY, [bg.localBatchGatewayUrl]],

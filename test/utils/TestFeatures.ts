@@ -1,5 +1,4 @@
 import hre from 'hardhat'
-import { expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { FEATURES, makeFeature } from './features.js'
 

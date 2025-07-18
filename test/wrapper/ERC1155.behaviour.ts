@@ -11,7 +11,6 @@ import {
   type Address,
   type Hex,
 } from 'viem'
-import { describe, expect, it } from 'vitest'
 
 const RECEIVER_SINGLE_MAGIC_VALUE = '0xf23a6e61'
 const RECEIVER_BATCH_MAGIC_VALUE = '0xbc197c81'

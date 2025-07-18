@@ -14,7 +14,6 @@ import {
   namehash,
   stringToHex,
 } from 'viem'
-import { describe, expect, it } from 'vitest'
 
 import { packetToBytes } from '../fixtures/dnsEncodeName.js'
 

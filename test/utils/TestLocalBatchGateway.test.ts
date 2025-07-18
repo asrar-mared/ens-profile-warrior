@@ -4,7 +4,6 @@ import {
   parseAbi,
   zeroAddress,
 } from 'viem'
-import { afterAll, describe, expect, it } from 'vitest'
 
 import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
 import {

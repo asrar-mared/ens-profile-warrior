@@ -1,5 +1,4 @@
 import { zeroAddress } from 'viem'
-import { describe, expect, it } from 'vitest'
 
 import type { NetworkConnection } from 'hardhat/types/network'
 import { toNameId } from '../../fixtures/utils.js'

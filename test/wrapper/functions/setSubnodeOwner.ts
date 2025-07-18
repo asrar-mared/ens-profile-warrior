@@ -1,6 +1,5 @@
 import type { NetworkConnection } from 'hardhat/types/network'
 import { getAddress, labelhash, namehash, zeroAddress } from 'viem'
-import { describe, expect, it } from 'vitest'
 
 import { DAY } from '../../fixtures/constants.js'
 import { dnsEncodeName } from '../../fixtures/dnsEncodeName.js'

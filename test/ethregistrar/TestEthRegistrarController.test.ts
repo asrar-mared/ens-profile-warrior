@@ -8,7 +8,6 @@ import {
   zeroAddress,
   zeroHash,
 } from 'viem'
-import { describe, expect, it } from 'vitest'
 
 import { DAY, FUSES } from '../fixtures/constants.js'
 import { getReverseName } from '../fixtures/ensip19.js'
@@ -204,7 +203,7 @@ describe('ETHRegistrarController', () => {
       {
         label: 'newname',
         duration: REGISTRATION_TIME,
-        owner: registrantAccount.address,
+        ownerAddress: registrantAccount.address,
       },
     )
 
@@ -235,16 +234,14 @@ describe('ETHRegistrarController', () => {
   })
 
   it('should revert when not enough ether is transferred', async () => {
-    const { ethRegistrarController, registrantAccount } = await loadFixture(
-      fixture,
-    )
+    const { ethRegistrarController, registrantAccount } = await loadFixture()
 
     const { args } = await commitName(
       { ethRegistrarController },
       {
         label: 'newname',
         duration: REGISTRATION_TIME,
-        owner: registrantAccount.address,
+        ownerAddress: registrantAccount.address,
       },
     )
 
@@ -275,8 +272,8 @@ describe('ETHRegistrarController', () => {
       {
         label: 'newconfigname',
         duration: REGISTRATION_TIME,
-        owner: registrantAccount.address,
-        resolver: publicResolver.address,
+        ownerAddress: registrantAccount.address,
+        resolverAddress: publicResolver.address,
         data: callData,
       },
     )
@@ -325,14 +322,14 @@ describe('ETHRegistrarController', () => {
 
   it('should not permit new registrations with data and 0 resolver', async () => {
     const { ethRegistrarController, registrantAccount, callData } =
-      await loadFixture(fixture)
+      await loadFixture()
 
     await expect(
       ethRegistrarController.read.makeCommitment([
         getRegisterNameParameters(
           await getDefaultRegistrationOptions({
             label: 'newconfigname',
-            owner: registrantAccount.address,
+            ownerAddress: registrantAccount.address,
             data: callData,
           }),
         ),
@@ -342,15 +339,15 @@ describe('ETHRegistrarController', () => {
 
   it('should not permit new registrations with EoA resolver', async () => {
     const { ethRegistrarController, registrantAccount, callData } =
-      await loadFixture(fixture)
+      await loadFixture()
 
     const { args } = await commitName(
       { ethRegistrarController },
       {
         label: 'newconfigname',
         duration: REGISTRATION_TIME,
-        owner: registrantAccount.address,
-        resolver: registrantAccount.address,
+        ownerAddress: registrantAccount.address,
+        resolverAddress: registrantAccount.address,
         data: callData,
       },
     )
@@ -364,15 +361,15 @@ describe('ETHRegistrarController', () => {
 
   it('should not permit new registrations with incompatible contract resolver', async () => {
     const { ethRegistrarController, registrantAccount, callData } =
-      await loadFixture(fixture)
+      await loadFixture()
 
     const { args } = await commitName(
       { ethRegistrarController },
       {
         label: 'newconfigname',
         duration: REGISTRATION_TIME,
-        owner: registrantAccount.address,
-        resolver: ethRegistrarController.address,
+        ownerAddress: registrantAccount.address,
+        resolverAddress: ethRegistrarController.address,
         data: callData,
       },
     )
@@ -392,8 +389,8 @@ describe('ETHRegistrarController', () => {
       {
         label: 'awesome',
         duration: REGISTRATION_TIME,
-        owner: registrantAccount.address,
-        resolver: publicResolver.address,
+        ownerAddress: registrantAccount.address,
+        resolverAddress: publicResolver.address,
         data: [
           encodeFunctionData({
             abi: publicResolver.abi,
@@ -421,8 +418,8 @@ describe('ETHRegistrarController', () => {
       {
         label: 'awesome',
         duration: REGISTRATION_TIME,
-        owner: registrantAccount.address,
-        resolver: publicResolver.address,
+        ownerAddress: registrantAccount.address,
+        resolverAddress: publicResolver.address,
         data: [
           encodeFunctionData({
             abi: publicResolver.abi,
@@ -456,8 +453,8 @@ describe('ETHRegistrarController', () => {
       {
         label: 'newconfigname',
         duration: REGISTRATION_TIME,
-        owner: registrantAccount.address,
-        resolver: publicResolver.address,
+        ownerAddress: registrantAccount.address,
+        resolverAddress: publicResolver.address,
       },
     )
     const timestamp = await publicClient
@@ -501,7 +498,7 @@ describe('ETHRegistrarController', () => {
       {
         label: 'newname',
         duration: REGISTRATION_TIME,
-        owner: otherAccount.address,
+        ownerAddress: otherAccount.address,
       },
     )
 
@@ -524,7 +521,7 @@ describe('ETHRegistrarController', () => {
       {
         label,
         duration: REGISTRATION_TIME,
-        owner: registrantAccount.address,
+        ownerAddress: registrantAccount.address,
       },
     )
 
@@ -533,7 +530,7 @@ describe('ETHRegistrarController', () => {
       {
         label,
         duration: REGISTRATION_TIME,
-        owner: registrantAccount.address,
+        ownerAddress: registrantAccount.address,
       },
     )
 
@@ -555,7 +552,7 @@ describe('ETHRegistrarController', () => {
       {
         label: 'newname',
         duration: REGISTRATION_TIME,
-        owner: registrantAccount.address,
+        ownerAddress: registrantAccount.address,
       },
     )
 
@@ -592,7 +589,7 @@ describe('ETHRegistrarController', () => {
       {
         label: 'newname',
         duration: REGISTRATION_TIME,
-        owner: registrantAccount.address,
+        ownerAddress: registrantAccount.address,
       },
     )
 
@@ -638,7 +635,7 @@ describe('ETHRegistrarController', () => {
       {
         label: 'newname',
         duration: REGISTRATION_TIME,
-        owner: registrantAccount.address,
+        ownerAddress: registrantAccount.address,
       },
     )
 
@@ -733,7 +730,7 @@ describe('ETHRegistrarController', () => {
       {
         label: 'newname',
         duration: REGISTRATION_TIME,
-        owner: registrantAccount.address,
+        ownerAddress: registrantAccount.address,
       },
     )
 
@@ -750,15 +747,15 @@ describe('ETHRegistrarController', () => {
       publicResolver,
       registrantAccount,
       ownerAccount,
-    } = await loadFixture(fixture)
+    } = await loadFixture()
 
     await registerName(
       { ethRegistrarController },
       {
         label: 'reverse',
         duration: REGISTRATION_TIME,
-        owner: registrantAccount.address,
-        resolver: publicResolver.address,
+        ownerAddress: registrantAccount.address,
+        resolverAddress: publicResolver.address,
         reverseRecord: ['ethereum'],
       },
     )
@@ -780,15 +777,15 @@ describe('ETHRegistrarController', () => {
       publicResolver,
       ownerAccount,
       registrantAccount,
-    } = await loadFixture(fixture)
+    } = await loadFixture()
 
     await registerName(
       { ethRegistrarController },
       {
         label: 'reverse',
         duration: REGISTRATION_TIME,
-        owner: registrantAccount.address,
-        resolver: publicResolver.address,
+        ownerAddress: registrantAccount.address,
+        resolverAddress: publicResolver.address,
         reverseRecord: [],
       },
     )
@@ -809,15 +806,15 @@ describe('ETHRegistrarController', () => {
       defaultReverseRegistrar,
       publicResolver,
       registrantAccount,
-    } = await loadFixture(fixture)
+    } = await loadFixture()
 
     await registerName(
       { ethRegistrarController },
       {
         label: 'reverse',
         duration: REGISTRATION_TIME,
-        owner: registrantAccount.address,
-        resolver: publicResolver.address,
+        ownerAddress: registrantAccount.address,
+        resolverAddress: publicResolver.address,
         reverseRecord: ['ethereum', 'default'],
       },
     )
@@ -838,15 +835,15 @@ describe('ETHRegistrarController', () => {
       defaultReverseRegistrar,
       publicResolver,
       registrantAccount,
-    } = await loadFixture(fixture)
+    } = await loadFixture()
 
     await registerName(
       { ethRegistrarController },
       {
         label: 'reverse',
         duration: REGISTRATION_TIME,
-        owner: registrantAccount.address,
-        resolver: publicResolver.address,
+        ownerAddress: registrantAccount.address,
+        resolverAddress: publicResolver.address,
         reverseRecord: [],
       },
     )
@@ -868,7 +865,7 @@ describe('ETHRegistrarController', () => {
     const params = await getDefaultRegistrationOptions({
       label: 'reverse',
       duration: REGISTRATION_TIME,
-      owner: registrantAccount.address,
+      ownerAddress: registrantAccount.address,
       reverseRecord: ['ethereum'],
     })
     const args = getRegisterNameParameters(params)
@@ -887,14 +884,12 @@ describe('ETHRegistrarController', () => {
   })
 
   it('should not permit setting the ethereum reverse record without a resolver', async () => {
-    const { ethRegistrarController, registrantAccount } = await loadFixture(
-      fixture,
-    )
+    const { ethRegistrarController, registrantAccount } = await loadFixture()
 
     const params = await getDefaultRegistrationOptions({
       label: 'reverse',
       duration: REGISTRATION_TIME,
-      owner: registrantAccount.address,
+      ownerAddress: registrantAccount.address,
       reverseRecord: ['ethereum'],
     })
     const args = getRegisterNameParameters(params)
@@ -913,14 +908,12 @@ describe('ETHRegistrarController', () => {
   })
 
   it('should not permit setting both reverse records without a resolver', async () => {
-    const { ethRegistrarController, registrantAccount } = await loadFixture(
-      fixture,
-    )
+    const { ethRegistrarController, registrantAccount } = await loadFixture()
 
     const params = await getDefaultRegistrationOptions({
       label: 'reverse',
       duration: REGISTRATION_TIME,
-      owner: registrantAccount.address,
+      ownerAddress: registrantAccount.address,
       reverseRecord: ['ethereum', 'default'],
     })
     const args = getRegisterNameParameters(params)
@@ -946,7 +939,7 @@ describe('ETHRegistrarController', () => {
       ethRegistrarController,
       registrantAccount,
       publicResolver,
-    } = await loadFixture(fixture)
+    } = await loadFixture()
 
     const label = 'other'
     const name = label + '.eth'
@@ -957,8 +950,8 @@ describe('ETHRegistrarController', () => {
       {
         label,
         duration: REGISTRATION_TIME,
-        owner: registrantAccount.address,
-        resolver: publicResolver.address,
+        ownerAddress: registrantAccount.address,
+        resolverAddress: publicResolver.address,
         data: [
           encodeFunctionData({
             abi: publicResolver.abi,
@@ -1013,7 +1006,7 @@ describe('ETHRegistrarController', () => {
       ethRegistrarController,
       registrantAccount,
       publicResolver,
-    } = await loadFixture(fixture)
+    } = await loadFixture()
 
     const label = 'newconfigname'
     const name = label + '.eth'
@@ -1036,8 +1029,8 @@ describe('ETHRegistrarController', () => {
       {
         label,
         duration: REGISTRATION_TIME,
-        owner: registrantAccount.address,
-        resolver: publicResolver.address,
+        ownerAddress: registrantAccount.address,
+        resolverAddress: publicResolver.address,
         data: callData,
       },
     )
@@ -1051,7 +1044,7 @@ describe('ETHRegistrarController', () => {
 
   it('should emit the referrer when a name is registered', async () => {
     const { ethRegistrarController, registrantAccount, publicClient } =
-      await loadFixture(fixture)
+      await loadFixture()
 
     const referrer = namehash('referrer.eth')
     const { args, params } = await commitName(
@@ -1059,7 +1052,7 @@ describe('ETHRegistrarController', () => {
       {
         label: 'newname',
         duration: REGISTRATION_TIME,
-        owner: registrantAccount.address,
+        ownerAddress: registrantAccount.address,
         referrer,
       },
     )
@@ -1087,7 +1080,7 @@ describe('ETHRegistrarController', () => {
 
   it('should emit the referrer when a name is renewed', async () => {
     const { baseRegistrar, ethRegistrarController, registrantAccount } =
-      await loadFixture(fixture)
+      await loadFixture()
 
     const label = 'newname'
     const referrer = namehash('referrer.eth')
@@ -1097,7 +1090,7 @@ describe('ETHRegistrarController', () => {
       {
         label: 'newname',
         duration: REGISTRATION_TIME,
-        owner: registrantAccount.address,
+        ownerAddress: registrantAccount.address,
       },
     )
 

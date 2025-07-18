@@ -10,7 +10,6 @@ import {
   type Address,
   type Hex,
 } from 'viem'
-import { describe, expect, it } from 'vitest'
 
 import { DAY } from '../../fixtures/constants.js'
 import { dnsEncodeName } from '../../fixtures/dnsEncodeName.js'

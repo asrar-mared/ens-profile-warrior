@@ -15,7 +15,6 @@ import {
   zeroAddress,
   zeroHash,
 } from 'viem'
-import { describe, expect, it } from 'vitest'
 
 import { createInterfaceId } from '../fixtures/createInterfaceId.js'
 import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'

@@ -1,5 +1,4 @@
 import hre from 'hardhat'
-import { describe, expect, it } from 'vitest'
 
 import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
 import {
@@ -59,7 +58,7 @@ describe('ENSIP19', () => {
   describe('parseNamespace()', () => {
     for (const coinType of coinTypes) {
       it(shortCoin(coinType), async () => {
-        const F = await loadFixture(fixture)
+        const F = await loadFixture()
         await expect(
           F.read.parseNamespace([
             dnsEncodeName(getReverseNamespace(coinType)),

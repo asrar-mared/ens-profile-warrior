@@ -6,7 +6,6 @@ import {
   zeroAddress,
   type Address,
 } from 'viem'
-import { expect } from 'vitest'
 
 import type { NetworkConnection } from 'hardhat/types/network'
 import { DAY, FUSES } from '../../fixtures/constants.js'

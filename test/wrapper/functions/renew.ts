@@ -1,6 +1,5 @@
 import type { NetworkConnection } from 'hardhat/types/network'
 import { zeroAddress } from 'viem'
-import { describe, expect, it } from 'vitest'
 
 import { DAY } from '../../fixtures/constants.js'
 import { toLabelId, toNameId } from '../../fixtures/utils.js'

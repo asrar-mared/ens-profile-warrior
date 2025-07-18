@@ -7,7 +7,6 @@ import {
   zeroAddress,
   zeroHash,
 } from 'viem'
-import { describe, expect, it } from 'vitest'
 
 import { getReverseName } from '../fixtures/ensip19.js'
 import { getAccounts } from '../fixtures/utils.js'
@@ -353,7 +352,7 @@ describe('ReverseRegistrar', () => {
         reverseRegistrar.write.setController([accounts[1].address, true], {
           account: accounts[1],
         }),
-      ).toBeRevertedWithString('Ownable: caller is not the owner')
+      ).rejects.toThrow('Ownable: caller is not the owner')
     })
   })
 })

@@ -1,5 +1,4 @@
 import { getAddress, labelhash, namehash, zeroAddress } from 'viem'
-import { describe, expect, it } from 'vitest'
 
 import { DAY } from '../../fixtures/constants.js'
 import { toLabelId, toNameId } from '../../fixtures/utils.js'

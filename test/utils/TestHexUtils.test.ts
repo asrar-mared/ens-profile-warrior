@@ -1,6 +1,5 @@
 import hre from 'hardhat'
 import { type Hex, stringToHex, toHex, zeroAddress, zeroHash } from 'viem'
-import { describe, expect, it } from 'vitest'
 
 const connection = await hre.network.connect()
 
@@ -28,7 +27,7 @@ describe('HexUtils', () => {
       })
     }
     it('invalid range', async () => {
-      const F = await loadFixture(fixture)
+      const F = await loadFixture()
       await expect(F.read.hexToBytes(['0x', 1n, 0n])).resolves.toStrictEqual([
         '0x',
         false,
@@ -112,7 +111,7 @@ describe('HexUtils', () => {
     })
 
     it('invalid range', async () => {
-      const F = await loadFixture(fixture)
+      const F = await loadFixture()
       await expect(
         F.read.hexStringToBytes32(['0x', 1n, 0n]),
       ).resolves.toStrictEqual([zeroHash, false])
@@ -163,7 +162,7 @@ describe('HexUtils', () => {
     })
 
     it('invalid range', async () => {
-      const F = await loadFixture(fixture)
+      const F = await loadFixture()
       await expect(
         F.read.hexToAddress([stringToHex('0x12'), 2n, 0n]),
       ).resolves.toStrictEqual([zeroAddress, false])

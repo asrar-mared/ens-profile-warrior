@@ -1,6 +1,5 @@
 import hre from 'hardhat'
 import { getAddress, labelhash, namehash, zeroHash } from 'viem'
-import { describe, expect, it } from 'vitest'
 
 import { getAccounts } from '../fixtures/utils.js'
 

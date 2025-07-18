@@ -1,5 +1,5 @@
 import hre from 'hardhat'
-import type { ArtifactsMap } from 'hardhat/types/artifacts.js'
+import type { ArtifactMap } from 'hardhat/types/artifacts.js'
 import {
   bytesToHex,
   hexToBytes,
@@ -17,7 +17,7 @@ import {
  * @returns The explicitly defined ABI for the interface
  */
 const getSolidityReferenceInterfaceAbi = async (
-  interfaceName: keyof ArtifactsMap,
+  interfaceName: keyof ArtifactMap,
 ) => {
   const artifact = await hre.artifacts.readArtifact(interfaceName as string)
 
@@ -43,7 +43,7 @@ export const createInterfaceId = <iface extends Abi>(iface: iface) => {
   return bytesToHex(bytesId)
 }
 
-export const getInterfaceId = async (interfaceName: keyof ArtifactsMap) => {
+export const getInterfaceId = async (interfaceName: keyof ArtifactMap) => {
   const abi = await getSolidityReferenceInterfaceAbi(interfaceName)
   return createInterfaceId(abi)
 }

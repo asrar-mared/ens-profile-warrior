@@ -1,6 +1,5 @@
 import hre from 'hardhat'
 import { labelhash, namehash, zeroAddress, zeroHash } from 'viem'
-import { describe, expect, it } from 'vitest'
 
 import { DAY, FUSES } from '../fixtures/constants.js'
 import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'

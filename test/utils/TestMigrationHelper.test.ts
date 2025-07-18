@@ -8,7 +8,6 @@ import {
   zeroAddress,
   zeroHash,
 } from 'viem'
-import { describe, expect, it } from 'vitest'
 
 const connection = await hre.network.connect()
 const publicClient = await connection.viem.getPublicClient()

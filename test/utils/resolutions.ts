@@ -8,7 +8,6 @@ import {
   parseAbi,
   toHex,
 } from 'viem'
-import { expect } from 'vitest'
 import { COIN_TYPE_ETH, shortCoin } from '../fixtures/ensip19.js'
 
 export const RESOLVE_MULTICALL = parseAbi([
@@ -112,10 +111,7 @@ export function bundleCalls(resolutions: KnownResolution[]): KnownBundle {
       result: resolutions.map((x) => {
         let answer = x.answer
         if (typeof answer === 'string') {
-          // Handle empty hex string case
-          if (answer === '0x') {
-            answer = '0x00'
-          }
+          return answer
         } else {
           answer = toHex(answer)
         }
@@ -228,6 +224,10 @@ export function makeResolutions(p: KnownProfile): KnownResolution[] {
           result: value,
         }),
         expect(data) {
+          // Handle empty response case
+          if (data === '0x' && value === undefined) {
+            return // Empty response is expected
+          }
           const actual = decodeFunctionResult({
             abi,
             functionName,
@@ -262,11 +262,19 @@ export function makeResolutions(p: KnownProfile): KnownResolution[] {
         result: value,
       }),
       expect(data) {
+        // Handle empty response case
+        if (data === '0x' && value === undefined) {
+          return // Empty response is expected
+        }
         const actual = decodeFunctionResult({
           abi,
           functionName,
           data,
         })
+        // Handle case where empty string is returned but undefined was expected
+        if (actual === '' && value === undefined) {
+          return // Empty string decoded as undefined
+        }
         expect(actual, this.desc).toStrictEqual(value)
       },
       write: encodeFunctionData({

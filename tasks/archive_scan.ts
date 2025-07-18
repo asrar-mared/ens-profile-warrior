@@ -14,7 +14,7 @@ task(
   const deployments = await hre.artifacts.getAllBuildInfoIds()
 
   for (const deploymentName in deployments) {
-    const deployment = deployments[deploymentName]
+    const deployment = (deployments as any)[deploymentName]
     if (!deployment.receipt || !deployment.bytecode) continue
 
     const archiveName = `${deploymentName}_${network}_${deployment.receipt.blockNumber}`

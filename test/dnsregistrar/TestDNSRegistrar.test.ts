@@ -1,6 +1,5 @@
 import hre from 'hardhat'
 import { labelhash, namehash, zeroAddress, zeroHash, type Address } from 'viem'
-import { describe, expect, it } from 'vitest'
 
 import {
   expiration,

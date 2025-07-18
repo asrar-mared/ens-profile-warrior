@@ -1,4 +1,3 @@
-import type { DeployFunction } from 'hardhat-deploy/types.js'
 import type { Address } from 'viem'
 import { mainnet, sepolia } from 'viem/chains'
 import { coinTypeFromChain } from './ensip19.js'
@@ -23,13 +22,13 @@ export function createChainReverseResolverDeployer({
   chainName: string
   targets: Record<number, ResolverDeployment>
 }) {
-  const func: DeployFunction = async function (hre) {
+  const func = async function (hre: any) {
     const { deployer } = await hre.viem.getNamedClients()
     const publicClient = await hre.viem.getPublicClient()
 
     const defaultReverseRegistrar = await hre.viem
       .getContract('DefaultReverseRegistrar')
-      .then((c) => c.address)
+      .then((c: any) => c.address)
 
     const target = targets[publicClient.chain.id]
     if (!target) {

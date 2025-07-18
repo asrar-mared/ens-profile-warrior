@@ -1,5 +1,4 @@
 import hre from 'hardhat'
-import { describe, it } from 'vitest'
 
 const connection = await hre.network.connect()
 
@@ -8,7 +7,7 @@ const contracts = [
   'contracts/test/TestRRUtils.sol:TestRRUtils',
 ] as const
 
-describe.each(contracts)('%s', async (contract) => {
+describe.each(contracts)('%s', async (contract: string) => {
   async function fixture() {
     const publicClient = await connection.viem.getPublicClient()
     const testContract = await connection.viem.deployContract(

@@ -1,6 +1,5 @@
 import hre from 'hardhat'
 import { labelhash, namehash, zeroHash } from 'viem'
-import { describe, expect, it } from 'vitest'
 
 import { getReverseName } from '../fixtures/ensip19.js'
 import { getAccounts } from '../fixtures/utils.js'

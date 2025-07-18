@@ -1,5 +1,4 @@
 import { getAddress, namehash, zeroAddress } from 'viem'
-import { describe, expect, it } from 'vitest'
 
 import { dnsEncodeName } from '../../fixtures/dnsEncodeName.js'
 import { toLabelId, toNameId } from '../../fixtures/utils.js'
