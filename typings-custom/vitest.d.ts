@@ -12,7 +12,11 @@ declare module 'vitest' {
     toEmitEvent(event: string, ...args: any[]): any
     toEmitEventFrom(contract: any, event: string, ...args: any[]): any
     toBeRevertedWithCustomError(error: string, ...args: any[]): any
-    toBeRevertedWithCustomErrorFrom(contract: any, error: string, ...args: any[]): any
+    toBeRevertedWithCustomErrorFrom(
+      contract: any,
+      error: string,
+      ...args: any[]
+    ): any
     toBeReverted(): any
     toBeRevertedWithString(reason: string): any
     toBeRevertedWithoutReason(): any
@@ -21,7 +25,7 @@ declare module 'vitest' {
     // Add resolves property for promise assertion chaining
     resolves: Assertion<Awaited<T>>
   }
-  
+
   interface AsymmetricMatchersContaining {
     toBeUndefined(): any
     toBeDefined(): any

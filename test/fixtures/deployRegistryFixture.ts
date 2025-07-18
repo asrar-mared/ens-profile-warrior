@@ -6,7 +6,7 @@ export async function deployRegistryFixture() {
   const [wallet] = await connection.viem.getWalletClients()
   const owner = getAddress(wallet.account.address)
   const ensRegistry = await connection.viem.deployContract('ENSRegistry')
-  
+
   async function takeControl(name: string) {
     if (name) {
       const labels = name.split('.')
@@ -19,6 +19,6 @@ export async function deployRegistryFixture() {
       }
     }
   }
-  
+
   return { owner, ensRegistry, takeControl }
 }

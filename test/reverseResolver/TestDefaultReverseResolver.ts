@@ -59,7 +59,10 @@ describe('DefaultReverseResolver', () => {
       }
       const [res] = makeResolutions(kp)
       await expect(
-        F.defaultReverseResolver.read.resolve([dnsEncodeName(kp.name), res.call])
+        F.defaultReverseResolver.read.resolve([
+          dnsEncodeName(kp.name),
+          res.call,
+        ]),
       ).toBeRevertedWithCustomError('UnsupportedResolverProfile')
       // .withArgs(slice(res.call, 0, 4))
     })
@@ -103,9 +106,12 @@ describe('DefaultReverseResolver', () => {
           )
         } else {
           await expect(
-            F.defaultReverseResolver.read.resolve([dnsEncodeName(kp.name), res.call])
+            F.defaultReverseResolver.read.resolve([
+              dnsEncodeName(kp.name),
+              res.call,
+            ]),
           ).toBeRevertedWithCustomError('UnreachableName')
-            // .withArgs(dnsEncodeName(kp.name))
+          // .withArgs(dnsEncodeName(kp.name))
         }
       })
     }

@@ -96,7 +96,9 @@ task('multichain-verify', 'Verify contracts on multiple EVM chains')
     const solcInputString = JSON.stringify(solcInput)
     console.log(`Verifying ${contractName} (${address}) ...`)
 
-    const description = abi.find((x: any) => 'type' in x && x.type === 'constructor')
+    const description = abi.find(
+      (x: any) => 'type' in x && x.type === 'constructor',
+    )
     const constructorArguments =
       deployArgs.length > 0
         ? encodeAbiParameters(description.inputs, deployArgs)

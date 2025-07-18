@@ -44,7 +44,16 @@ import '@rocketh/proxy' // provides proxy deployment functions
 
 // Extend the Environment interface to include viem
 import { extendEnvironment } from 'rocketh'
-import { createTestClient, createWalletClient, createPublicClient, type Client, type TestClient, type WalletClient, type PublicClient, http } from 'viem'
+import {
+  createTestClient,
+  createWalletClient,
+  createPublicClient,
+  type Client,
+  type TestClient,
+  type WalletClient,
+  type PublicClient,
+  http,
+} from 'viem'
 import { Chain } from 'viem'
 
 // Types for augmented deployments with viem contract interfaces
@@ -55,30 +64,35 @@ type ContractReadMethods<TAbi extends import('abitype').Abi> = {
 }
 
 type ContractWriteMethods<TAbi extends import('abitype').Abi> = {
-  [K in import('abitype').ExtractAbiFunctionNames<TAbi, 'nonpayable' | 'payable'>]: (
-    args?: any,
-    options?: any
-  ) => Promise<any>
+  [K in import('abitype').ExtractAbiFunctionNames<
+    TAbi,
+    'nonpayable' | 'payable'
+  >]: (args?: any, options?: any) => Promise<any>
 }
 
-type AugmentedDeployment<TAbi extends import('abitype').Abi> = import('rocketh').Deployment<TAbi> & {
-  read: ContractReadMethods<TAbi>
-  write: ContractWriteMethods<TAbi>
-}
+type AugmentedDeployment<TAbi extends import('abitype').Abi> =
+  import('rocketh').Deployment<TAbi> & {
+    read: ContractReadMethods<TAbi>
+    write: ContractWriteMethods<TAbi>
+  }
 
 declare module 'rocketh' {
   interface Environment {
-    get<TAbi extends import('abitype').Abi = import('abitype').Abi>(name: string): AugmentedDeployment<TAbi>
-    
+    get<TAbi extends import('abitype').Abi = import('abitype').Abi>(
+      name: string,
+    ): AugmentedDeployment<TAbi>
+
     viem: {
       getPublicClient(): Promise<PublicClient>
       getWalletClient(): Promise<WalletClient>
       getTestClient(): Promise<TestClient>
-      getUnnamedClients(): Promise<{ address: string; account: string; wallet: WalletClient }[]>
+      getUnnamedClients(): Promise<
+        { address: string; account: string; wallet: WalletClient }[]
+      >
       getContractAt<TAbi extends any[]>(
         contractName: string,
         address: string,
-        options?: { client?: any }
+        options?: { client?: any },
       ): Promise<any>
       waitForTransactionSuccess(hash: string): Promise<any>
     }
@@ -88,46 +102,54 @@ declare module 'rocketh' {
 extendEnvironment((env) => {
   // Store the original get function
   const originalGet = env.get.bind(env)
-  
+
   // Override the get function to add viem contract interfaces
-  env.get = function<TAbi extends import('abitype').Abi>(name: string): AugmentedDeployment<TAbi> {
+  env.get = function <TAbi extends import('abitype').Abi>(
+    name: string,
+  ): AugmentedDeployment<TAbi> {
     const deployment = originalGet(name)
-    
+
     // Add viem contract interfaces to the deployment
     const augmentedDeployment = {
       ...deployment,
-      read: new Proxy({}, {
-        get: (target, prop) => {
-          return async (...args: any[]) => {
-            const publicClient = await env.viem.getPublicClient()
-            return publicClient.readContract({
-              address: deployment.address as `0x${string}`,
-              abi: deployment.abi,
-              functionName: prop as string,
-              args: args[0] || [],
-            })
-          }
-        }
-      }),
-      write: new Proxy({}, {
-        get: (target, prop) => {
-          return async (...args: any[]) => {
-            const walletClient = await env.viem.getWalletClient()
-            return walletClient.writeContract({
-              address: deployment.address as `0x${string}`,
-              abi: deployment.abi,
-              functionName: prop as string,
-              args: args[0] || [],
-              ...args[1]
-            })
-          }
-        }
-      })
+      read: new Proxy(
+        {},
+        {
+          get: (target, prop) => {
+            return async (...args: any[]) => {
+              const publicClient = await env.viem.getPublicClient()
+              return publicClient.readContract({
+                address: deployment.address as `0x${string}`,
+                abi: deployment.abi,
+                functionName: prop as string,
+                args: args[0] || [],
+              })
+            }
+          },
+        },
+      ),
+      write: new Proxy(
+        {},
+        {
+          get: (target, prop) => {
+            return async (...args: any[]) => {
+              const walletClient = await env.viem.getWalletClient()
+              return walletClient.writeContract({
+                address: deployment.address as `0x${string}`,
+                abi: deployment.abi,
+                functionName: prop as string,
+                args: args[0] || [],
+                ...args[1],
+              })
+            }
+          },
+        },
+      ),
     }
-    
+
     return augmentedDeployment as AugmentedDeployment<TAbi>
   }
-  
+
   env.viem = {
     async getPublicClient() {
       return createPublicClient({
@@ -151,44 +173,56 @@ extendEnvironment((env) => {
     async getUnnamedClients() {
       return []
     },
-    async getContractAt(contractName: string, address: string, options?: { client?: any }) {
+    async getContractAt(
+      contractName: string,
+      address: string,
+      options?: { client?: any },
+    ) {
       const publicClient = await this.getPublicClient()
       const deployment = originalGet(contractName)
       return {
         address,
         abi: deployment.abi,
-        read: new Proxy({}, {
-          get: (target, prop) => {
-            return async (...args: any[]) => {
-              return publicClient.readContract({
-                address: address as `0x${string}`,
-                abi: deployment.abi,
-                functionName: prop as string,
-                args: args[0] || [],
-              })
-            }
-          }
-        }),
-        write: new Proxy({}, {
-          get: (target, prop) => {
-            return async (...args: any[]) => {
-              const walletClient = await this.getWalletClient()
-              return walletClient.writeContract({
-                address: address as `0x${string}`,
-                abi: deployment.abi,
-                functionName: prop as string,
-                args: args[0] || [],
-                ...args[1]
-              })
-            }
-          }
-        })
+        read: new Proxy(
+          {},
+          {
+            get: (target, prop) => {
+              return async (...args: any[]) => {
+                return publicClient.readContract({
+                  address: address as `0x${string}`,
+                  abi: deployment.abi,
+                  functionName: prop as string,
+                  args: args[0] || [],
+                })
+              }
+            },
+          },
+        ),
+        write: new Proxy(
+          {},
+          {
+            get: (target, prop) => {
+              return async (...args: any[]) => {
+                const walletClient = await this.getWalletClient()
+                return walletClient.writeContract({
+                  address: address as `0x${string}`,
+                  abi: deployment.abi,
+                  functionName: prop as string,
+                  args: args[0] || [],
+                  ...args[1],
+                })
+              }
+            },
+          },
+        ),
       }
     },
     async waitForTransactionSuccess(hash: string) {
       const publicClient = await this.getPublicClient()
-      return publicClient.waitForTransactionReceipt({ hash: hash as `0x${string}` })
-    }
+      return publicClient.waitForTransactionReceipt({
+        hash: hash as `0x${string}`,
+      })
+    },
   }
   return env
 })
