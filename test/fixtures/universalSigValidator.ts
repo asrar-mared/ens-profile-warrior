@@ -1,14 +1,42 @@
 import hre from 'hardhat'
-import { concat, zeroHash, type Hex } from 'viem'
+import { concat, zeroHash, keccak256, pad, type Hex } from 'viem'
 
 const ddpSigner = '0x3fab184622dc19b6109349b94811493bf2a45362'
 const ddpAddress = '0x4e59b44847b379578588920ca78fbf26c0b4956c'
+
+// Calculate the deterministic address for UniversalSigValidator
+export async function getUniversalSigValidatorAddress(): Promise<`0x${string}`> {
+  const usvArtifact = await hre.artifacts.readArtifact('UniversalSigValidator')
+  const usvBytecode = usvArtifact.bytecode as Hex
+
+  const deterministicAddress = `0x${keccak256(
+    concat([
+      '0xff',
+      pad(ddpAddress as `0x${string}`, { size: 20 }),
+      zeroHash,
+      keccak256(usvBytecode),
+    ]),
+  ).slice(-40)}` as `0x${string}`
+
+  return deterministicAddress
+}
 
 export async function deployUniversalSigValidator() {
   const connection = await hre.network.connect()
   const testClient = await connection.viem.getTestClient()
   const publicClient = await connection.viem.getPublicClient()
   const [walletClient] = await connection.viem.getWalletClients()
+
+  // Get the expected address - either hardcoded or calculated
+  const expectedAddress = '0x164af34fAF9879394370C7f09064127C043A35E9'
+  const calculatedAddress = await getUniversalSigValidatorAddress()
+
+  console.log(`Expected USV address: ${expectedAddress}`)
+  console.log(`Calculated USV address: ${calculatedAddress}`)
+
+  // If addresses don't match, we'll deploy to the calculated address
+  // and log the difference for developer awareness
+  const targetAddress = calculatedAddress
 
   // deploy deterministic deployer proxy
   await testClient.setBalance({
@@ -29,8 +57,9 @@ export async function deployUniversalSigValidator() {
     })
   }
 
+  // Check if USV is already deployed at the calculated address
   const usvCurrentBytecode = await publicClient.getBytecode({
-    address: '0x164af34fAF9879394370C7f09064127C043A35E9',
+    address: targetAddress,
   })
   if (!usvCurrentBytecode) {
     // deploy universal sig validator
@@ -45,5 +74,18 @@ export async function deployUniversalSigValidator() {
     await publicClient.waitForTransactionReceipt({
       hash: universalSigValidatorDeployHash,
     })
+    console.log(`UniversalSigValidator deployed at: ${targetAddress}`)
   }
+
+  // If the calculated address differs from expected, we need to handle this in tests
+  if (calculatedAddress !== expectedAddress) {
+    console.warn(`⚠️  Address mismatch detected:`)
+    console.warn(`   Expected: ${expectedAddress}`)
+    console.warn(`   Actual:   ${calculatedAddress}`)
+    console.warn(
+      `   This test may fail due to hardcoded address in SignatureUtils.sol`,
+    )
+  }
+
+  return { deployedAddress: targetAddress, expectedAddress }
 }
