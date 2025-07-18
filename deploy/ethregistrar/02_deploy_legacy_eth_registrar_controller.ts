@@ -1,4 +1,4 @@
-import { execute } from '../../rocketh.js'
+import { execute } from '@rocketh'
 import type { Abi } from 'viem'
 import legacyArtifactRaw from '../../deployments/archive/ETHRegistrarController_mainnet_9380471.sol/ETHRegistrarController_mainnet_9380471.json'
 

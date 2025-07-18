@@ -1,4 +1,4 @@
-import { execute, artifacts } from '../../rocketh.js'
+import { execute, artifacts } from '@rocketh'
 
 export default execute(
   async ({ deploy, namedAccounts }) => {

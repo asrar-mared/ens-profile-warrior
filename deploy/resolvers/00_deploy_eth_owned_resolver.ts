@@ -1,4 +1,4 @@
-import { execute, artifacts } from '../../rocketh.js'
+import { execute, artifacts } from '@rocketh'
 import { namehash } from 'viem'
 
 export default execute(
@@ -17,13 +17,14 @@ export default execute(
     const registry = await get('ENSRegistry')
     const registrar = await get('BaseRegistrarImplementation')
 
-    const setResolverHash = await registrar.write.setResolver(
+    // using 'as any' because rocketh's dynamic proxy doesn't have full type safety
+    const setResolverHash = await (registrar as any).write.setResolver(
       [ethOwnedResolver.address],
       { account: owner.account },
     )
     await viem.waitForTransactionSuccess(setResolverHash)
 
-    const resolver = await registry.read.resolver([namehash('eth')])
+    const resolver = await (registry as any).read.resolver([namehash('eth')])
     console.log(`set resolver for .eth to ${resolver}`)
   },
   {

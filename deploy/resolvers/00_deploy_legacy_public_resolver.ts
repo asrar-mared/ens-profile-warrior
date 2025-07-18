@@ -1,4 +1,4 @@
-import { execute, artifacts } from '../../rocketh.js'
+import { execute, artifacts } from '@rocketh'
 
 export default execute(
   async ({ deploy, get, namedAccounts, network, deployments }) => {
@@ -12,7 +12,9 @@ export default execute(
 
     await deploy('LegacyPublicResolver', {
       account: deployer,
-      artifact: await deployments.getArtifact('PublicResolver_mainnet_9412610'),
+      artifact: await (deployments as any).getArtifact(
+        'PublicResolver_mainnet_9412610',
+      ),
       args: [registry.address],
     })
   },

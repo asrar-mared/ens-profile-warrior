@@ -1,8 +1,12 @@
-import { execute, artifacts } from '../../rocketh.js'
+import { execute, artifacts } from '@rocketh'
 
 export default execute(
-  async ({ deploy, get, namedAccounts }) => {
+  async ({ deploy, get, namedAccounts, network }) => {
     const { deployer } = namedAccounts
+
+    if (!network.tags?.use_root) {
+      return
+    }
 
     // Get dependencies
     const registry = await get('ENSRegistry')

@@ -1,4 +1,4 @@
-import { execute, artifacts } from '../../rocketh.js'
+import { execute, artifacts } from '@rocketh'
 import type { Address } from 'viem'
 
 const TESTNET_WRAPPER_ADDRESSES = {
@@ -40,7 +40,7 @@ export default execute(
     }
 
     let testUnwrap = await get('TestUnwrap')
-    const contractOwner = await testUnwrap.read.owner()
+    const contractOwner = await (testUnwrap as any).read.owner()
     const contractOwnerClient = clients.find((c) => c.address === contractOwner)
     const canModifyTestUnwrap = !!contractOwnerClient
 
@@ -52,7 +52,9 @@ export default execute(
 
     for (const wrapperAddress of testnetWrapperAddresses) {
       try {
-        const nameWrapperArtifact = await deployments.getArtifact('NameWrapper')
+        const nameWrapperArtifact = await (deployments as any).getArtifact(
+          'NameWrapper',
+        )
         const wrapperContract = await viem.getContractAt(
           'NameWrapper',
           wrapperAddress,
@@ -61,9 +63,9 @@ export default execute(
 
         const upgradeContract = await wrapperContract.read.upgradeContract()
         const isUpgradeSet = upgradeContract === testUnwrap.address
-        const isApprovedWrapper = await testUnwrap.read.approvedWrapper([
-          wrapperAddress,
-        ])
+        const isApprovedWrapper = await (
+          testUnwrap as any
+        ).read.approvedWrapper([wrapperAddress])
 
         if (isUpgradeSet && isApprovedWrapper) {
           console.log(
@@ -115,10 +117,11 @@ export default execute(
           continue
         }
 
-        const setApprovalHash = await testUnwrap.write.setWrapperApproval(
-          [wrapperAddress, true],
-          { account: contractOwnerClient!.account },
-        )
+        const setApprovalHash = await (
+          testUnwrap as any
+        ).write.setWrapperApproval([wrapperAddress, true], {
+          account: contractOwnerClient!.account,
+        })
         console.log(
           `Approving wrapper ${wrapperAddress} (tx: ${setApprovalHash})...`,
         )
@@ -135,9 +138,9 @@ export default execute(
     id: 'TestUnwrap v1.0.0',
     tags: ['category:wrapper', 'TestUnwrap'],
     dependencies: ['BaseRegistrarImplementation', 'ENSRegistry'],
-    skip: async ({ network }) => {
+    skip: async ({ network }: any) => {
       if (network.name === 'mainnet') return true
       return false
     },
-  },
+  } as any,
 )

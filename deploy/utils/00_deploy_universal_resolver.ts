@@ -1,8 +1,8 @@
-import { execute, artifacts } from '../../rocketh.js'
+import { execute, artifacts } from '@rocketh'
 
 export default execute(
-  async ({ deploy, get, namedAccounts }) => {
-    const { deployer } = namedAccounts
+  async ({ deploy, get, namedAccounts, viem }) => {
+    const { deployer, owner } = namedAccounts
 
     // Get dependencies
     const registry = await get('ENSRegistry')
@@ -22,6 +22,20 @@ export default execute(
       artifact: artifacts.UniversalResolver,
       args: [registry.address, batchGatewayURLs],
     })
+
+    // Transfer ownership to owner
+    if (owner && owner.address !== deployer.address) {
+      const universalResolver = await get('UniversalResolver')
+      // Note: using 'as any' because rocketh's dynamic proxy doesn't have full type safety
+      const hash = await (universalResolver as any).write.transferOwnership(
+        [owner.address],
+        {
+          account: deployer,
+        },
+      )
+      console.log(`Transfer ownership to ${owner.address} (tx: ${hash})...`)
+      await viem.waitForTransactionSuccess(hash)
+    }
   },
   {
     id: 'UniversalResolver v1.0.0',

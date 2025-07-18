@@ -1,4 +1,4 @@
-import { execute, artifacts } from '../../rocketh.js'
+import { execute, artifacts } from '@rocketh'
 import { concat, zeroHash, type Hex } from 'viem'
 
 const usvAddress = '0x164af34fAF9879394370C7f09064127C043A35E9'
@@ -32,7 +32,9 @@ export default execute(
       console.log(`Deterministic Deployment Proxy deployed at ${ddpAddress}`)
     }
 
-    const usvArtifact = await deployments.getArtifact('UniversalSigValidator')
+    const usvArtifact = await (deployments as any).getArtifact(
+      'UniversalSigValidator',
+    )
     const usvBytecode = usvArtifact.bytecode as Hex
     const usvDeployHash = await deployer.wallet.sendTransaction({
       to: ddpAddress,
@@ -52,12 +54,12 @@ export default execute(
     id: 'UniversalSigValidator v1.0.0',
     tags: ['category:utils', 'UniversalSigValidator'],
     dependencies: [],
-    skip: async ({ viem }) => {
+    skip: async ({ viem }: any) => {
       const publicClient = await viem.getPublicClient()
       const usvDeployedBytecode = await publicClient.getBytecode({
         address: usvAddress,
       })
       return !!usvDeployedBytecode
     },
-  },
+  } as any,
 )
