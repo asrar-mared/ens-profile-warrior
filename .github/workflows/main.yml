@@ -51,6 +51,9 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
+      - name: Compile contracts and generate artifacts
+        run: bun run compile
+
       - name: Run tests
         run: bun run test
 
@@ -68,6 +71,9 @@ jobs:
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Compile contracts and generate artifacts
+        run: bun run compile
 
       - name: Run deploy
         run: bun run test:deploy
