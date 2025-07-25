@@ -9,3 +9,4 @@ build
 forge-cache
 out
 deployments/**/.pendingSafeTransactions
+deployments/localhost

@@ -11,8 +11,8 @@ const realAccounts = [
   configVariable('OWNER_KEY'),
 ]
 
-import './tasks/create_l2_safe.ts'
-import './tasks/etherscan-multichain.ts'
+import './tasks/create_l2_safe'
+import './tasks/etherscan-multichain'
 
 // circular dependency shared with actions
 export const archivedDeploymentPath = './deployments/archive'
