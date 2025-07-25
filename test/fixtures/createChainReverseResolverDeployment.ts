@@ -8,7 +8,13 @@ const owners = {
   [mainnet.id]: '0xFe89cc7aBB2C4183683ab71653C4cdc9B02D44b7',
 }
 
-export function createChainReverseResolverDeployer({ chainName, targets }) {
+export function createChainReverseResolverDeployer({
+  chainName,
+  targets,
+}: {
+  chainName: string
+  targets: Record<number, any>
+}) {
   const func = execute(
     async ({ deploy, get, namedAccounts, network }) => {
       const { deployer } = namedAccounts
@@ -24,7 +30,7 @@ export function createChainReverseResolverDeployer({ chainName, targets }) {
       }
 
       const { chain, registrar, verifier, gateways } = target
-      const owner = owners[chainId]
+      const owner = owners[chainId as keyof typeof owners]
 
       // there should always be an owner specified when there are targets
       if (!owner) throw new Error(`No owner for chain ${chainId}`)
@@ -33,7 +39,7 @@ export function createChainReverseResolverDeployer({ chainName, targets }) {
         account: deployer,
         artifact: artifacts.ChainReverseResolver,
         args: [
-          owner,
+          owner as `0x${string}`,
           coinTypeFromChain(chain),
           defaultReverseRegistrar.address,
           registrar,

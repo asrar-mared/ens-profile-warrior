@@ -27,10 +27,10 @@ for (const file of artifactFiles) {
 
 // Generate the artifacts export file
 const artifactsContent = `// Auto-generated file - do not edit manually
-export default ${JSON.stringify(artifacts, null, 2)} as const;
+export default ${JSON.stringify(artifacts, null, 2)};
 `
 
-writeFileSync('generated/artifacts.ts', artifactsContent)
+writeFileSync('generated/artifacts.js', artifactsContent)
 console.log(
-  `Generated artifacts.ts with ${Object.keys(artifacts).length} contracts`,
+  `Generated artifacts.js with ${Object.keys(artifacts).length} contracts`,
 )
