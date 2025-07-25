@@ -67,6 +67,7 @@
     "@nomicfoundation/hardhat-verify": "^2.0.4",
     "@openzeppelin/contracts": "4.9.3",
     "@openzeppelin/contracts-v5": "npm:@openzeppelin/contracts@5.1.0",
+    "@rocketh/proxy": "^0.11.25",
     "@rollup/rollup-darwin-arm64": "^4.44.2",
     "@rollup/rollup-darwin-x64": "^4.44.2",
     "@unruggable/gateways": "^1.2.2",
