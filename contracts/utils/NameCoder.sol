@@ -22,6 +22,7 @@ import {HexUtils} from "../utils/HexUtils.sol";
 ///
 /// w/o hashed labels: `dns.length == 2 + ens.length` and the mapping is injective.
 ///  w/ hashed labels: `dns.length == 2 + ens.split('.').map(x => x.utf8Length).sum(n => n > 255 ? 66 : n)`.
+///
 library NameCoder {
     /// @dev The DNS-encoded name is malformed.
     ///      Error selector: `0xba4adc23`
@@ -31,58 +32,132 @@ library NameCoder {
     ///      Error selector: `0x9a4c3e3b`
     error DNSEncodingFailed(string ens);
 
-    /// @dev Same as `BytesUtils.readLabel()` but supports hashed labels.
-    ///      Only the last labelHash is zero.
+    /// @dev Read the `size` of the label at `offset`.
+    ///      If `size = 0`, it must be the end of `name` (no junk at end).
+    ///      Reverts `DNSDecodingFailed`.
+    /// @param name The DNS-encoded name.
+    /// @param offset The offset into `name` to start reading.
+    /// @return size The size of the label in bytes.
+    /// @return nextOffset The offset into `name` of the next label.
+    function nextLabel(
+        bytes memory name,
+        uint256 offset
+    ) internal pure returns (uint8 size, uint256 nextOffset) {
+        assembly {
+            size := byte(0, mload(add(add(name, 32), offset))) // uint8(name[offset])
+            nextOffset := add(offset, add(1, size)) // offset + 1 + size
+        }
+        if (size > 0 ? nextOffset >= name.length : nextOffset != name.length) {
+            revert DNSDecodingFailed(name);
+        }
+    }
+
+    /// @dev Find the offset of the label before `offset` in `name`.
+    ///      * `prevOffset(name, 0)` reverts.
+    ///      * `prevOffset(name, name.length + 1)` reverts.
+    ///      * `prevOffset(name, name.length) = name.length - 1`.
+    ///      * `prevOffset(name, name.length - 1) = <tld>`.
+    ///      Reverts `DNSDecodingFailed`.
+    /// @param name The DNS-encoded name.
+    /// @param offset The offset into `name` to start reading backwards.
+    /// @return prevOffset The offset into `name` of the previous label.
+    function prevLabel(
+        bytes memory name,
+        uint256 offset
+    ) internal pure returns (uint256 prevOffset) {
+        while (true) {
+            (, uint256 nextOffset) = nextLabel(name, prevOffset);
+            if (nextOffset == offset) break;
+            if (nextOffset > offset) {
+                revert DNSDecodingFailed(name);
+            }
+            prevOffset = nextOffset;
+        }
+    }
+
+    /// @dev Compute the ENS labelhash of the label at `offset` and the offset for the next label.
     ///      Disallows hashed label of zero (eg. `[0..0]`) to prevent confusion with terminator.
     ///      Reverts `DNSDecodingFailed`.
     /// @param name The DNS-encoded name.
-    /// @param idx The offset into `name` to start reading.
+    /// @param offset The offset into `name` to start reading.
+    /// @param parseHashed If true, supports hashed labels.
     /// @return labelHash The resulting labelhash.
-    /// @return newIdx The offset into `name` of the next label.
+    /// @return nextOffset The offset into `name` of the next label.
+    /// @return size The size of the label in bytes.
+    /// @return wasHashed If true, the label was interpreted as a hashed label.
     function readLabel(
         bytes memory name,
-        uint256 idx
-    ) internal pure returns (bytes32 labelHash, uint256 newIdx) {
-        if (idx >= name.length) revert DNSDecodingFailed(name); // "readLabel: expected length"
-        uint256 len = uint256(uint8(name[idx++]));
-        newIdx = idx + len;
-        if (newIdx > name.length) revert DNSDecodingFailed(name); // "readLabel: expected label"
-        if (len == 66 && name[idx] == "[" && name[newIdx - 1] == "]") {
-            bool valid;
-            (labelHash, valid) = HexUtils.hexStringToBytes32(
+        uint256 offset,
+        bool parseHashed
+    )
+        internal
+        pure
+        returns (
+            bytes32 labelHash,
+            uint256 nextOffset,
+            uint8 size,
+            bool wasHashed
+        )
+    {
+        (size, nextOffset) = nextLabel(name, offset);
+        if (
+            parseHashed &&
+            size == 66 &&
+            name[offset + 1] == "[" &&
+            name[nextOffset - 1] == "]"
+        ) {
+            (labelHash, wasHashed) = HexUtils.hexStringToBytes32(
                 name,
-                idx + 1,
-                newIdx - 1
+                offset + 2,
+                nextOffset - 1
             ); // will not revert
-            if (!valid || labelHash == bytes32(0)) {
+            if (!wasHashed || labelHash == bytes32(0)) {
                 revert DNSDecodingFailed(name); // "readLabel: malformed" or null literal
             }
-        } else if (len > 0) {
+        } else if (size > 0) {
             assembly {
-                labelHash := keccak256(add(add(name, idx), 32), len)
+                labelHash := keccak256(add(add(name, offset), 33), size)
             }
         }
     }
 
     /// @dev Same as `BytesUtils.namehash()` but supports hashed labels.
+    function readLabel(
+        bytes memory name,
+        uint256 offset
+    ) internal pure returns (bytes32 labelHash, uint256 nextOffset) {
+        (labelHash, nextOffset, , ) = readLabel(name, offset, true);
+    }
+
+    /// @dev Compute the ENS namehash of `name[:offset]`.
+    ///      Supports hashed labels.
     ///      Reverts `DNSDecodingFailed`.
     /// @param name The DNS-encoded name.
-    /// @param idx The offset into name start hashing.
-    /// @return hash The resulting namehash.
+    /// @param offset The offset into name start hashing.
+    /// @return hash The namehash of `name[:offset]`.
     function namehash(
         bytes memory name,
-        uint256 idx
+        uint256 offset
     ) internal pure returns (bytes32 hash) {
-        (hash, idx) = readLabel(name, idx);
-        if (hash == bytes32(0)) {
-            if (idx != name.length) revert DNSDecodingFailed(name); // "namehash: Junk at end of name"
-        } else {
-            bytes32 parent = namehash(name, idx);
-            assembly {
-                mstore(0, parent)
-                mstore(32, hash)
-                hash := keccak256(0, 64)
-            }
+        (hash, offset) = readLabel(name, offset);
+        if (hash != bytes32(0)) {
+            hash = namehash(namehash(name, offset), hash);
+        }
+    }
+
+    /// @dev Compute a child namehash from a parent namehash.
+    /// @param parentNode The namehash of the parent.
+    /// @param labelHash The labelhash of the child.
+    /// @return node The namehash of the child.
+    function namehash(
+        bytes32 parentNode,
+        bytes32 labelHash
+    ) internal pure returns (bytes32 node) {
+        // ~100 gas less than: keccak256(abi.encode(parentNode, labelHash))
+        assembly {
+            mstore(0, parentNode)
+            mstore(32, labelHash)
+            node := keccak256(0, 64)
         }
     }
 
@@ -183,6 +258,47 @@ library NameCoder {
                 mstore8(start, size) // update length
             }
             next = start + 1 + size; // advance
+        }
+    }
+
+    /// @dev Find the offset of `name` that namehashes to `nodeSuffix`.
+    /// @param name The name to search.
+    /// @param nodeSuffix The node to match.
+    /// @return matched True if `name` ends with the suffix.
+    /// @return node The namehash of `name[offset:]`.
+    /// @return prevOffset The offset into `name` of the label before the suffix, or `matchOffset` if no match or prior label.
+    /// @return matchOffset The offset into `name` that namehashes to the `nodeSuffix`, or 0 if no match.
+    function matchSuffix(
+        bytes memory name,
+        uint256 offset,
+        bytes32 nodeSuffix
+    )
+        internal
+        pure
+        returns (
+            bool matched,
+            bytes32 node,
+            uint256 prevOffset,
+            uint256 matchOffset
+        )
+    {
+        (bytes32 labelHash, uint256 next) = readLabel(name, offset);
+        if (labelHash != bytes32(0)) {
+            (matched, node, prevOffset, matchOffset) = matchSuffix(
+                name,
+                next,
+                nodeSuffix
+            );
+            if (node == nodeSuffix) {
+                matched = true;
+                prevOffset = offset;
+                matchOffset = next;
+            }
+            node = namehash(node, labelHash);
+        }
+        if (node == nodeSuffix) {
+            matched = true;
+            prevOffset = matchOffset = offset;
         }
     }
 }
