@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {ERC165Checker} from "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 
 import {IUniversalResolver} from "./IUniversalResolver.sol";
 import {CCIPBatcher, CCIPReader} from "../ccipRead/CCIPBatcher.sol";
+import {IGatewayProvider} from "../ccipRead/IGatewayProvider.sol";
 import {NameCoder} from "../utils/NameCoder.sol";
 import {BytesUtils} from "../utils/BytesUtils.sol";
 import {ENSIP19, COIN_TYPE_ETH, COIN_TYPE_DEFAULT} from "../utils/ENSIP19.sol";
@@ -23,13 +23,15 @@ import {IMulticallable} from "../resolvers/IMulticallable.sol";
 abstract contract AbstractUniversalResolver is
     IUniversalResolver,
     CCIPBatcher,
-    Ownable,
     ERC165
 {
-    string[] _gateways;
+    /// @dev The default batch gateways.
+    IGatewayProvider public immutable batchGatewayProvider;
 
-    constructor(string[] memory gateways) CCIPReader(DEFAULT_UNSAFE_CALL_GAS) {
-        _gateways = gateways;
+    constructor(
+        IGatewayProvider _batchGatewayProvider
+    ) CCIPReader(DEFAULT_UNSAFE_CALL_GAS) {
+        batchGatewayProvider = _batchGatewayProvider;
     }
 
     /// @inheritdoc ERC165
@@ -39,18 +41,6 @@ abstract contract AbstractUniversalResolver is
         return
             type(IUniversalResolver).interfaceId == interfaceId ||
             super.supportsInterface(interfaceId);
-    }
-
-    /// @notice Set the default batch gateways.
-    /// @param gateways The batch gateway URLs.
-    function setBatchGateways(string[] memory gateways) external onlyOwner {
-        _gateways = gateways;
-    }
-
-    /// @notice Get the default batch gateways.
-    /// @return The batch gateway URLs.
-    function batchGateways() external view returns (string[] memory) {
-        return _gateways;
     }
 
     /// @inheritdoc IUniversalResolver
@@ -102,7 +92,7 @@ abstract contract AbstractUniversalResolver is
         bytes calldata name,
         bytes calldata data
     ) external view returns (bytes memory, address) {
-        return resolveWithGateways(name, data, _gateways);
+        return resolveWithGateways(name, data, batchGatewayProvider.gateways());
     }
 
     /// @notice Performs ENS resolution process for the supplied name and resolution data.
@@ -136,7 +126,7 @@ abstract contract AbstractUniversalResolver is
         bytes calldata name,
         bytes calldata data,
         string[] memory gateways
-    ) external view returns (bytes memory, address) {
+    ) external view returns (bytes memory) {
         ResolverInfo memory info;
         info.name = name;
         info.node = NameCoder.namehash(name, 0);
@@ -166,7 +156,12 @@ abstract contract AbstractUniversalResolver is
         bytes calldata lookupAddress,
         uint256 coinType
     ) external view returns (string memory, address, address) {
-        return reverseWithGateways(lookupAddress, coinType, _gateways);
+        return
+            reverseWithGateways(
+                lookupAddress,
+                coinType,
+                batchGatewayProvider.gateways()
+            );
     }
 
     struct ReverseArgs {
@@ -239,7 +234,7 @@ abstract contract AbstractUniversalResolver is
                 ),
             args.gateways,
             this.reverseAddressCallback.selector, // ==> step 3
-            abi.encode(args, primary, info.resolver, args.resolver)
+            abi.encode(args, primary, info.resolver)
         );
     }
 
@@ -260,9 +255,9 @@ abstract contract AbstractUniversalResolver is
         )
     {
         ReverseArgs memory args;
-        (args, primary, resolver, reverseResolver) = abi.decode(
+        (args, primary, resolver) = abi.decode(
             extraData,
-            (ReverseArgs, string, address, address)
+            (ReverseArgs, string, address)
         );
         bytes memory primaryAddress;
         if (args.coinType == COIN_TYPE_ETH) {
@@ -274,6 +269,7 @@ abstract contract AbstractUniversalResolver is
         if (!BytesUtils.equals(args.lookupAddress, primaryAddress)) {
             revert ReverseAddressMismatch(primary, primaryAddress);
         }
+        reverseResolver = args.resolver;
     }
 
     /// @dev Efficiently call a resolver.
