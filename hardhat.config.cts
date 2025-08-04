@@ -15,6 +15,7 @@ import { HardhatUserConfig } from 'hardhat/config'
 import('@ensdomains/hardhat-chai-matchers-viem')
 
 // hardhat actions
+import { arbitrum, optimism } from 'viem/chains'
 import './tasks/create_l2_safe.cts'
 import './tasks/esm_fix.cjs'
 import './tasks/etherscan-multichain.cts'
@@ -70,6 +71,12 @@ const config = {
           }
         : {}),
     },
+    optimism: {
+      url: optimism.rpcUrls.default.http[0],
+      chainId: optimism.id,
+      accounts: real_accounts,
+      tags: ['l2'],
+    },
     optimismSepolia: {
       url: 'https://sepolia.optimism.io',
       chainId: 11155420,
@@ -87,6 +94,12 @@ const config = {
       chainId: 84532,
       accounts: real_accounts,
       tags: ['l2', 'testnet'],
+    },
+    arbitrum: {
+      url: arbitrum.rpcUrls.default.http[0],
+      chainId: arbitrum.id,
+      accounts: real_accounts,
+      tags: ['l2'],
     },
     arbitrumSepolia: {
       url: 'https://sepolia-rollup.arbitrum.io/rpc',

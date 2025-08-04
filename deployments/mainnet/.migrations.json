@@ -21,5 +21,13 @@
   "PublicResolver v1.0.0": 1,
   "PublicResolver v2.0.0": 1,
   "UniversalResolver v1.0.0": 1,
-  "StaticMetadataService v1.0.0": 1
+  "StaticMetadataService v1.0.0": 1,
+  "DefaultReverseRegistrar v1.0.0": 1750653794,
+  "UniversalSigValidator v1.0.0": 1750653879,
+  "ChainReverseResolver:Arbitrum v1.0.0": 1750653999,
+  "ChainReverseResolver:Base v1.0.0": 1750654012,
+  "ChainReverseResolver:Linea v1.0.0": 1750654036,
+  "ChainReverseResolver:Optimism v1.0.0": 1750654201,
+  "MigrationHelper v1.0.0": 1750654261,
+  "ChainReverseResolver:Scroll v1.0.0": 1752542750
 }
