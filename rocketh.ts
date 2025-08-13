@@ -48,7 +48,6 @@ import {
   createTestClient,
   createWalletClient,
   createPublicClient,
-  type Client,
   type TestClient,
   type WalletClient,
   type PublicClient,
