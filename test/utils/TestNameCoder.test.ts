@@ -52,25 +52,25 @@ describe('NameCoder', () => {
 
   it('no next label', async () => {
     const F = await loadFixture()
-    await expect(F)
-      .read('nextLabel', [dnsEncodeName(''), 1n])
-      .toBeRevertedWithCustomError('DNSDecodingFailed')
+    await expect(
+      F.read.nextLabel([dnsEncodeName(''), 1n])
+    ).toBeRevertedWithCustomError('DNSDecodingFailed')
   })
 
   describe('prevLabel()', () => {
     it('0 reverts', async () => {
       const F = await loadFixture()
-      await expect(F)
-        .read('prevLabel', [dnsEncodeName(''), 0n])
-        .toBeRevertedWithCustomError('DNSDecodingFailed')
+      await expect(
+        F.read.prevLabel([dnsEncodeName(''), 0n])
+      ).toBeRevertedWithCustomError('DNSDecodingFailed')
     })
 
     it('name.length+1 reverts', async () => {
       const F = await loadFixture()
       const dns = dnsEncodeName('')
-      await expect(F)
-        .read('prevLabel', [dns, BigInt(dns.length + 1)])
-        .toBeRevertedWithCustomError('DNSDecodingFailed')
+      await expect(
+        F.read.prevLabel([dns, BigInt(dns.length + 1)])
+      ).toBeRevertedWithCustomError('DNSDecodingFailed')
     })
 
     it('name.length is <root>', async () => {
@@ -109,9 +109,9 @@ describe('NameCoder', () => {
 
   it('null hashed label', async () => {
     const F = await loadFixture()
-    await expect(F)
-      .read('readLabel', [dnsEncodeName(`[${'0'.repeat(64)}]`), 0n, true])
-      .toBeRevertedWithCustomError('DNSDecodingFailed')
+    await expect(
+      F.read.readLabel([dnsEncodeName(`[${'0'.repeat(64)}]`), 0n, true])
+    ).toBeRevertedWithCustomError('DNSDecodingFailed')
   })
 
   it('disable hashed label support', async () => {
@@ -125,9 +125,9 @@ describe('NameCoder', () => {
 
   it('invalid hashed label', async () => {
     const F = await loadFixture()
-    await expect(F)
-      .read('namehash', [dnsEncodeName(`[${'z'.repeat(64)}]`), 0n])
-      .toBeRevertedWithCustomError('DNSDecodingFailed')
+    await expect(
+      F.read.namehash([dnsEncodeName(`[${'z'.repeat(64)}]`), 0n])
+    ).toBeRevertedWithCustomError('DNSDecodingFailed')
   })
 
   describe('encode() failure', () => {
@@ -156,9 +156,9 @@ describe('NameCoder', () => {
 
     it('malicious label', async () => {
       const F = await loadFixture()
-      await expect(F)
-        .read('decode', [toHex('\x03a.b\x00')])
-        .toBeRevertedWithCustomError('DNSDecodingFailed')
+      await expect(
+        F.read.decode([toHex('\x03a.b\x00')])
+      ).toBeRevertedWithCustomError('DNSDecodingFailed')
     })
   })
 
