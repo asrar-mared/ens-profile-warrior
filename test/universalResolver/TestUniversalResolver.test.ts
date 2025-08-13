@@ -2,7 +2,6 @@ import { shouldSupportInterfaces } from '@ensdomains/hardhat-chai-matchers-viem/
 import hre from 'hardhat'
 import {
   encodeErrorResult,
-  Hex,
   HttpRequestError,
   keccak256,
   namehash,
@@ -643,7 +642,7 @@ describe('UniversalResolver', () => {
           res.call,
         ])
       expectVar({ resolver }).toEqualAddress(F.Shapeshift1.address)
-      res.expect(answer as Hex)
+      res.expect(answer)
     })
   })
 
