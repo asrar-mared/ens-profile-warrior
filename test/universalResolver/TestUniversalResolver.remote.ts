@@ -14,9 +14,16 @@ const connection = await hre.network.connect()
 async function fixture() {
   const bg = await serveBatchGateway()
   afterAll(bg.shutdown)
+  
+  const [owner] = await connection.viem.getWalletClients()
+  const batchGatewayProvider = await connection.viem.deployContract(
+    'GatewayProvider',
+    [owner.account.address, [bg.localBatchGatewayUrl]],
+  )
+  
   return connection.viem.deployContract(
     'UniversalResolver',
-    [ENS_REGISTRY, [bg.localBatchGatewayUrl]],
+    [owner.account.address, ENS_REGISTRY, batchGatewayProvider.address],
     {
       client: {
         public: await connection.viem.getPublicClient({ ccipRead: undefined }),

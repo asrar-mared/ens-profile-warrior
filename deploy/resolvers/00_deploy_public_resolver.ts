@@ -27,21 +27,38 @@ export default execute(
 
     const publicResolver = await get('PublicResolver')
 
-    // Only attempt to make changes directly on testnets
+    // Only attempt to make controller etc changes directly on testnets
     if (network.name === 'mainnet' && !network.tags?.tenderly) return
 
-    // Set PublicResolver as default resolver on ReverseRegistrar
+    // Check if PublicResolver is already the default resolver on ReverseRegistrar
     try {
-      await tx({
+      const currentDefaultResolver = await tx({
         to: reverseRegistrar.address,
         data: encodeFunctionData({
           abi: reverseRegistrar.abi,
-          functionName: 'setDefaultResolver',
-          args: [publicResolver.address],
+          functionName: 'defaultResolver',
+          args: [],
         }),
         account: owner,
       })
-      console.log(`Set PublicResolver as default resolver on ReverseRegistrar`)
+      
+      const isAlreadyDefault = getAddress(currentDefaultResolver.data || '0x') === getAddress(publicResolver.address)
+      
+      if (!isAlreadyDefault) {
+        // Set PublicResolver as default resolver on ReverseRegistrar
+        await tx({
+          to: reverseRegistrar.address,
+          data: encodeFunctionData({
+            abi: reverseRegistrar.abi,
+            functionName: 'setDefaultResolver',
+            args: [publicResolver.address],
+          }),
+          account: owner,
+        })
+        console.log(`Set PublicResolver as default resolver on ReverseRegistrar`)
+      } else {
+        console.log(`PublicResolver is already the default resolver on ReverseRegistrar`)
+      }
     } catch (error) {
       console.log(
         'PublicResolver default resolver setup error:',

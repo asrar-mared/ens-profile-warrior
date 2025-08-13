@@ -138,22 +138,21 @@ export async function deployEnsStack(
   ])
   const walletClients = await connection.viem.getWalletClients()
 
+  const owner = walletClients[1].account
   await setRootNodeOwner({ ensRegistry, root })
-  await root.write.setController([walletClients[1].account.address, true])
-  await root.write.transferOwnership([walletClients[1].account.address])
+  await root.write.setController([owner.address, true])
+  await root.write.transferOwnership([owner.address])
 
   const reverseRegistrar = await connection.viem.deployContract(
     'ReverseRegistrar',
     [ensRegistry.address],
   )
 
-  await reverseRegistrar.write.transferOwnership([
-    walletClients[1].account.address,
-  ])
+  await reverseRegistrar.write.transferOwnership([owner.address])
   await setRootSubnodeOwner(connection, {
     root,
     label: 'reverse',
-    owner: walletClients[1].account,
+    owner,
   })
   await setAddrReverseNodeOwner(connection, { ensRegistry, reverseRegistrar })
 
@@ -162,9 +161,7 @@ export async function deployEnsStack(
     [ensRegistry.address, namehash('eth')],
   )
 
-  await baseRegistrarImplementation.write.transferOwnership([
-    walletClients[1].account.address,
-  ])
+  await baseRegistrarImplementation.write.transferOwnership([owner.address])
   await setRootSubnodeOwner(connection, {
     root,
     label: 'eth',
@@ -207,7 +204,7 @@ export async function deployEnsStack(
     staticMetadataService.address,
   ])
 
-  await nameWrapper.write.transferOwnership([walletClients[1].account.address])
+  await nameWrapper.write.transferOwnership([owner.address])
   await addBaseRegistrarController(connection, {
     baseRegistrarImplementation,
     controller: nameWrapper,
@@ -231,19 +228,17 @@ export async function deployEnsStack(
     ],
   )
 
-  await ethRegistrarController.write.transferOwnership([
-    walletClients[1].account.address,
-  ])
+  await ethRegistrarController.write.transferOwnership([owner.address])
   await nameWrapper.write.setController(
     [ethRegistrarController.address, true],
     {
-      account: walletClients[1].account,
+      account: owner,
     },
   )
   await reverseRegistrar.write.setController(
     [ethRegistrarController.address, true],
     {
-      account: walletClients[1].account,
+      account: owner,
     },
   )
   await setEthResolverInterface(connection, {
@@ -278,10 +273,16 @@ export async function deployEnsStack(
     contract: publicResolver,
   })
 
-  const universalResolver = await connection.viem.deployContract(
-    'UniversalResolver',
-    [ensRegistry.address, ['http://universal-offchain-resolver.local/']],
+  const batchGatewayProvider = await connection.viem.deployContract(
+    'GatewayProvider',
+    [owner.address, ['http://universal-offchain-resolver.local/']],
   )
+
+  const universalResolver = await connection.viem.deployContract('UniversalResolver', [
+    owner.address,
+    ensRegistry.address,
+    batchGatewayProvider.address,
+  ])
 
   return {
     ensRegistry,

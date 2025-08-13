@@ -88,6 +88,11 @@ task('create-l2-safe', 'Creates an L2 Safe').setAction(async (_, hre) => {
     args: [singleton, encodedData, salt],
   } as const
 
+  const existingBytecode = await publicClient.getBytecode({
+    address: expectedSafeAddress,
+  })
+  if (existingBytecode) throw new Error('Safe already exists on this network!')
+
   const predictedSafeAddress = await simulateContract(publicClient, safeArgs)
 
   if (predictedSafeAddress.result !== expectedSafeAddress)

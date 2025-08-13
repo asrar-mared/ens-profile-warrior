@@ -13,6 +13,7 @@ const realAccounts = [
 
 import './tasks/create_l2_safe'
 import './tasks/etherscan-multichain'
+import { arbitrum, optimism } from 'viem/chains'
 
 // circular dependency shared with actions
 export const archivedDeploymentPath = './deployments/archive'
@@ -48,6 +49,18 @@ const config = {
       type: 'http',
       url: `https://mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
       chainId: 1,
+      accounts: realAccounts,
+    },
+    optimism: {
+      type: 'http',
+      url: optimism.rpcUrls.default.http[0],
+      chainId: optimism.id,
+      accounts: realAccounts,
+    },
+     arbitrum: {
+      type: 'http',
+      url: arbitrum.rpcUrls.default.http[0],
+      chainId: arbitrum.id,
       accounts: realAccounts,
     },
   },

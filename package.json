@@ -16,8 +16,8 @@
     "format": "prettier --write .",
     "prepublishOnly": "bun run build",
     "pub": "npm publish --access public",
-    "wikiCheck": "bun ./scripts/wikiCheck.ts",
-    "generate-artifacts": "bun scripts/generate-artifacts.ts"
+    "generate-artifacts": "bun scripts/generate-artifacts.ts",
+    "wiki": "bun ./scripts/wiki.ts"
   },
   "files": [
     "build",
