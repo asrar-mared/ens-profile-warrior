@@ -32,7 +32,7 @@ type HardhatArtifact = {
 export async function deployArtifact(options: {
   file: string | URL
   from?: Hex
-  args?: any[]
+  args?: unknown[]
   libs?: Record<string, Address>
   connection?: NetworkConnection
 }) {

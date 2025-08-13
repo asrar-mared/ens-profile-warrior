@@ -43,7 +43,7 @@
     "@types/mocha": "^9.1.1",
     "@types/node": "^18.0.0",
     "@viem/anvil": "^0.0.10",
-    "abitype": "1.0.8",
+    "abitype": "^1.0.2",
     "chai": "^5.1.1",
     "dotenv": "^16.4.5",
     "ethers": "^6.14.0",
@@ -58,7 +58,7 @@
     "rocketh": "^0.11.20",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.5",
-    "viem": "2.16.0",
+    "viem": "2.12.0",
     "vitest": "^3.2.3"
   },
   "dependencies": {
