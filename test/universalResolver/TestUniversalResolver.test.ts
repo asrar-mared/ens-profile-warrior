@@ -631,12 +631,16 @@ describe('UniversalResolver', () => {
       const res = resolutions[0]
       await F.Shapeshift1.write.setResponse([res.call, res.answer])
       await F.Shapeshift1.write.setExtended([true])
+
+      await F.ENSRegistry.write.setResolver([
+        namehash(testName),
+        F.Shapeshift1.address,
+      ])
+
       const [answer, resolver] =
-        await F.UniversalResolver.read.resolveWithResolver([
-          F.Shapeshift1.address,
+        await F.UniversalResolver.read.resolve([
           dnsEncodeName(testName),
           res.call,
-          [], // No gateways needed for this test
         ])
       expectVar({ resolver }).toEqualAddress(F.Shapeshift1.address)
       res.expect(answer as Hex)
