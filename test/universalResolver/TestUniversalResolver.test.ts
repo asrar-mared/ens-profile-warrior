@@ -37,16 +37,22 @@ async function fixture() {
   const ens = await ownedEnsFixture(connection)
   const bg = await serveBatchGateway()
   afterAll(bg.shutdown)
+  
+  const batchGatewayProvider = await connection.viem.deployContract(
+    'GatewayProvider',
+    [ens.owner, [bg.localBatchGatewayUrl]],
+  )
+  
   const UniversalResolver = await connection.viem.deployContract(
     'UniversalResolver',
-    [ens.ENSRegistry.address, [bg.localBatchGatewayUrl]],
+    [ens.owner, ens.ENSRegistry.address, batchGatewayProvider.address],
     {
       client: {
         public: await connection.viem.getPublicClient({ ccipRead: undefined }),
       },
     },
   )
-  return { UniversalResolver, ...ens }
+  return { UniversalResolver, batchGatewayProvider, ...ens }
 }
 const loadFixture = async () => connection.networkHelpers.loadFixture(fixture)
 
