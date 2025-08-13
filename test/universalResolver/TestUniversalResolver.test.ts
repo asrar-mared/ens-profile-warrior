@@ -631,6 +631,9 @@ describe('UniversalResolver', () => {
       await F.Shapeshift1.write.setResponse([res.call, res.answer])
       await F.Shapeshift1.write.setExtended([true])
 
+      // Take control of the test name first
+      await F.takeControl(testName)
+      
       await F.ENSRegistry.write.setResolver([
         namehash(testName),
         F.Shapeshift1.address,
