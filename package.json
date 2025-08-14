@@ -29,7 +29,7 @@
   "devDependencies": {
     "@ensdomains/address-encoder": "1.1.2",
     "@ensdomains/dnsprovejs": "^0.5.1",
-    "@ensdomains/hardhat-chai-matchers-viem": "^0.1.8",
+    "@ensdomains/hardhat-chai-matchers-viem": "^0.1.11",
     "@namestone/ezccip": "^0.1.0",
     "@nomicfoundation/hardhat-keystore": "3.0.0-next.18",
     "@nomicfoundation/hardhat-network-helpers": "3.0.0-next.18",
@@ -43,7 +43,7 @@
     "@types/mocha": "^9.1.1",
     "@types/node": "^18.0.0",
     "@viem/anvil": "^0.0.10",
-    "abitype": "^1.0.2",
+    "abitype": "^1.0.8",
     "chai": "^5.1.1",
     "dotenv": "^16.4.5",
     "ethers": "^6.14.0",
@@ -57,8 +57,8 @@
     "prettier-plugin-solidity": "^1.0.0-beta.24",
     "rocketh": "^0.11.20",
     "ts-node": "^10.9.2",
-    "typescript": "^5.4.5",
-    "viem": "2.21",
+    "typescript": "5.9.2",
+    "viem": "2.33.3",
     "vitest": "^3.2.3"
   },
   "dependencies": {

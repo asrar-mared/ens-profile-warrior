@@ -1,13 +1,13 @@
 import hre from 'hardhat'
-import { readFile } from 'node:fs/promises'
 import type { NetworkConnection } from 'hardhat/types/network'
+import { readFile } from 'node:fs/promises'
 import {
-  type Hex,
   type Abi,
   type Address,
-  sliceHex,
   concat,
   getContractAddress,
+  type Hex,
+  sliceHex,
 } from 'viem'
 
 type LinkReferences = Record<

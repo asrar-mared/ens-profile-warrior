@@ -11,8 +11,6 @@ const realAccounts = [
   configVariable('OWNER_KEY'),
 ]
 
-import './tasks/create_l2_safe'
-import './tasks/etherscan-multichain'
 import { arbitrum, optimism } from 'viem/chains'
 
 // circular dependency shared with actions
@@ -57,7 +55,7 @@ const config = {
       chainId: optimism.id,
       accounts: realAccounts,
     },
-     arbitrum: {
+    arbitrum: {
       type: 'http',
       url: arbitrum.rpcUrls.default.http[0],
       chainId: arbitrum.id,
@@ -108,5 +106,12 @@ const config = {
     HardhatKeystore,
   ],
 } satisfies HardhatUserConfig
+
+// safe's pkgs set addressType to string for some reason
+declare module 'abitype' {
+  interface Register {
+    addressType: `0x${string}`
+  }
+}
 
 export default config

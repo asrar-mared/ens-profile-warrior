@@ -3,7 +3,7 @@ import { serve } from '@namestone/ezccip/serve'
 import { Gateway, UncheckedRollup } from '@unruggable/gateways'
 import { BrowserProvider } from 'ethers/providers'
 import hre from 'hardhat'
-import { namehash, slice, zeroAddress } from 'viem'
+import { namehash } from 'viem'
 import { deployArtifact } from '../fixtures/deployArtifact.js'
 import { deployDirectChainReverseFixture } from '../fixtures/deployDirectChainReverseFixture.js'
 import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
@@ -36,7 +36,7 @@ async function fixture() {
   })
   const verifierAddress = await deployArtifact({
     file: urgArtifact('UncheckedVerifier'),
-    args: [[ccip.endpoint], 0, zeroAddress],
+    args: [[ccip.endpoint]],
     libs: { GatewayVM },
     connection,
   })
