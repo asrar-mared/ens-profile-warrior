@@ -11,7 +11,6 @@ export default execute(
     if (!batchGatewayURLs.length) {
       throw new Error('BatchGatewayProvider: No batch gateway URLs provided')
     }
-
     await deploy('BatchGatewayProvider', {
       account: deployer,
       artifact: artifacts.GatewayProvider,
