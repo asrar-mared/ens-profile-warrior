@@ -1,6 +1,5 @@
 import { shouldSupportInterfaces } from '@ensdomains/hardhat-chai-matchers-viem/behaviour'
 import hre from 'hardhat'
-import { slice } from 'viem'
 import { deployDefaultReverseFixture } from '../fixtures/deployDefaultReverseFixture.js'
 import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
 import {
@@ -17,14 +16,13 @@ const testName = 'test.eth'
 const coinTypes = [COIN_TYPE_ETH, COIN_TYPE_DEFAULT, 0n, 1n]
 
 const connection = await hre.network.connect()
+const loadFixture = async () => connection.networkHelpers.loadFixture(fixture)
 
 async function fixture() {
-  const F = await deployDefaultReverseFixture()
+  const F = await deployDefaultReverseFixture(connection)
   await F.defaultReverseRegistrar.write.setName([testName])
   return F
 }
-
-const loadFixture = async () => connection.networkHelpers.loadFixture(fixture)
 
 describe('DefaultReverseResolver', () => {
   shouldSupportInterfaces({

@@ -1,11 +1,12 @@
-import hre from 'hardhat'
+import type { NetworkConnection } from 'hardhat/types/network'
 import { namehash } from 'viem'
 import { deployRegistryFixture } from './deployRegistryFixture.js'
 import { COIN_TYPE_DEFAULT, getReverseNamespace } from './ensip19.js'
 
-export async function deployDefaultReverseFixture() {
-  const connection = await hre.network.connect()
-  const F = await deployRegistryFixture()
+export async function deployDefaultReverseFixture(
+  connection: NetworkConnection,
+) {
+  const F = await deployRegistryFixture(connection)
   const defaultReverseRegistrar = await connection.viem.deployContract(
     'DefaultReverseRegistrar',
   )

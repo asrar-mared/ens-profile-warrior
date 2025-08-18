@@ -1,21 +1,58 @@
 import { shouldSupportInterfaces } from '@ensdomains/hardhat-chai-matchers-viem/behaviour'
 import hre from 'hardhat'
-import { type Account } from 'viem'
+import { type Account, type Address, labelhash, namehash } from 'viem'
 import {
   chainFromCoinType,
   COIN_TYPE_ETH,
   getReverseName,
+  getReverseNamespace,
 } from '../fixtures/ensip19.js'
 import { KnownProfile, makeResolutions } from '../utils/resolutions.js'
 import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
-import { deployDirectETHReverseFixture } from '../fixtures/deployDirectETHReverseFixture.js'
+import { deployDefaultReverseFixture } from '../fixtures/deployDefaultReverseFixture.js'
 
 const connection = await hre.network.connect()
+const loadFixture = async () => connection.networkHelpers.loadFixture(fixture)
 
-// Load fixture directly without caching to avoid state override
-const loadFixtureWithCache = async () => {
-  // Call the fixture directly without any caching mechanism
-  return await deployDirectETHReverseFixture()
+async function fixture() {
+  const F = await deployDefaultReverseFixture(connection)
+  const reverseRegistrar = await connection.viem.deployContract(
+    'DefaultReverseRegistrar',
+  )
+  const reverseResolver = await connection.viem.deployContract(
+    'ETHReverseResolver',
+    [
+      F.ensRegistry.address,
+      reverseRegistrar.address,
+      F.defaultReverseRegistrar.address,
+    ],
+  )
+  const reverseNamespace = getReverseNamespace(COIN_TYPE_ETH)
+  await F.takeControl(reverseNamespace)
+  await F.ensRegistry.write.setResolver([
+    namehash(reverseNamespace),
+    reverseResolver.address,
+  ])
+  const shapeshift = await connection.viem.deployContract(
+    'DummyShapeshiftResolver',
+  )
+  return {
+    ...F,
+    shapeshift,
+    reverseNamespace,
+    reverseRegistrar,
+    reverseResolver,
+    claimV1,
+  }
+  async function claimV1(owner: Address, resolver = shapeshift.address) {
+    await F.ensRegistry.write.setSubnodeRecord([
+      namehash(reverseNamespace),
+      labelhash(owner.slice(2).toLowerCase()),
+      owner,
+      resolver,
+      0n,
+    ])
+  }
 }
 
 function nthName(i: number) {
@@ -23,7 +60,7 @@ function nthName(i: number) {
 }
 
 type SetterFn = (
-  F: Awaited<ReturnType<typeof deployDirectETHReverseFixture>>,
+  F: Awaited<ReturnType<typeof fixture>>,
   name: string,
   account: Account,
 ) => Promise<void>
@@ -107,7 +144,7 @@ Object.entries(sources).forEach(([source, setters], i) => {
 
 describe('ETHReverseResolver', () => {
   shouldSupportInterfaces({
-    contract: () => loadFixtureWithCache().then((F) => F.reverseResolver),
+    contract: () => loadFixture().then((F) => F.reverseResolver),
     interfaces: [
       'node_modules/@openzeppelin/contracts/utils/introspection/IERC165.sol:IERC165',
       'IExtendedResolver',
@@ -116,14 +153,14 @@ describe('ETHReverseResolver', () => {
   })
 
   it('coinType()', async () => {
-    const F = await loadFixtureWithCache()
+    const F = await loadFixture()
     await expect(F.reverseResolver.read.coinType()).resolves.toStrictEqual(
       COIN_TYPE_ETH,
     )
   })
 
   it('chainId()', async () => {
-    const F = await loadFixtureWithCache()
+    const F = await loadFixture()
     await expect(F.reverseResolver.read.chainId()).resolves.toStrictEqual(
       chainFromCoinType(COIN_TYPE_ETH),
     )
@@ -131,7 +168,7 @@ describe('ETHReverseResolver', () => {
 
   describe('resolve()', () => {
     it('unsupported profile', async () => {
-      const F = await loadFixtureWithCache()
+      const F = await loadFixture()
       const kp: KnownProfile = {
         name: 'any',
         texts: [{ key: 'dne', value: 'abc' }],
@@ -144,7 +181,7 @@ describe('ETHReverseResolver', () => {
     })
 
     it('addr("addr.reverse") = registrar', async () => {
-      const F = await loadFixtureWithCache()
+      const F = await loadFixture()
       const kp: KnownProfile = {
         name: F.reverseNamespace,
         addresses: [
@@ -168,7 +205,7 @@ describe('ETHReverseResolver', () => {
         .map((x) => `${x.source}(${x.setter}${x.name ? `:"${name}"` : ''})`)
         .join(' + ')
       it(`${desc || 'unset'} = ${name ? `"${name}"` : '<empty>'}`, async () => {
-        const F = await loadFixtureWithCache()
+        const F = await loadFixture()
         const [wallet] = await connection.viem.getWalletClients()
         for (const { fn, name } of setters) {
           await fn(F, name, wallet.account)
@@ -189,7 +226,7 @@ describe('ETHReverseResolver', () => {
     const perPage = 0 // ignored, has no effect
 
     it('empty', async () => {
-      const F = await loadFixtureWithCache()
+      const F = await loadFixture()
       await expect(
         F.reverseResolver.read.resolveNames([[], perPage]),
       ).resolves.toStrictEqual([])
@@ -198,7 +235,7 @@ describe('ETHReverseResolver', () => {
     it(
       [...Object.keys(sources).map((x) => `1 ${x}`), '1 unset'].join(' + '),
       async () => {
-        const F = await loadFixtureWithCache()
+        const F = await loadFixture()
         const wallets = await connection.viem.getWalletClients()
         const setters = Object.values(sources).map((x) => x.set)
         for (let i = 0; i < setters.length; i++) {

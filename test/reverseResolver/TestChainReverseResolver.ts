@@ -5,7 +5,7 @@ import { BrowserProvider } from 'ethers/providers'
 import hre from 'hardhat'
 import { namehash } from 'viem'
 import { deployArtifact } from '../fixtures/deployArtifact.js'
-import { deployDirectChainReverseFixture } from '../fixtures/deployDirectChainReverseFixture.js'
+import { deployDefaultReverseFixture } from '../fixtures/deployDefaultReverseFixture.js'
 import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
 import {
   chainFromCoinType,
@@ -14,31 +14,29 @@ import {
   getReverseNamespace,
 } from '../fixtures/ensip19.js'
 import { urgArtifact } from '../fixtures/externalArtifacts.js'
-import { KnownProfile, makeResolutions } from '../utils/resolutions.js'
+import { type KnownProfile, makeResolutions } from '../utils/resolutions.js'
 
 const testName = 'test.eth'
 const l2CoinType = COIN_TYPE_DEFAULT | 12345n // any evm chain
 
-const loadFixture = async () => fixture()
+const connection = await hre.network.connect()
+const loadFixture = async () => connection.networkHelpers.loadFixture(fixture)
 
 async function fixture() {
-  const connection = await hre.network.connect()
-  const F = await deployDirectChainReverseFixture()
+  const F = await deployDefaultReverseFixture(connection)
   const gateway = new Gateway(
     new UncheckedRollup(new BrowserProvider(connection.provider)),
   )
   gateway.disableCache()
   const ccip = await serve(gateway, { protocol: 'raw', log: false })
   afterAll(ccip.shutdown)
-  const GatewayVM = await deployArtifact({
+  const GatewayVM = await deployArtifact(F.walletClient, {
     file: urgArtifact('GatewayVM'),
-    connection,
   })
-  const verifierAddress = await deployArtifact({
+  const verifierAddress = await deployArtifact(F.walletClient, {
     file: urgArtifact('UncheckedVerifier'),
     args: [[ccip.endpoint]],
     libs: { GatewayVM },
-    connection,
   })
   const reverseRegistrar = await connection.viem.deployContract(
     'L2ReverseRegistrar',
@@ -131,7 +129,7 @@ describe('ChainReverseResolver', () => {
       }
     })
 
-    it.skip('unset name()', async () => {
+    it('unset name()', async () => {
       const F = await loadFixture()
       const kp: KnownProfile = {
         name: getReverseName(F.owner, l2CoinType),
@@ -146,7 +144,7 @@ describe('ChainReverseResolver', () => {
       )
     })
 
-    it.skip('name()', async () => {
+    it('name()', async () => {
       const F = await loadFixture()
       await F.reverseRegistrar.write.setName([testName])
       const kp: KnownProfile = {
@@ -162,7 +160,7 @@ describe('ChainReverseResolver', () => {
       )
     })
 
-    it.skip('name() w/fallback', async () => {
+    it('name() w/fallback', async () => {
       const F = await loadFixture()
       await F.defaultReverseRegistrar.write.setName([testName])
       const kp: KnownProfile = {
@@ -187,7 +185,7 @@ describe('ChainReverseResolver', () => {
       ).resolves.toStrictEqual([])
     })
 
-    it.skip('multiple pages', async () => {
+    it('multiple pages', async () => {
       const F = await loadFixture()
       const connection = await hre.network.connect()
       const wallets = await connection.viem.getWalletClients()
@@ -202,7 +200,7 @@ describe('ChainReverseResolver', () => {
       ).resolves.toStrictEqual(wallets.map((x) => x.uid))
     })
 
-    it.skip('1 chain + 1 default + 1 unset', async () => {
+    it('1 chain + 1 default + 1 unset', async () => {
       const F = await loadFixture()
       const connection = await hre.network.connect()
       const wallets = await connection.viem.getWalletClients()

@@ -1,82 +1,81 @@
-import hre from 'hardhat'
-import type { NetworkConnection } from 'hardhat/types/network'
-import { readFile } from 'node:fs/promises'
+import { readFile } from "node:fs/promises";
 import {
   type Abi,
+  type Account,
   type Address,
+  type Chain,
   concat,
   getContractAddress,
   type Hex,
   sliceHex,
-} from 'viem'
+  type Transport,
+  type WalletClient,
+} from "viem";
+import { getTransactionCount, waitForTransactionReceipt } from "viem/actions";
 
 type LinkReferences = Record<
   string,
   Record<string, { start: number; length: number }[]>
->
+>;
 
 type ForgeArtifact = {
-  abi: Abi
+  abi: Abi;
   bytecode: {
-    object: Hex
-    linkReferences: LinkReferences
-  }
-}
+    object: Hex;
+    linkReferences: LinkReferences;
+  };
+};
 type HardhatArtifact = {
   //_format: "hh-sol-artifact-1";
-  abi: Abi
-  bytecode: Hex
-  linkReferences: LinkReferences
-}
+  abi: Abi;
+  bytecode: Hex;
+  linkReferences: LinkReferences;
+};
 
-export async function deployArtifact(options: {
-  file: string | URL
-  from?: Hex
-  args?: unknown[]
-  libs?: Record<string, Address>
-  connection?: NetworkConnection
-}) {
-  const artifact = JSON.parse(await readFile(options.file, 'utf8')) as
+export async function deployArtifact(
+  walletClient: WalletClient<Transport, Chain, Account>,
+  options: {
+    file: string | URL;
+    args?: any[];
+    libs?: Record<string, Address>;
+  },
+) {
+  const artifact = JSON.parse(await readFile(options.file, "utf8")) as
     | ForgeArtifact
-    | HardhatArtifact
-  let bytecode: Hex
-  let linkReferences: LinkReferences
-  if ('linkReferences' in artifact) {
-    bytecode = artifact.bytecode
-    linkReferences = artifact.linkReferences
+    | HardhatArtifact;
+  let bytecode: Hex;
+  let linkReferences: LinkReferences;
+  if ("linkReferences" in artifact) {
+    bytecode = artifact.bytecode;
+    linkReferences = artifact.linkReferences;
   } else {
-    bytecode = artifact.bytecode.object
-    linkReferences = artifact.bytecode.linkReferences
+    bytecode = artifact.bytecode.object;
+    linkReferences = artifact.bytecode.linkReferences;
   }
   for (const ref of Object.values(linkReferences)) {
     for (const [name, places] of Object.entries(ref)) {
-      const lib = options.libs?.[name]
-      if (!lib) throw new Error(`expected library: ${name}`)
+      const address = options.libs?.[name];
+      if (!address) throw new Error(`expected library: ${name}`);
       for (const { start, length } of places) {
         bytecode = concat([
           sliceHex(bytecode, 0, start),
-          lib,
+          address,
           sliceHex(bytecode, start + length),
-        ])
+        ]);
       }
     }
   }
-  const connection = options.connection || (await hre.network.connect())
-  const walletClient = options.from
-    ? await connection.viem.getWalletClient(options.from)
-    : await connection.viem.getWalletClients().then((x) => x[0])
-  const publicClient = await connection.viem.getPublicClient()
   const nonce = BigInt(
-    await publicClient.getTransactionCount(walletClient.account),
-  )
+    await getTransactionCount(walletClient, walletClient.account),
+  );
   const hash = await walletClient.deployContract({
     abi: artifact.abi,
     bytecode,
     args: options.args,
-  })
-  await publicClient.waitForTransactionReceipt({ hash })
+  });
+  await waitForTransactionReceipt(walletClient, { hash });
   return getContractAddress({
     from: walletClient.account.address,
     nonce,
-  })
+  });
 }
