@@ -278,11 +278,10 @@ export async function deployEnsStack(
     [owner.address, ['http://universal-offchain-resolver.local/']],
   )
 
-  const universalResolver = await connection.viem.deployContract('UniversalResolver', [
-    owner.address,
-    ensRegistry.address,
-    batchGatewayProvider.address,
-  ])
+  const universalResolver = await connection.viem.deployContract(
+    'UniversalResolver',
+    [owner.address, ensRegistry.address, batchGatewayProvider.address],
+  )
 
   return {
     ensRegistry,

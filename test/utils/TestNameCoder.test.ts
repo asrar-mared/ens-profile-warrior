@@ -53,7 +53,7 @@ describe('NameCoder', () => {
   it('no next label', async () => {
     const F = await loadFixture()
     await expect(
-      F.read.nextLabel([dnsEncodeName(''), 1n])
+      F.read.nextLabel([dnsEncodeName(''), 1n]),
     ).toBeRevertedWithCustomError('DNSDecodingFailed')
   })
 
@@ -61,7 +61,7 @@ describe('NameCoder', () => {
     it('0 reverts', async () => {
       const F = await loadFixture()
       await expect(
-        F.read.prevLabel([dnsEncodeName(''), 0n])
+        F.read.prevLabel([dnsEncodeName(''), 0n]),
       ).toBeRevertedWithCustomError('DNSDecodingFailed')
     })
 
@@ -69,7 +69,7 @@ describe('NameCoder', () => {
       const F = await loadFixture()
       const dns = dnsEncodeName('')
       await expect(
-        F.read.prevLabel([dns, BigInt(dns.length + 1)])
+        F.read.prevLabel([dns, BigInt(dns.length + 1)]),
       ).toBeRevertedWithCustomError('DNSDecodingFailed')
     })
 
@@ -110,7 +110,7 @@ describe('NameCoder', () => {
   it('null hashed label', async () => {
     const F = await loadFixture()
     await expect(
-      F.read.readLabel([dnsEncodeName(`[${'0'.repeat(64)}]`), 0n, true])
+      F.read.readLabel([dnsEncodeName(`[${'0'.repeat(64)}]`), 0n, true]),
     ).toBeRevertedWithCustomError('DNSDecodingFailed')
   })
 
@@ -126,7 +126,7 @@ describe('NameCoder', () => {
   it('invalid hashed label', async () => {
     const F = await loadFixture()
     await expect(
-      F.read.namehash([dnsEncodeName(`[${'z'.repeat(64)}]`), 0n])
+      F.read.namehash([dnsEncodeName(`[${'z'.repeat(64)}]`), 0n]),
     ).toBeRevertedWithCustomError('DNSDecodingFailed')
   })
 
@@ -157,7 +157,7 @@ describe('NameCoder', () => {
     it('malicious label', async () => {
       const F = await loadFixture()
       await expect(
-        F.read.decode([toHex('\x03a.b\x00')])
+        F.read.decode([toHex('\x03a.b\x00')]),
       ).toBeRevertedWithCustomError('DNSDecodingFailed')
     })
   })
@@ -228,12 +228,7 @@ describe('NameCoder', () => {
         const F = await loadFixture()
         await expect(
           F.read.matchSuffix([dnsEncodeName('a.b.c.eth'), 4n, namehash('xyz')]),
-        ).resolves.toStrictEqual([
-          false,
-          namehash('c.eth'),
-          0n,
-          0n,
-        ])
+        ).resolves.toStrictEqual([false, namehash('c.eth'), 0n, 0n])
       })
 
       it('exact exact', async () => {

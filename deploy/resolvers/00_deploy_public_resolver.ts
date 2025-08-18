@@ -41,9 +41,11 @@ export default execute(
         }),
         account: owner,
       })
-      
-      const isAlreadyDefault = getAddress(currentDefaultResolver.data || '0x') === getAddress(publicResolver.address)
-      
+
+      const isAlreadyDefault =
+        getAddress(currentDefaultResolver.data || '0x') ===
+        getAddress(publicResolver.address)
+
       if (!isAlreadyDefault) {
         // Set PublicResolver as default resolver on ReverseRegistrar
         await tx({
@@ -55,9 +57,13 @@ export default execute(
           }),
           account: owner,
         })
-        console.log(`Set PublicResolver as default resolver on ReverseRegistrar`)
+        console.log(
+          `Set PublicResolver as default resolver on ReverseRegistrar`,
+        )
       } else {
-        console.log(`PublicResolver is already the default resolver on ReverseRegistrar`)
+        console.log(
+          `PublicResolver is already the default resolver on ReverseRegistrar`,
+        )
       }
     } catch (error) {
       console.log(

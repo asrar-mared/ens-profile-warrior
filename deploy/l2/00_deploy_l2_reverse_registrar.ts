@@ -1,6 +1,17 @@
 import { evmChainIdToCoinType } from '@ensdomains/address-encoder/utils'
 import { execute, artifacts } from '@rocketh'
-import { concatHex, encodeDeployData, encodeFunctionData, Hash, Hex, keccak256, namehash, parseAbi, stringToHex, TransactionReceipt } from 'viem'
+import {
+  concatHex,
+  encodeDeployData,
+  encodeFunctionData,
+  Hash,
+  Hex,
+  keccak256,
+  namehash,
+  parseAbi,
+  stringToHex,
+  TransactionReceipt,
+} from 'viem'
 import { base, baseSepolia } from 'viem/chains'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -54,7 +65,7 @@ const safeDeploy = async (
   const networkType = env.network.tags.testnet ? 'testnet' : 'mainnet'
   const { safeAddress, baseDeploymentSalt, expectedDeploymentAddress } =
     safeConfig[networkType]
-  
+
   const deployConfig = (() => {
     if (
       env.network.chain.id === base.id ||
@@ -66,7 +77,9 @@ const safeDeploy = async (
           coinType,
           safeAddress,
           reverseNode,
-          oldReverseResolvers[env.network.chain.id as keyof typeof oldReverseResolvers],
+          oldReverseResolvers[
+            env.network.chain.id as keyof typeof oldReverseResolvers
+          ],
         ] as [bigint, Hex, Hex, Hex],
       } as const
     return {
@@ -97,7 +110,7 @@ const safeDeploy = async (
     console.log(
       `"L2ReverseRegistrar" deployed at: ${expectedDeploymentAddress} with ${receipt.gasUsed} gas`,
     )
-    
+
     // Convert receipt to Rocketh format
     const rockethReceipt = {
       from: receipt.from,
@@ -208,13 +221,13 @@ const safeDeploy = async (
   // Get artifact from Rocketh artifacts
   const artifact = artifacts[deployConfig.artifactName]
   const { abi, bytecode } = artifact
-  
+
   const deployData = encodeDeployData({
     abi,
     bytecode: bytecode as Hex,
     args: deployConfig.deploymentArgs,
   })
-  
+
   const create3Transaction = encodeFunctionData({
     abi: parseAbi([
       'function deployDeterministic(bytes initCode, bytes32 salt) returns (address)',
@@ -309,24 +322,24 @@ export default execute(
     const chainId = network.chain.id
     const coinType = evmChainIdToCoinType(chainId) as bigint
     const coinTypeHex = coinType.toString(16)
-  
+
     const REVERSE_NAMESPACE = `${coinTypeHex}.reverse`
     const REVERSENODE = namehash(REVERSE_NAMESPACE)
-  
+
     // Determine if this is a Base chain that needs migration support
     const isBaseChain = chainId === 8453 || chainId === 84532 // Base mainnet or Base Sepolia
-  
+
     if (isBaseChain) {
       // For Base chains, we need the migration version
       const safeAddress = network.tags.testnet
         ? '0x343431e9CEb7C19c8d3eA0EE231bfF82B584910'
         : '0x353530FE74098903728Ddb66Ecdb70f52e568eC1'
-  
+
       const oldReverseResolver =
         chainId === 8453
           ? '0xC6d566A56A1aFf6508b41f6c90ff131615583BCD' // Base mainnet
           : '0x6533C94869D28fAA8dF77cc63f9e2b2D6Cf77eBA' // Base Sepolia
-  
+
       await deploy('L2ReverseRegistrar', {
         account: deployer,
         artifact: artifacts.L2ReverseRegistrarWithMigration,
@@ -340,7 +353,7 @@ export default execute(
         args: [coinType],
       })
     }
-  },  
+  },
   {
     id: 'L2ReverseRegistrar v1.0.0',
     tags: ['category:l2', 'L2ReverseRegistrar'],

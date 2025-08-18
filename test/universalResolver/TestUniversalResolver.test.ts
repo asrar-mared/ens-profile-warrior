@@ -36,12 +36,12 @@ async function fixture() {
   const ens = await ownedEnsFixture(connection)
   const bg = await serveBatchGateway()
   afterAll(bg.shutdown)
-  
+
   const batchGatewayProvider = await connection.viem.deployContract(
     'GatewayProvider',
     [ens.owner, [bg.localBatchGatewayUrl]],
   )
-  
+
   const UniversalResolver = await connection.viem.deployContract(
     'UniversalResolver',
     [ens.owner, ens.ENSRegistry.address, batchGatewayProvider.address],
@@ -633,17 +633,16 @@ describe('UniversalResolver', () => {
 
       // Take control of the test name first
       await F.takeControl(testName)
-      
+
       await F.ENSRegistry.write.setResolver([
         namehash(testName),
         F.Shapeshift1.address,
       ])
 
-      const [answer, resolver] =
-        await F.UniversalResolver.read.resolve([
-          dnsEncodeName(testName),
-          res.call,
-        ])
+      const [answer, resolver] = await F.UniversalResolver.read.resolve([
+        dnsEncodeName(testName),
+        res.call,
+      ])
       expectVar({ resolver }).toEqualAddress(F.Shapeshift1.address)
       res.expect(answer)
     })
