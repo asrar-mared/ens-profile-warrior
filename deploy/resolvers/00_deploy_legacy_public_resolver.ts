@@ -8,10 +8,10 @@ export default execute(
       return
     }
 
-    const registry = await get('ENSRegistry')
-    const nameWrapper = await get('NameWrapper')
-    const ethRegistrarController = await get('ETHRegistrarController')
-    const reverseRegistrar = await get('ReverseRegistrar')
+    const registry = get('ENSRegistry')
+    const nameWrapper = get('NameWrapper')
+    const ethRegistrarController = get('ETHRegistrarController')
+    const reverseRegistrar = get('ReverseRegistrar')
 
     // Use the regular PublicResolver artifact for legacy deployment
     await deploy('LegacyPublicResolver', {

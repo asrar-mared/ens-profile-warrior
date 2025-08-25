@@ -14,8 +14,8 @@ export default execute(
 
     if (!ethOwnedResolver.newlyDeployed) return
 
-    const registry = await get('ENSRegistry')
-    const registrar = await get('BaseRegistrarImplementation')
+    const registry = get('ENSRegistry')
+    const registrar = get('BaseRegistrarImplementation')
 
     try {
       // Set resolver for .eth domain using tx function

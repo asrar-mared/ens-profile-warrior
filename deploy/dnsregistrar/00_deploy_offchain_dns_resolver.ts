@@ -4,8 +4,8 @@ export default execute(
   async ({ deploy, get, namedAccounts }) => {
     const { deployer } = namedAccounts
 
-    const registry = await get('ENSRegistry')
-    const dnssec = await get('DNSSECImpl')
+    const registry = get('ENSRegistry')
+    const dnssec = get('DNSSECImpl')
 
     await deploy('OffchainDNSResolver', {
       account: deployer,

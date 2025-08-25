@@ -54,9 +54,9 @@ export default execute(
       ),
     })
 
-    const registry = await get('ENSRegistry')
-    const publicSuffixList = await get('SimplePublicSuffixList')
-    const dnsRegistrar = await get('DNSRegistrar')
+    const registry = get('ENSRegistry')
+    const publicSuffixList = get('SimplePublicSuffixList')
+    const dnsRegistrar = get('DNSRegistrar')
 
     const suffixList = await (
       await fetch('https://publicsuffix.org/list/public_suffix_list.dat', {

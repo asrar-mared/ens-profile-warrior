@@ -1,23 +1,21 @@
 import { execute, artifacts } from '@rocketh'
-import { labelhash, namehash, zeroHash, encodeFunctionData } from 'viem'
+import { labelhash, namehash, encodeFunctionData } from 'viem'
 
 export default execute(
-  async ({ deploy, get, tx, namedAccounts, network, viem }) => {
+  async ({ deploy, get, tx, namedAccounts, network }) => {
     const { deployer, owner } = namedAccounts
 
     // Get dependencies
-    const registry = await get('ENSRegistry')
+    const registry = get('ENSRegistry')
 
     // Deploy ReverseRegistrar
-    const reverseRegistrarDeployment = await deploy('ReverseRegistrar', {
+    const reverseRegistrar = await deploy('ReverseRegistrar', {
       account: deployer,
       artifact: artifacts.ReverseRegistrar,
       args: [registry.address],
     })
 
-    if (!reverseRegistrarDeployment.newlyDeployed) return
-
-    const reverseRegistrar = await get('ReverseRegistrar')
+    if (!reverseRegistrar.newlyDeployed) return
 
     // Transfer ownership to owner
     if (owner !== deployer) {
@@ -51,7 +49,7 @@ export default execute(
       console.log('  Setting .reverse owner from', deployer, 'to', owner)
 
       // Set owner of .reverse to owner on root
-      const root = await get('Root')
+      const root = get('Root')
       const tx1 = await tx({
         to: root.address,
         data: encodeFunctionData({

@@ -2,7 +2,7 @@ import { execute, artifacts } from '@rocketh'
 import { zeroHash, encodeFunctionData } from 'viem'
 
 export default execute(
-  async ({ get, tx, namedAccounts, network, viem }) => {
+  async ({ get, tx, namedAccounts, network }) => {
     const { deployer, owner } = namedAccounts
 
     if (!network.tags.use_root) {
@@ -12,8 +12,8 @@ export default execute(
 
     console.log('Running root setup')
 
-    const registry = await get('ENSRegistry')
-    const root = await get('Root')
+    const registry = get('ENSRegistry')
+    const root = get('Root')
 
     console.log(`ENS Registry at: ${registry.address}`)
     console.log(`Root contract at: ${root.address}`)

@@ -1,7 +1,7 @@
 import { execute, artifacts } from '@rocketh'
 
 export default execute(
-  async ({ deploy, get, namedAccounts, viem }) => {
+  async ({ deploy, get, execute: write, namedAccounts }) => {
     const { deployer, owner } = namedAccounts
 
     const registrar = await get('BaseRegistrarImplementation')
@@ -13,16 +13,14 @@ export default execute(
       args: [registrar.address, wrapper.address],
     })
 
-    if (owner && owner.address !== deployer.address) {
+    if (owner && owner !== deployer) {
       const migrationHelper = await get('MigrationHelper')
-      // Note: using 'as any' because rocketh's dynamic proxy doesn't have full type safety
-      const hash = await (migrationHelper as any).write.transferOwnership(
-        [owner.address],
-        {
-          account: deployer,
-        },
-      )
-      console.log(`Transfer ownership to ${owner.address} (tx: ${hash})...`)
+      const hash = await write(migrationHelper, {
+        account: deployer,
+        functionName: 'transferOwnership',
+        args: [owner]
+      });
+      console.log(`Transfer ownership to ${owner} (tx: ${hash})...`)
     }
   },
   {

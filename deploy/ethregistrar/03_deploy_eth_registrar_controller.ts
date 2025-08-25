@@ -6,11 +6,11 @@ export default execute(
   async ({ deploy, get, tx, namedAccounts, network }) => {
     const { deployer, owner } = namedAccounts
 
-    const registry = await get('ENSRegistry')
-    const registrar = await get('BaseRegistrarImplementation')
-    const priceOracle = await get('ExponentialPremiumPriceOracle')
-    const reverseRegistrar = await get('ReverseRegistrar')
-    const defaultReverseRegistrar = await get('DefaultReverseRegistrar')
+    const registry = get('ENSRegistry')
+    const registrar = get('BaseRegistrarImplementation')
+    const priceOracle = get('ExponentialPremiumPriceOracle')
+    const reverseRegistrar = get('ReverseRegistrar')
+    const defaultReverseRegistrar = get('DefaultReverseRegistrar')
 
     const controllerDeployment = await deploy('ETHRegistrarController', {
       account: deployer,
@@ -28,7 +28,7 @@ export default execute(
 
     if (!controllerDeployment.newlyDeployed) return
 
-    const controller = await get('ETHRegistrarController')
+    const controller = get('ETHRegistrarController')
 
     // Transfer ownership to owner
     if (owner !== deployer) {
@@ -125,7 +125,7 @@ export default execute(
       const interfaceId = createInterfaceId(artifact.abi)
 
       // For simplicity, assume OwnedResolver was deployed for .eth
-      const ethOwnedResolver = await get('OwnedResolver')
+      const ethOwnedResolver = get('OwnedResolver')
 
       await tx({
         to: ethOwnedResolver.address,

@@ -2,7 +2,7 @@ import { execute, artifacts } from '@rocketh'
 import { encodeFunctionData } from 'viem'
 
 export default execute(
-  async ({ deploy, get, tx, namedAccounts, viem }) => {
+  async ({ deploy, get, tx, namedAccounts }) => {
     const { deployer, owner } = namedAccounts
 
     await deploy('DefaultReverseRegistrar', {
@@ -10,7 +10,7 @@ export default execute(
       artifact: artifacts.DefaultReverseRegistrar,
     })
 
-    const defaultReverseRegistrar = await get('DefaultReverseRegistrar')
+    const defaultReverseRegistrar = get('DefaultReverseRegistrar')
 
     // Transfer ownership to owner
     if (owner !== deployer) {

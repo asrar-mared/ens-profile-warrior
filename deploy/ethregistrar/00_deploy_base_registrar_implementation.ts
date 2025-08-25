@@ -9,7 +9,7 @@ export default execute(
       return
     }
 
-    const registry = await get('ENSRegistry')
+    const registry = get('ENSRegistry')
 
     await deploy('BaseRegistrarImplementation', {
       account: deployer,

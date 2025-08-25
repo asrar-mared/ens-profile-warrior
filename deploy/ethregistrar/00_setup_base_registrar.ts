@@ -9,8 +9,8 @@ export default execute(
       return
     }
 
-    const root = await get('Root')
-    const registrar = await get('BaseRegistrarImplementation')
+    const root = get('Root')
+    const registrar = get('BaseRegistrarImplementation')
 
     console.log('Running base registrar setup')
 

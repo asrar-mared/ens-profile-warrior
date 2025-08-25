@@ -1,18 +1,18 @@
 import { execute, artifacts } from '@rocketh'
-import { getAddress, namehash, encodeFunctionData } from 'viem'
+import { getAddress, encodeFunctionData } from 'viem'
 
 export default execute(
   async ({ deploy, get, namedAccounts, tx, network }) => {
     const { deployer, owner } = namedAccounts
 
     // Get dependencies
-    const registry = await get('ENSRegistry')
-    const nameWrapper = await get('NameWrapper')
-    const controller = await get('ETHRegistrarController')
-    const reverseRegistrar = await get('ReverseRegistrar')
+    const registry = get('ENSRegistry')
+    const nameWrapper = get('NameWrapper')
+    const controller = get('ETHRegistrarController')
+    const reverseRegistrar = get('ReverseRegistrar')
 
     // Deploy PublicResolver
-    const publicResolverDeployment = await deploy('PublicResolver', {
+    const publicResolver = await deploy('PublicResolver', {
       account: deployer,
       artifact: artifacts.PublicResolver,
       args: [
@@ -23,9 +23,7 @@ export default execute(
       ],
     })
 
-    if (!publicResolverDeployment.newlyDeployed) return
-
-    const publicResolver = await get('PublicResolver')
+    if (!publicResolver.newlyDeployed) return
 
     // Only attempt to make controller etc changes directly on testnets
     if (network.name === 'mainnet' && !network.tags?.tenderly) return
@@ -43,8 +41,9 @@ export default execute(
       })
 
       const isAlreadyDefault =
-        getAddress(currentDefaultResolver.data || '0x') ===
-        getAddress(publicResolver.address)
+        currentDefaultResolver.data &&
+        getAddress(currentDefaultResolver.data) ===
+          getAddress(publicResolver.address)
 
       if (!isAlreadyDefault) {
         // Set PublicResolver as default resolver on ReverseRegistrar

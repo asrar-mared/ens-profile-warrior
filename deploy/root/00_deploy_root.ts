@@ -9,7 +9,7 @@ export default execute(
     }
 
     // Get dependencies
-    const registry = await get('ENSRegistry')
+    const registry = get('ENSRegistry')
 
     // Deploy Root
     await deploy('Root', {

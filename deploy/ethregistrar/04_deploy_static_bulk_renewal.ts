@@ -4,7 +4,7 @@ export default execute(
   async ({ deploy, get, namedAccounts }) => {
     const { deployer } = namedAccounts
 
-    const controller = await get('ETHRegistrarController')
+    const controller = get('ETHRegistrarController')
 
     await deploy('StaticBulkRenewal', {
       account: deployer,

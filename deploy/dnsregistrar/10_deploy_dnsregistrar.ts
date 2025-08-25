@@ -5,12 +5,12 @@ export default execute(
   async ({ deploy, get, getOrNull, read, execute, namedAccounts }) => {
     const { deployer, owner } = namedAccounts
 
-    const registry = await get('ENSRegistry')
-    const dnssec = await get('DNSSECImpl')
-    const resolver = await get('OffchainDNSResolver')
-    const oldregistrar = await getOrNull('DNSRegistrar')
-    const root = await get('Root')
-    const publicSuffixList = await get('SimplePublicSuffixList')
+    const registry = get('ENSRegistry')
+    const dnssec = get('DNSSECImpl')
+    const resolver = get('OffchainDNSResolver')
+    const oldregistrar = getOrNull('DNSRegistrar')
+    const root = get('Root')
+    const publicSuffixList = get('SimplePublicSuffixList')
 
     const dnsRegistrar = await deploy('DNSRegistrar', {
       account: deployer,

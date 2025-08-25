@@ -12,9 +12,9 @@ export default execute(
   async ({ deploy, get, namedAccounts }) => {
     const { deployer } = namedAccounts
 
-    const registrar = await get('BaseRegistrarImplementation')
-    const priceOracle = await get('ExponentialPremiumPriceOracle')
-    const reverseRegistrar = await get('ReverseRegistrar')
+    const registrar = get('BaseRegistrarImplementation')
+    const priceOracle = get('ExponentialPremiumPriceOracle')
+    const reverseRegistrar = get('ReverseRegistrar')
 
     await deploy('LegacyETHRegistrarController', {
       account: deployer,

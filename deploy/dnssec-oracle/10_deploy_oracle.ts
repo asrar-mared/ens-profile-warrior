@@ -71,12 +71,12 @@ export default execute(
       args: [encodeAnchors(anchors)],
     })
 
-    const dnssec = await get('DNSSECImpl')
+    const dnssec = get('DNSSECImpl')
 
     try {
       // Set up algorithms
       for (const [id, contractName] of Object.entries(algorithms)) {
-        const algorithm = await get(contractName)
+        const algorithm = get(contractName)
         await tx({
           to: dnssec.address,
           data: encodeFunctionData({
@@ -91,7 +91,7 @@ export default execute(
 
       // Set up digests
       for (const [id, contractName] of Object.entries(digests)) {
-        const digest = await get(contractName)
+        const digest = get(contractName)
         await tx({
           to: dnssec.address,
           data: encodeFunctionData({
