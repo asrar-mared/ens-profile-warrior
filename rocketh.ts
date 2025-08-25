@@ -1,7 +1,7 @@
 // ------------------------------------------------------------------------------------------------
 // Typed Config
 // ------------------------------------------------------------------------------------------------
-import { UserConfig } from 'rocketh'
+import { type UserConfig, extendEnvironment } from 'rocketh'
 
 export const config = {
   accounts: {
@@ -58,3 +58,28 @@ import {
 
 const execute = _execute as NamedAccountExecuteFunction<typeof config.accounts>
 export { execute, loadAndExecuteDeployments }
+
+extendEnvironment((env) => {
+  // replacement for TransactionHashTracker
+  // https://github.com/wighawag/rocketh/blob/main/packages/rocketh/src/environment/providers/TransactionHashTracker.ts
+  const parent = env.network.provider
+  parent.request = async function (args: any) {
+    if (args.method === 'eth_getTransactionReceipt') {
+      const timeout = Date.now() + 2000
+      for (;;) {
+        await new Promise((f) => setTimeout(f, 25))
+        const receipt = await parent.provider.request(args).catch(() => {})
+        if (receipt) return receipt
+        if (Date.now() > timeout)
+          throw new Error(`timeout for receipt: ${args.params[0]}`)
+      }
+    } else {
+      const res = await parent.provider.request(args)
+      if (/^eth_send(Raw|)Transaction$/.test(args.method)) {
+        parent.transactionHashes?.push(res)
+      }
+      return res
+    }
+  }
+  return env
+})

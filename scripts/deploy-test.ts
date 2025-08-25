@@ -1,28 +1,48 @@
+import { createWalletClient, http } from 'viem'
 import { createAnvil } from '@viem/anvil'
-import { execSync } from 'child_process'
+import { executeDeployScripts, resolveConfig } from 'rocketh'
 
-const server = createAnvil({
-  host: '127.0.0.1',
-  port: 8545,
+const anvil = createAnvil()
+await anvil.start()
+
+const hostPort = `http://${anvil.host}:${anvil.port}`
+
+const client = createWalletClient({
+  transport: http(hostPort),
 })
 
-await server.start()
+const [deployer, owner] = await client.requestAddresses()
+const accounts = { deployer, owner }
 
-const exitHandler = async (c: number) => {
-  if (process.env.CI) process.exit(c)
-  else await server.stop()
-}
+process.env.BATCH_GATEWAY_URLS = '["x-batch-gateway:true"]'
 
-process.on('exit', exitHandler)
+const env = await executeDeployScripts(
+  resolveConfig({
+    network: {
+      name: 'local',
+      tags: ['test', 'legacy', 'use_root'],
+      nodeUrl: hostPort,
+      fork: false,
+    },
+    accounts,
+    askBeforeProceeding: false,
+    saveDeployments: false,
+  }),
+)
 
-process.on('beforeExit', exitHandler)
+console.log(accounts)
 
-execSync('bun run rocketh --network localhost --skip-prompts', {
-  stdio: 'inherit',
-  env: {
-    ...process.env,
-    BATCH_GATEWAY_URLS: '["https://example.com/"]',
-  },
-})
+console.log(
+  Object.fromEntries(
+    Object.entries(env.deployments).map(([key, { address }]) => [key, address]),
+  ),
+)
 
-await exitHandler(0)
+// the execa logic is completely broken and makes no sense
+// await anvil.stop();
+
+// anyway, this was launched as a child process
+// so we can just exit
+process.exit()
+
+// TODO: maybe this should be `bun run devnet`?

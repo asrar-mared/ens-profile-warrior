@@ -4,8 +4,8 @@ export default execute(
   async ({ deploy, get, execute: write, namedAccounts }) => {
     const { deployer, owner } = namedAccounts
 
-    const registrar = await get('BaseRegistrarImplementation')
-    const wrapper = await get('NameWrapper')
+    const registrar = get('BaseRegistrarImplementation')
+    const wrapper = get('NameWrapper')
 
     await deploy('MigrationHelper', {
       account: deployer,
@@ -14,7 +14,7 @@ export default execute(
     })
 
     if (owner && owner !== deployer) {
-      const migrationHelper = await get('MigrationHelper')
+      const migrationHelper = get('MigrationHelper')
       const hash = await write(migrationHelper, {
         account: deployer,
         functionName: 'transferOwnership',

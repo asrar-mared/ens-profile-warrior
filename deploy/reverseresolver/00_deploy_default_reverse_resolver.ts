@@ -4,7 +4,7 @@ export default execute(
   async ({ deploy, get, namedAccounts }) => {
     const { deployer } = namedAccounts
 
-    const defaultReverseRegistrar = await get('DefaultReverseRegistrar')
+    const defaultReverseRegistrar = get('DefaultReverseRegistrar')
 
     await deploy('DefaultReverseResolver', {
       account: deployer,

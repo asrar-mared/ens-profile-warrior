@@ -1,48 +1,27 @@
 import { execute, artifacts } from '@rocketh'
-import { concat, zeroHash, type Hex, createPublicClient, http } from 'viem'
+import { concat, zeroHash, type Hex, type Address } from 'viem'
 
 const usvAddress = '0x164af34fAF9879394370C7f09064127C043A35E9'
 
 export default execute(
-  async ({ tx, namedAccounts, network }) => {
-    const { deployer } = namedAccounts
-
-    // Create public client for reading contract state
-    const publicClient = createPublicClient({
-      chain: {
-        id: network.chain?.id || (network as any).config?.chainId || 31337,
-        name: network.name || 'localhost',
-        rpcUrls: {
-          default: {
-            http: [(network as any).config?.rpcUrl || 'http://127.0.0.1:8545'],
-          },
-        },
-        nativeCurrency: {
-          name: 'Ether',
-          symbol: 'ETH',
-          decimals: 18,
-        },
-      },
-      transport: http(
-        (network as any).config?.rpcUrl || 'http://127.0.0.1:8545',
-      ),
-    })
+  async ({ tx, namedAccounts: { deployer }, network }) => {
+    async function isDeployed(address: Address) {
+      const code = await network.provider.request({
+        method: 'eth_getCode',
+        params: [address, 'latest'],
+      })
+      return code.length > 2
+    }
 
     // Check if already deployed
-    const usvDeployedBytecode = await publicClient.getBytecode({
-      address: usvAddress,
-    })
-    if (usvDeployedBytecode) {
+    if (await isDeployed(usvAddress)) {
       console.log(`UniversalSigValidator already deployed at ${usvAddress}`)
       return true
     }
 
     // ensure Deterministic Deployment Proxy is deployed
     const ddpAddress = '0x4e59b44847b379578588920ca78fbf26c0b4956c'
-    const ddpBytecode = await publicClient.getBytecode({
-      address: ddpAddress,
-    })
-    if (!ddpBytecode) {
+    if (!(await isDeployed(ddpAddress))) {
       // 100k gas @ 100 gwei
       const minBalance = 10n ** 16n // 0.01 ETH
       const balanceTransferHash = await tx({
@@ -55,9 +34,11 @@ export default execute(
         `Transferred balance for DDP deployment (tx: ${balanceTransferHash})`,
       )
 
-      const ddpDeployHash = await publicClient.sendRawTransaction({
-        serializedTransaction:
+      const ddpDeployHash = await network.provider.request({
+        method: 'eth_sendRawTransaction',
+        params: [
           '0xf8a58085174876e800830186a08080b853604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf31ba02222222222222222222222222222222222222222222222222222222222222222a02222222222222222222222222222222222222222222222222222222222222222',
+        ],
       })
       console.log(
         `Deterministic Deployment Proxy deployed at ${ddpAddress} (tx: ${ddpDeployHash})`,

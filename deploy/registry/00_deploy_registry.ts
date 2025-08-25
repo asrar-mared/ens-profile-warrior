@@ -1,10 +1,7 @@
 import { execute, artifacts } from '@rocketh'
-import { zeroAddress, zeroHash } from 'viem'
 
 export default execute(
-  async ({ deploy, get, namedAccounts, network }) => {
-    const { deployer, owner } = namedAccounts
-
+  async ({ deploy, namedAccounts: { deployer }, network }) => {
     if (network.tags.legacy) {
       console.log('Deploying Legacy ENS Registry...')
       const contract = await deploy('LegacyENSRegistry', {

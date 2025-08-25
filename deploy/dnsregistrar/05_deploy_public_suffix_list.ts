@@ -3,8 +3,7 @@ import type { Hash } from 'viem'
 import { dnsEncodeName } from '../../test/fixtures/dnsEncodeName.js'
 
 export default execute(
-  async ({ deploy, execute, namedAccounts }) => {
-    const { deployer, owner } = namedAccounts
+  async ({ deploy, execute, namedAccounts: { deployer, owner } }) => {
 
     const psl = await deploy('SimplePublicSuffixList', {
       account: deployer,

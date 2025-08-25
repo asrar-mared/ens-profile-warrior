@@ -4,8 +4,6 @@ import {
   namehash,
   parseAbi,
   parseEther,
-  createPublicClient,
-  http,
   type Address,
   type Hash,
   type Hex,
@@ -30,30 +28,7 @@ const multicallAbi = parseAbi([
 ])
 
 export default execute(
-  async ({ get, read, tx, namedAccounts, network }) => {
-    const { deployer } = namedAccounts
-
-    // Create public client for reading contract state
-    const publicClient = createPublicClient({
-      chain: {
-        id: network.chain?.id || (network as any).config?.chainId || 31337,
-        name: network.name || 'localhost',
-        rpcUrls: {
-          default: {
-            http: [(network as any).config?.rpcUrl || 'http://127.0.0.1:8545'],
-          },
-        },
-        nativeCurrency: {
-          name: 'Ether',
-          symbol: 'ETH',
-          decimals: 18,
-        },
-      },
-      transport: http(
-        (network as any).config?.rpcUrl || 'http://127.0.0.1:8545',
-      ),
-    })
-
+  async ({ get, read, tx, namedAccounts: { deployer }, network, config }) => {
     const registry = get('ENSRegistry')
     const publicSuffixList = get('SimplePublicSuffixList')
     const dnsRegistrar = get('DNSRegistrar')
@@ -86,8 +61,7 @@ export default execute(
           }
 
           // Skip owner checks for test networks
-          if (!(network as any).saveDeployments && network.tags?.test)
-            return returnData
+          if (!config.saveDeployments && network.tags?.test) return returnData
 
           const owner = await read(registry, {
             functionName: 'owner',
@@ -126,11 +100,12 @@ export default execute(
     console.log(`Processing ${suffixes.length} public suffixes...`)
 
     // Check if multicall exists, deploy if needed
-    const multicallExistingBytecode = await publicClient.getBytecode({
-      address: multicallAddress,
+    const multicallExistingBytecode = await network.provider.request({
+      method: 'eth_getCode',
+      params: [multicallAddress, 'latest'],
     })
 
-    if (!multicallExistingBytecode && !(network as any).saveDeployments) {
+    if (!multicallExistingBytecode && !config.saveDeployments) {
       const balanceHash1 = await tx({
         to: '0x05f32B3cC3888453ff71B01135B34FF8e41263F2',
         value: parseEther('1'),
@@ -143,13 +118,14 @@ export default execute(
         account: deployer,
       })
 
-      const deployHash = await publicClient.sendRawTransaction({
-        serializedTransaction: multicallDeployTransaction,
+      const deployHash = await network.provider.request({
+        method: 'eth_sendRawTransaction',
+        params: [multicallDeployTransaction],
       })
       console.log(`Deploying Multicall (${deployHash})...`)
     }
 
-    const allowUnsafe = network.tags?.test && !(network as any).saveDeployments
+    const allowUnsafe = network.tags?.test && !config.saveDeployments
     const batchAmount = allowUnsafe ? 400 : 25
 
     const pendingTransactions: Hash[] = []

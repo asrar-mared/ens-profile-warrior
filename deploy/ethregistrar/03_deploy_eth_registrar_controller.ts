@@ -12,7 +12,7 @@ export default execute(
     const reverseRegistrar = get('ReverseRegistrar')
     const defaultReverseRegistrar = get('DefaultReverseRegistrar')
 
-    const controllerDeployment = await deploy('ETHRegistrarController', {
+    const controller = await deploy('ETHRegistrarController', {
       account: deployer,
       artifact: artifacts.ETHRegistrarController,
       args: [
@@ -26,9 +26,7 @@ export default execute(
       ],
     })
 
-    if (!controllerDeployment.newlyDeployed) return
-
-    const controller = get('ETHRegistrarController')
+    if (!controller.newlyDeployed) return
 
     // Transfer ownership to owner
     if (owner !== deployer) {
