@@ -14,7 +14,7 @@ export default execute(
     await deploy('BatchGatewayProvider', {
       account: deployer,
       artifact: artifacts.GatewayProvider,
-      args: [(owner ?? deployer).address, batchGatewayURLs],
+      args: [owner ?? deployer, batchGatewayURLs],
     })
   },
   {
