@@ -131,7 +131,7 @@ describe('L2ReverseRegistrar', () => {
       loadFixture().then(({ l2ReverseRegistrar }) => l2ReverseRegistrar),
     interfaces: [
       'IL2ReverseRegistrar',
-      'node_modules/@openzeppelin/contracts/utils/introspection/IERC165.sol:IERC165',
+      'IERC165',
       'IStandaloneReverseRegistrar',
     ],
   })

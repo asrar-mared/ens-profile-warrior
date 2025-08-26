@@ -28,7 +28,7 @@ describe('DefaultReverseResolver', () => {
   shouldSupportInterfaces({
     contract: () => loadFixture().then((F) => F.defaultReverseResolver),
     interfaces: [
-      'node_modules/@openzeppelin/contracts/utils/introspection/IERC165.sol:IERC165',
+      'IERC165',
       'IExtendedResolver',
       'INameReverser',
     ],

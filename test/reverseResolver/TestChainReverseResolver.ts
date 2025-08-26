@@ -76,7 +76,7 @@ describe('ChainReverseResolver', () => {
   shouldSupportInterfaces({
     contract: () => loadFixture().then((F) => F.reverseResolver),
     interfaces: [
-      'node_modules/@openzeppelin/contracts/utils/introspection/IERC165.sol:IERC165',
+      'IERC165',
       'IExtendedResolver',
       'INameReverser',
     ],

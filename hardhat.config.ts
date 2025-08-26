@@ -104,7 +104,12 @@ const config = {
         },
       },
     },
-    npmFilesToBuild: ['@openzeppelin/contracts/utils/introspection/ERC165.sol'],
+    npmFilesToBuild: [
+      '@openzeppelin/contracts/utils/introspection/ERC165.sol',
+      '@openzeppelin/contracts/utils/introspection/IERC165.sol',
+      '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol',
+      '@openzeppelin/contracts/token/ERC1155/IERC1155.sol',
+    ],
   },
   paths: {
     sources: {
