@@ -1,4 +1,4 @@
-import { task } from 'hardhat/config'
+import type { NewTaskActionFunction } from 'hardhat/types/tasks'
 import { encodeFunctionData, parseAbi, zeroAddress } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import {
@@ -35,7 +35,7 @@ const singleton = '0x29fcB43b46531BcA003ddC8FCB67FFE91900C762'
 const proxyFactory = '0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67'
 const fallbackHandler = '0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99'
 
-task('create-l2-safe', 'Creates an L2 Safe').setAction(async (_, hre) => {
+const taskCreateL2Safe: NewTaskActionFunction = async (_, hre) => {
   const { viem, networkConfig } = await hre.network.connect()
   const networkType = networkConfig.chainType === 'l1' ? 'mainnet' : 'testnet'
   const { expectedSafeAddress, owners, threshold, salt } =
@@ -107,4 +107,6 @@ task('create-l2-safe', 'Creates an L2 Safe').setAction(async (_, hre) => {
   })
   console.log('Transaction confirmed')
   console.log('Safe deployed successfully')
-})
+}
+
+export default taskCreateL2Safe

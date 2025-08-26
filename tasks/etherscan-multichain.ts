@@ -1,4 +1,4 @@
-import { task } from 'hardhat/config'
+import type { NewTaskActionFunction } from 'hardhat/types/tasks'
 import { encodeAbiParameters } from 'viem'
 
 const licenseTypes = [
@@ -36,125 +36,120 @@ const extractOneLicenseFromSourceFile = (source: string): string | null => {
   return licenses[0]
 }
 
-task('multichain-verify', 'Verify contracts on multiple EVM chains')
-  .addPositionalArgument({
-    name: 'contractName',
-    description: 'The contract name to verify',
-  })
-  .addPositionalArgument({
-    name: 'address',
-    description: 'The contract address to verify',
-  })
-  // .addVariadicPositionalArgument({ name: 'deployArgs', description: 'Constructor arguments' })
-  .setAction(async (args, hre) => {
-    const {
-      contractName: contractName_,
-      address,
-      // deployArgs: deployArgs_,
-    } = args
-    const deployArgs: any[] = [] // Default to empty array for now
-    const { metadata: metadataString, abi } = await (
-      hre as any
-    ).deployments.getExtendedArtifact(contractName_)
-    if (!metadataString) throw new Error('Metadata not found')
+type MultichainVerifyArgs = {
+  contractName: string
+  address: string
+  deployArgs: string[]
+}
 
-    const metadata = JSON.parse(metadataString)
-    const compilationTarget = metadata.settings?.compilationTarget
-    if (!compilationTarget) throw new Error('Compilation target not found')
+const taskMultichainVerify: NewTaskActionFunction<
+  MultichainVerifyArgs
+> = async (args, hre) => {
+  const { contractName: contractName_, address, deployArgs: deployArgs_ } = args
+  const deployArgs: any[] = deployArgs_ || []
+  const { metadata: metadataString, abi } = await (
+    hre as any
+  ).deployments.getExtendedArtifact(contractName_)
+  if (!metadataString) throw new Error('Metadata not found')
 
-    const contractFilepath = Object.keys(compilationTarget)[0]
-    const contractName = compilationTarget[contractFilepath]
+  const metadata = JSON.parse(metadataString)
+  const compilationTarget = metadata.settings?.compilationTarget
+  if (!compilationTarget) throw new Error('Compilation target not found')
 
-    if (!contractFilepath || !contractName)
-      throw new Error('Contract name not found')
+  const contractFilepath = Object.keys(compilationTarget)[0]
+  const contractName = compilationTarget[contractFilepath]
 
-    const contractNamePath = `${contractFilepath}:${contractName}`
-    const contractSourceFile = metadata.sources[contractFilepath].content
-    const sourceLicenseType =
-      extractOneLicenseFromSourceFile(contractSourceFile)
+  if (!contractFilepath || !contractName)
+    throw new Error('Contract name not found')
 
-    if (!sourceLicenseType) throw new Error('License not found')
+  const contractNamePath = `${contractFilepath}:${contractName}`
+  const contractSourceFile = metadata.sources[contractFilepath].content
+  const sourceLicenseType = extractOneLicenseFromSourceFile(contractSourceFile)
 
-    const licenseType = getLicenseType(sourceLicenseType)
-    if (!licenseType) throw new Error('License not supported')
+  if (!sourceLicenseType) throw new Error('License not found')
 
-    const settings = { ...metadata.settings }
-    delete settings.compilationTarget
-    const solcInput = {
-      language: metadata.language,
-      settings,
-      sources: {} as Record<string, { content: string }>,
+  const licenseType = getLicenseType(sourceLicenseType)
+  if (!licenseType) throw new Error('License not supported')
+
+  const settings = { ...metadata.settings }
+  delete settings.compilationTarget
+  const solcInput = {
+    language: metadata.language,
+    settings,
+    sources: {} as Record<string, { content: string }>,
+  }
+  for (const sourcePath of Object.keys(metadata.sources)) {
+    const source = metadata.sources[sourcePath]
+    // only content as this fails otherwise
+    solcInput.sources[sourcePath] = {
+      content: source.content,
     }
-    for (const sourcePath of Object.keys(metadata.sources)) {
-      const source = metadata.sources[sourcePath]
-      // only content as this fails otherwise
-      solcInput.sources[sourcePath] = {
-        content: source.content,
-      }
-    }
+  }
 
-    const solcInputString = JSON.stringify(solcInput)
-    console.log(`Verifying ${contractName} (${address}) ...`)
+  const solcInputString = JSON.stringify(solcInput)
+  console.log(`Verifying ${contractName} (${address}) ...`)
 
-    const description = abi.find(
-      (x: any) => 'type' in x && x.type === 'constructor',
+  const description = abi.find(
+    (x: any) => 'type' in x && x.type === 'constructor',
+  )
+  const constructorArguments =
+    deployArgs.length > 0
+      ? encodeAbiParameters(description.inputs, deployArgs)
+      : undefined
+
+  const formData = new FormData()
+  formData.append('chainId', (hre.network as any).config.chainId!.toString())
+  formData.append('contractaddress', address)
+  formData.append('sourceCode', solcInputString)
+  formData.append('codeformat', 'solidity-standard-json-input')
+  formData.append('contractName', contractNamePath)
+  formData.append('compilerversion', `v${metadata.compiler.version}`)
+  if (constructorArguments)
+    formData.append('constructorArguements', constructorArguments.slice(2))
+  formData.append('licenseType', licenseType.toString())
+
+  const baseUrl = 'https://api.etherscan.io/api'
+
+  const response = await fetch(
+    `${baseUrl}?module=contract&action=verifysourcecode&apikey=${process.env.ETHERSCAN_API_KEY}`,
+    {
+      method: 'POST',
+      body: formData,
+    },
+  )
+
+  const responseData = await response.json()
+  const status = responseData.status
+  if (status !== '1') throw new Error('Submission failed')
+
+  const guid = responseData.result
+  if (!guid) throw new Error('Submission failed')
+
+  async function checkStatus() {
+    const statusRequest = await fetch(
+      `${baseUrl}?module=contract&action=checkverifystatus&apikey=${process.env.ETHERSCAN_API_KEY}&guid=${guid}`,
     )
-    const constructorArguments =
-      deployArgs.length > 0
-        ? encodeAbiParameters(description.inputs, deployArgs)
-        : undefined
+    const statusResponse = await statusRequest.json()
 
-    const formData = new FormData()
-    formData.append('chainId', (hre.network as any).config.chainId!.toString())
-    formData.append('contractaddress', address)
-    formData.append('sourceCode', solcInputString)
-    formData.append('codeformat', 'solidity-standard-json-input')
-    formData.append('contractName', contractNamePath)
-    formData.append('compilerversion', `v${metadata.compiler.version}`)
-    if (constructorArguments)
-      formData.append('constructorArguements', constructorArguments.slice(2))
-    formData.append('licenseType', licenseType.toString())
-
-    const baseUrl = 'https://api.etherscan.io/api'
-
-    const response = await fetch(
-      `${baseUrl}?module=contract&action=verifysourcecode&apikey=${process.env.ETHERSCAN_API_KEY}`,
-      {
-        method: 'POST',
-        body: formData,
-      },
+    if (statusResponse.result === 'Pending in queue') return null
+    if (
+      statusResponse.result !== 'Fail - Unable to verify' &&
+      statusResponse.status === '1'
     )
+      return 'success'
 
-    const responseData = await response.json()
-    const status = responseData.status
-    if (status !== '1') throw new Error('Submission failed')
+    throw new Error('Verification failed')
+  }
 
-    const guid = responseData.result
-    if (!guid) throw new Error('Submission failed')
+  let result
+  while (!result) {
+    await new Promise((resolve) => setTimeout(resolve, 10 * 1000))
+    result = await checkStatus()
+  }
 
-    async function checkStatus() {
-      const statusRequest = await fetch(
-        `${baseUrl}?module=contract&action=checkverifystatus&apikey=${process.env.ETHERSCAN_API_KEY}&guid=${guid}`,
-      )
-      const statusResponse = await statusRequest.json()
+  if (result === 'success') {
+    console.log(`Verification successful for ${contractName} (${address})`)
+  }
+}
 
-      if (statusResponse.result === 'Pending in queue') return null
-      if (
-        statusResponse.result !== 'Fail - Unable to verify' &&
-        statusResponse.status === '1'
-      )
-        return 'success'
-
-      throw new Error('Verification failed')
-    }
-
-    let result
-    while (!result) {
-      await new Promise((resolve) => setTimeout(resolve, 10 * 1000))
-      result = await checkStatus()
-    }
-
-    if (result === 'success') {
-      console.log(`Verification successful for ${contractName} (${address})`)
-    }
-  })
+export default taskMultichainVerify

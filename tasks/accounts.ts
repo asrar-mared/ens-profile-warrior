@@ -1,10 +1,12 @@
-import { task } from 'hardhat/config'
+import type { NewTaskActionFunction } from 'hardhat/types/tasks'
 
-task('accounts', 'Prints the list of accounts').setAction(async (_, hre) => {
+const taskAccounts: NewTaskActionFunction = async (_, hre) => {
   const { viem } = await hre.network.connect()
   const accounts = await viem.getWalletClients()
 
   for (const { account } of accounts) {
     console.log(account.address)
   }
-})
+}
+
+export default taskAccounts

@@ -1,4 +1,4 @@
-import { configVariable, type HardhatUserConfig } from 'hardhat/config'
+import { configVariable, task, type HardhatUserConfig } from 'hardhat/config'
 
 import dotenv from 'dotenv'
 
@@ -122,6 +122,55 @@ const config = {
     HardhatViem,
     HardhatDeploy,
     HardhatKeystore,
+  ],
+  tasks: [
+    task('accounts', 'Prints the list of accounts')
+      .setAction(() => import('./tasks/accounts.js'))
+      .build(),
+    task('archive-scan', 'Scans the deployments for unarchived deployments')
+      .setAction(() => import('./tasks/archive_scan.js'))
+      .build(),
+    task('create-l2-safe', 'Creates an L2 Safe')
+      .setAction(() => import('./tasks/create_l2_safe.js'))
+      .build(),
+    task('multichain-verify', 'Verify contracts using etherscan v2 api')
+      .addPositionalArgument({
+        name: 'contractName',
+        description: 'The contract name to verify',
+      })
+      .addPositionalArgument({
+        name: 'address',
+        description: 'The contract address to verify',
+      })
+      .addVariadicArgument({
+        name: 'deployArgs',
+        description: 'Constructor arguments',
+      })
+      .setAction(() => import('./tasks/etherscan-multichain.js'))
+      .build(),
+    task('save', 'Saves a specified contract as a deployed contract')
+      .addPositionalArgument({
+        name: 'contract',
+        description: 'The contract to save',
+      })
+      .addPositionalArgument({
+        name: 'block',
+        description: 'The block number the contract was deployed at',
+      })
+      .addPositionalArgument({
+        name: 'fullName',
+        description:
+          '(Optional) The fully qualified name of the contract (e.g. contracts/resolvers/PublicResolver.sol:PublicResolver)',
+      })
+      .setAction(() => import('./tasks/save.js'))
+      .build(),
+    task('seed', 'Creates test subbdomains and wraps them with Namewrapper')
+      .addPositionalArgument({
+        name: 'name',
+        description: 'The ENS label to seed subdomains',
+      })
+      .setAction(() => import('./tasks/seed.js'))
+      .build(),
   ],
 } satisfies HardhatUserConfig
 

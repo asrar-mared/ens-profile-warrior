@@ -1,13 +1,9 @@
-// import { existsSync } from 'fs'
 import fs from 'fs'
 
-import { task } from 'hardhat/config'
+import type { NewTaskActionFunction } from 'hardhat/types/tasks'
 import { archivedDeploymentPath } from '../hardhat.config.js'
 
-task(
-  'archive-scan',
-  'Scans the deployments for unarchived deployments',
-).setAction(async (_, hre) => {
+const taskArchiveScan: NewTaskActionFunction = async (_, hre) => {
   const { networkName } = await hre.network.connect()
   const network = networkName
 
@@ -41,4 +37,6 @@ task(
       fullName,
     })
   }
-})
+}
+
+export default taskArchiveScan
