@@ -1,4 +1,6 @@
-import { execute, artifacts } from '@rocketh'
+import { artifacts, execute } from '@rocketh'
+import type { Artifact } from 'rocketh'
+import LegacyPublicResolverArtifact from '../../deployments/archive/PublicResolver_mainnet_9412610.sol/PublicResolver_mainnet_9412610.json'
 
 export default execute(
   async ({ deploy, get, namedAccounts, network }) => {
@@ -8,31 +10,17 @@ export default execute(
       return
     }
 
-    const registry = get('ENSRegistry')
-    const nameWrapper = get('NameWrapper')
-    const ethRegistrarController = get('ETHRegistrarController')
-    const reverseRegistrar = get('ReverseRegistrar')
+    const registry = get<(typeof artifacts.ENSRegistry)['abi']>('ENSRegistry')
 
-    // Use the regular PublicResolver artifact for legacy deployment
     await deploy('LegacyPublicResolver', {
       account: deployer,
-      artifact: artifacts.PublicResolver,
-      args: [
-        registry.address,
-        nameWrapper.address,
-        ethRegistrarController.address,
-        reverseRegistrar.address,
-      ],
+      artifact: LegacyPublicResolverArtifact as unknown as Artifact,
+      args: [registry.address],
     })
   },
   {
     id: 'PublicResolver v1.0.0',
     tags: ['category:resolvers', 'LegacyPublicResolver'],
-    dependencies: [
-      'ENSRegistry',
-      'NameWrapper',
-      'ETHRegistrarController',
-      'ReverseRegistrar',
-    ],
+    dependencies: ['ENSRegistry'],
   },
 )

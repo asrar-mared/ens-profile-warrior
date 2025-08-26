@@ -1,5 +1,8 @@
 import { evmChainIdToCoinType } from '@ensdomains/address-encoder/utils'
-import { execute, artifacts } from '@rocketh'
+import { artifacts, execute, type Environment } from '@rocketh'
+import fs from 'node:fs'
+import path from 'node:path'
+import type { Abi, Deployment } from 'rocketh'
 import {
   concatHex,
   encodeDeployData,
@@ -13,12 +16,14 @@ import {
   TransactionReceipt,
 } from 'viem'
 import { base, baseSepolia } from 'viem/chains'
-import fs from 'node:fs'
-import path from 'node:path'
+
+type Writeable<T> = {
+  -readonly [P in keyof T]: T[P]
+}
 
 export const safeConfig = {
   testnet: {
-    safeAddress: '0x343431e9CEb7C19c8d3eA0EE231bfF82B584910',
+    safeAddress: '0x343431e9CEb7C19cC8d3eA0EE231bfF82B584910',
     baseDeploymentSalt:
       '0xb42292a18122332f920fcf3af8efe05e2c97a83802dfe4dd01dee7dec47f66ae',
     expectedDeploymentAddress: '0x00000BeEF055f7934784D6d81b6BC86665630dbA',
@@ -44,16 +49,7 @@ const oldReverseResolvers = {
 // It can be used as an alternative to the standard deploy() function for L2 chains
 // that require Safe multisig approval for deployments
 const safeDeploy = async (
-  env: {
-    network: {
-      tags: { testnet?: boolean }
-      chain: { id: number }
-      name: string
-    }
-    viem: {
-      getPublicClient(): Promise<any>
-    }
-  },
+  env: Pick<Environment, 'network' | 'getPublicClient' | 'save'>,
   {
     reverseNode,
     coinType,
@@ -98,11 +94,11 @@ const safeDeploy = async (
     deployment,
     receipt,
   }: {
-    deployment: any
+    deployment: Deployment<Abi>
     receipt: TransactionReceipt
   }) => {
-    const publicClient = await env.viem.getPublicClient()
-    const currentBytecode = await publicClient.getBytecode({
+    const publicClient = env.getPublicClient()
+    const currentBytecode = await publicClient.getCode({
       address: expectedDeploymentAddress,
     })
     if (!currentBytecode) throw new Error('L2ReverseRegistrar not deployed')
@@ -111,39 +107,22 @@ const safeDeploy = async (
       `"L2ReverseRegistrar" deployed at: ${expectedDeploymentAddress} with ${receipt.gasUsed} gas`,
     )
 
-    // Convert receipt to Rocketh format
-    const rockethReceipt = {
-      from: receipt.from,
-      transactionHash: receipt.transactionHash,
-      blockHash: receipt.blockHash,
-      blockNumber: Number(receipt.blockNumber),
-      transactionIndex: receipt.transactionIndex,
-      cumulativeGasUsed: receipt.cumulativeGasUsed.toString(),
-      gasUsed: receipt.gasUsed.toString(),
-      contractAddress: receipt.contractAddress ?? undefined,
-      to: receipt.to ?? undefined,
-      logs: receipt.logs.map((log) => ({
-        blockNumber: Number(log.blockNumber),
-        blockHash: log.blockHash,
-        transactionHash: log.transactionHash,
-        transactionIndex: log.transactionIndex,
-        logIndex: log.logIndex,
-        removed: log.removed,
-        address: log.address,
-        topics: log.topics,
-        data: log.data,
-      })),
-      logsBloom: receipt.logsBloom,
-      status: receipt.status === 'success' ? 1 : 0,
+    const completeDeployment = {
+      ...deployment,
+      receipt: {
+        confirmations: 1,
+        blockHash: receipt.blockHash,
+        blockNumber: receipt.blockNumber,
+        transactionIndex: receipt.transactionIndex,
+      },
+      transaction: {
+        hash: receipt.transactionHash,
+        origin: receipt.from,
+        nonce: 0,
+      },
     }
 
-    // Save deployment using Rocketh's save mechanism
-    // Note: In Rocketh, deployments are typically saved automatically
-    // This is a placeholder for the save operation
-    console.log('Deployment saved:', {
-      ...deployment,
-      receipt: rockethReceipt,
-    })
+    await env.save('L2ReverseRegistrar', completeDeployment)
   }
 
   const { default: SafeApiKit } = await import('@safe-global/api-kit').then(
@@ -153,7 +132,7 @@ const safeDeploy = async (
     (m) => m.default,
   )
 
-  const publicClient = await env.viem.getPublicClient()
+  const publicClient = env.getPublicClient()
   const privateKey = process.env.SAFE_PROPOSER_KEY!
 
   if (networkType === 'mainnet') {
@@ -203,7 +182,7 @@ const safeDeploy = async (
   }
 
   const protocolKit = await Safe.init({
-    provider: publicClient.transport,
+    provider: env.network.provider,
     signer: privateKey,
     safeAddress,
     contractNetworks: {
@@ -220,7 +199,7 @@ const safeDeploy = async (
 
   // Get artifact from Rocketh artifacts
   const artifact = artifacts[deployConfig.artifactName]
-  const { abi, bytecode } = artifact
+  const { abi, bytecode, ...artifactData } = artifact
 
   const deployData = encodeDeployData({
     abi,
@@ -261,9 +240,9 @@ const safeDeploy = async (
   const deployment = {
     address: expectedDeploymentAddress,
     abi,
-    receipt: {},
-    args: deployConfig.deploymentArgs,
+    argsData: deployConfig.deploymentArgs,
     bytecode,
+    ...artifactData,
   }
 
   if (networkType === 'testnet') {
@@ -317,7 +296,7 @@ const safeDeploy = async (
 }
 
 export default execute(
-  async ({ deploy, namedAccounts, network, save }) => {
+  async ({ deploy, namedAccounts, network, save, getPublicClient, config }) => {
     const { deployer } = namedAccounts
     const chainId = network.chain.id
     const coinType = evmChainIdToCoinType(chainId) as bigint
@@ -326,27 +305,18 @@ export default execute(
     const REVERSE_NAMESPACE = `${coinTypeHex}.reverse`
     const REVERSENODE = namehash(REVERSE_NAMESPACE)
 
-    // Determine if this is a Base chain that needs migration support
-    const isBaseChain = chainId === 8453 || chainId === 84532 // Base mainnet or Base Sepolia
-
-    if (isBaseChain) {
-      // For Base chains, we need the migration version
-      const safeAddress = network.tags.testnet
-        ? '0x343431e9CEb7C19c8d3eA0EE231bfF82B584910'
-        : '0x353530FE74098903728Ddb66Ecdb70f52e568eC1'
-
-      const oldReverseResolver =
-        chainId === 8453
-          ? '0xC6d566A56A1aFf6508b41f6c90ff131615583BCD' // Base mainnet
-          : '0x6533C94869D28fAA8dF77cc63f9e2b2D6Cf77eBA' // Base Sepolia
-
-      await deploy('L2ReverseRegistrar', {
-        account: deployer,
-        artifact: artifacts.L2ReverseRegistrarWithMigration,
-        args: [coinType, safeAddress, REVERSENODE, oldReverseResolver],
-      })
+    if (process.env.SAFE_PROPOSER_KEY && config.saveDeployments) {
+      return await safeDeploy(
+        { network, save, getPublicClient },
+        {
+          reverseNode: REVERSENODE,
+          coinType,
+        },
+      )
     } else {
-      // For other L2 chains, use the standard version
+      console.log(`Deploying L2ReverseRegistrar on ${network.name} with:`)
+      console.log(`coinType: ${coinType}`)
+
       await deploy('L2ReverseRegistrar', {
         account: deployer,
         artifact: artifacts.L2ReverseRegistrar,

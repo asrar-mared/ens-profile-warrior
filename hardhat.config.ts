@@ -1,5 +1,7 @@
 import { configVariable, type HardhatUserConfig } from 'hardhat/config'
 
+import dotenv from 'dotenv'
+
 import HardhatChaiMatchersViemPlugin from '@ensdomains/hardhat-chai-matchers-viem'
 import HardhatKeystore from '@nomicfoundation/hardhat-keystore'
 import HardhatNetworkHelpersPlugin from '@nomicfoundation/hardhat-network-helpers'
@@ -13,13 +15,15 @@ const realAccounts = [
 
 import { arbitrum, optimism } from 'viem/chains'
 
+dotenv.config({ debug: false })
+
 // circular dependency shared with actions
 export const archivedDeploymentPath = './deployments/archive'
 
 const config = {
   networks: {
     hardhat: {
-      type: 'edr',
+      type: 'edr-simulated',
       allowUnlimitedContractSize: false,
       forking: process.env.FORKING_ENABLED
         ? {
@@ -29,6 +33,7 @@ const config = {
     },
     localhost: {
       type: 'http',
+      chainId: 31337,
       url: 'http://127.0.0.1:8545/',
     },
     sepolia: {
@@ -69,8 +74,13 @@ const config = {
         settings: {
           optimizer: {
             enabled: true,
-            runs: 1200,
+            runs: 1_000_000,
           },
+          metadata: {
+            bytecodeHash: 'ipfs',
+            useLiteralContent: true,
+          },
+          evmVersion: 'paris',
         },
       },
       {
@@ -83,20 +93,23 @@ const config = {
         },
       },
     ],
-    remappings: [
-      '@unruggable/gateways/=node_modules/@unruggable/gateways/',
-      '@openzeppelin/contracts-v5/=node_modules/@openzeppelin/contracts-v5/',
-      '@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/',
-      'clones-with-immutable-args/=node_modules/clones-with-immutable-args/',
-    ],
+    overrides: {
+      'contracts/wrapper/NameWrapper.sol': {
+        version: '0.8.17',
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 1200,
+          },
+        },
+      },
+    },
+    npmFilesToBuild: ['@openzeppelin/contracts/utils/introspection/ERC165.sol'],
   },
   paths: {
-    sources: [
-      './contracts',
-      './node_modules/@openzeppelin/contracts/utils/introspection/',
-      './node_modules/@openzeppelin/contracts/token/ERC1155/',
-      './node_modules/@openzeppelin/contracts/token/ERC721/',
-    ],
+    sources: {
+      solidity: ['./contracts'],
+    },
   },
   plugins: [
     HardhatNetworkHelpersPlugin,

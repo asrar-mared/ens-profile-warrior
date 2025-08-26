@@ -1,4 +1,4 @@
-import { execute } from '@rocketh'
+import { execute, type artifacts } from '@rocketh'
 import { labelhash } from 'viem'
 
 export default execute(
@@ -10,26 +10,28 @@ export default execute(
   }) => {
     if (!network.tags.use_root) return
 
-    const root = get('Root')
-    const registrar = get('BaseRegistrarImplementation')
+    const root = get<(typeof artifacts.Root)['abi']>('Root')
+    const registrar = get<
+      (typeof artifacts.BaseRegistrarImplementation)['abi']
+    >('BaseRegistrarImplementation')
 
     console.log('Running base registrar setup')
 
     // 1. Transfer ownership of registrar to owner
+    console.log(`Transferring ownership of registrar to ${owner}...`)
     await write(registrar, {
       functionName: 'transferOwnership',
       args: [owner],
       account: deployer,
     })
-    console.log(`Transferred ownership of registrar to ${owner}`)
 
     // 2. Set owner of eth node to registrar on root
+    console.log(`Setting owner of eth node to registrar on root...`)
     await write(root, {
       functionName: 'setSubnodeOwner',
       args: [labelhash('eth'), registrar.address],
       account: owner,
     })
-    console.log(`Set owner of eth node to registrar on root`)
   },
   {
     id: 'BaseRegistrarImplementation:setup v1.0.0',

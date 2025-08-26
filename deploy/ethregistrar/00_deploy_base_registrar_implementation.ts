@@ -1,4 +1,4 @@
-import { execute, artifacts } from '@rocketh'
+import { artifacts, execute } from '@rocketh'
 import { namehash } from 'viem/ens'
 
 export default execute(
@@ -9,7 +9,7 @@ export default execute(
       return
     }
 
-    const registry = get('ENSRegistry')
+    const registry = get<(typeof artifacts.ENSRegistry)['abi']>('ENSRegistry')
 
     await deploy('BaseRegistrarImplementation', {
       account: deployer,

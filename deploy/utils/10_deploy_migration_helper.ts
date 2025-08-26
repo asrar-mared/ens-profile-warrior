@@ -1,27 +1,30 @@
-import { execute, artifacts } from '@rocketh'
+import { artifacts, execute } from '@rocketh'
 
 export default execute(
   async ({ deploy, get, execute: write, namedAccounts }) => {
     const { deployer, owner } = namedAccounts
 
-    const registrar = get('BaseRegistrarImplementation')
-    const wrapper = get('NameWrapper')
+    const registrar = get<
+      (typeof artifacts.BaseRegistrarImplementation)['abi']
+    >('BaseRegistrarImplementation')
+    const wrapper = get<(typeof artifacts.NameWrapper)['abi']>('NameWrapper')
 
-    await deploy('MigrationHelper', {
+    const migrationHelper = await deploy('MigrationHelper', {
       account: deployer,
       artifact: artifacts.MigrationHelper,
       args: [registrar.address, wrapper.address],
     })
 
     if (owner && owner !== deployer) {
-      const migrationHelper = get('MigrationHelper')
-      const hash = await write(migrationHelper, {
+      await write(migrationHelper, {
         account: deployer,
         functionName: 'transferOwnership',
-        args: [owner]
-      });
-      console.log(`Transfer ownership to ${owner} (tx: ${hash})...`)
+        args: [owner],
+      })
+      console.log(`Transferred ownership to ${owner}`)
     }
+
+    return true
   },
   {
     id: 'MigrationHelper v1.0.0',

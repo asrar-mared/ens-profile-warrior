@@ -1,14 +1,14 @@
-import { execute } from '@rocketh'
+import { artifacts, execute } from '@rocketh'
 import {
   encodeFunctionData,
   namehash,
   parseAbi,
   parseEther,
   type Address,
-  type Hash,
   type Hex,
 } from 'viem'
 import { dnsEncodeName } from '../../test/fixtures/dnsEncodeName.js'
+import { fetchPublicSuffixes } from './05_deploy_public_suffix_list.js'
 
 // using the Multicall3 contract, which is deployed on pretty much every live chain in existence at 0xcA11bde05977b3631167028862bE2a173976CA11
 // for devnet deployments, the same contract address can be used since we can use the pre-signed deploy transaction
@@ -28,69 +28,74 @@ const multicallAbi = parseAbi([
 ])
 
 export default execute(
-  async ({ get, read, tx, namedAccounts: { deployer }, network, config }) => {
-    const registry = get('ENSRegistry')
-    const publicSuffixList = get('SimplePublicSuffixList')
-    const dnsRegistrar = get('DNSRegistrar')
+  async ({
+    get,
+    read,
+    tx,
+    namedAccounts: { deployer },
+    network,
+    config,
+    savePendingExecution,
+  }) => {
+    const registry = get<(typeof artifacts.ENSRegistry)['abi']>('ENSRegistry')
+    const publicSuffixList = get<
+      (typeof artifacts.SimplePublicSuffixList)['abi']
+    >('SimplePublicSuffixList')
+    const dnsRegistrar =
+      get<(typeof artifacts.DNSRegistrar)['abi']>('DNSRegistrar')
 
-    const suffixList = await (
-      await fetch('https://publicsuffix.org/list/public_suffix_list.dat', {
-        headers: {
-          Connection: 'close',
-        },
-      })
-    ).text()
+    const fetchedSuffixes = await fetchPublicSuffixes()
+    const allowUnsafe =
+      network.tags?.allow_unsafe ||
+      (network.tags?.test && !config.saveDeployments)
 
     let suffixes = await Promise.all(
-      suffixList
-        .split('\n')
-        .filter((suffix) => !suffix.startsWith('//') && suffix.trim() != '')
-        .map(async (suffix) => {
-          if (!suffix.match(/^[a-z0-9]+$/)) return null
+      fetchedSuffixes.map(async (suffix) => {
+        if (!suffix.match(/^[a-z0-9]+$/)) return null
 
-          const node = namehash(suffix)
-          const encodedSuffix = dnsEncodeName(suffix)
+        const node = namehash(suffix)
+        const encodedSuffix = dnsEncodeName(suffix)
 
-          const returnData = {
-            target: dnsRegistrar.address,
-            callData: encodeFunctionData({
-              abi: dnsRegistrar.abi,
-              functionName: 'enableNode',
-              args: [encodedSuffix],
-            }),
-          }
-
-          // Skip owner checks for test networks
-          if (!config.saveDeployments && network.tags?.test) return returnData
-
-          const owner = await read(registry, {
-            functionName: 'owner',
-            args: [node],
-          })
-          if (owner === dnsRegistrar.address) {
-            console.log(`Skipping .${suffix}; already owned`)
-            return null
-          }
-
-          const isPublicSuffix = await read(publicSuffixList, {
-            functionName: 'isPublicSuffix',
+        const returnData = {
+          target: dnsRegistrar.address,
+          callData: encodeFunctionData({
+            abi: dnsRegistrar.abi,
+            functionName: 'enableNode',
             args: [encodedSuffix],
-          })
+          }),
+        }
 
-          if (!isPublicSuffix) {
-            console.log(`Skipping .${suffix}; not in the PSL`)
-            return null
-          }
+        // Skip owner checks for test networks
+        if (allowUnsafe) return returnData
 
-          return {
-            target: dnsRegistrar.address,
-            callData: encodeFunctionData({
-              abi: dnsRegistrar.abi,
-              functionName: 'enableNode',
-              args: [encodedSuffix],
-            }),
-          }
-        }),
+        const owner = await read(registry, {
+          functionName: 'owner',
+          args: [node],
+        })
+        if (owner === dnsRegistrar.address) {
+          console.log(`Skipping .${suffix}; already owned`)
+          return null
+        }
+
+        const isPublicSuffix = await read(publicSuffixList, {
+          functionName: 'isPublicSuffix',
+          args: [encodedSuffix],
+        })
+
+        if (!isPublicSuffix) {
+          console.log(`Skipping .${suffix}; not in the PSL`)
+          return null
+        }
+
+        return {
+          target: dnsRegistrar.address,
+          callData: encodeFunctionData({
+            abi: dnsRegistrar.abi,
+            functionName: 'enableNode',
+            args: [encodedSuffix],
+          }),
+        }
+      }),
     ).then((suffixes) =>
       suffixes.filter(
         (suffix): suffix is { target: Address; callData: Hex } =>
@@ -106,13 +111,13 @@ export default execute(
     })
 
     if (!multicallExistingBytecode && !config.saveDeployments) {
-      const balanceHash1 = await tx({
+      await tx({
         to: '0x05f32B3cC3888453ff71B01135B34FF8e41263F2',
         value: parseEther('1'),
         account: deployer,
       })
 
-      const balanceHash2 = await tx({
+      await tx({
         to: multicallPreparationAddress,
         value: parseEther('1'),
         account: deployer,
@@ -123,18 +128,21 @@ export default execute(
         params: [multicallDeployTransaction],
       })
       console.log(`Deploying Multicall (${deployHash})...`)
+      await savePendingExecution({
+        transaction: {
+          hash: deployHash,
+        },
+        type: 'execution',
+      })
     }
 
-    const allowUnsafe = network.tags?.test && !config.saveDeployments
-    const batchAmount = allowUnsafe ? 400 : 25
-
-    const pendingTransactions: Hash[] = []
+    const batchAmount = allowUnsafe ? 1000 : 25
 
     // Send all transactions in batches
     for (let i = 0; i < suffixes.length; i += batchAmount) {
       const batch = suffixes.slice(i, i + batchAmount)
 
-      const hash = await tx({
+      await tx({
         to: multicallAddress,
         data: encodeFunctionData({
           abi: multicallAbi,
@@ -146,27 +154,9 @@ export default execute(
       })
 
       console.log(`Enabling ${batch.length} suffixes...`)
-      pendingTransactions.push(hash)
     }
 
-    console.log(
-      `Waiting on ${pendingTransactions.length} transactions to complete...`,
-    )
-
-    // Wait for all transactions to complete
-    await Promise.all(
-      pendingTransactions.map(async (hash) => {
-        try {
-          return hash
-        } catch (error) {
-          console.log(
-            `Transaction ${hash} failed:`,
-            error instanceof Error ? error.message : error,
-          )
-          throw error
-        }
-      }),
-    )
+    console.log(`Enabled ${suffixes.length} suffixes.`)
   },
   {
     id: 'DNSRegistrar:set-tlds v1.0.0',

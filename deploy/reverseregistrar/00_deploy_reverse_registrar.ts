@@ -1,12 +1,12 @@
-import { execute, artifacts } from '@rocketh'
-import { labelhash, namehash, encodeFunctionData } from 'viem'
+import { artifacts, execute } from '@rocketh'
+import { labelhash, namehash } from 'viem'
 
 export default execute(
-  async ({ deploy, get, tx, namedAccounts, network }) => {
+  async ({ deploy, get, execute: write, namedAccounts, network }) => {
     const { deployer, owner } = namedAccounts
 
     // Get dependencies
-    const registry = get('ENSRegistry')
+    const registry = get<(typeof artifacts.ENSRegistry)['abi']>('ENSRegistry')
 
     // Deploy ReverseRegistrar
     const reverseRegistrar = await deploy('ReverseRegistrar', {
@@ -19,14 +19,10 @@ export default execute(
 
     // Transfer ownership to owner
     if (owner !== deployer) {
-      const transferTx = await tx({
-        to: reverseRegistrar.address,
-        data: encodeFunctionData({
-          abi: reverseRegistrar.abi,
-          functionName: 'transferOwnership',
-          args: [owner],
-        }),
-        account: owner,
+      await write(reverseRegistrar, {
+        functionName: 'transferOwnership',
+        args: [owner],
+        account: deployer,
       })
       console.log(`Transferred ownership of ReverseRegistrar to ${owner}`)
     }
@@ -34,66 +30,22 @@ export default execute(
     // Only attempt to make controller etc changes directly on testnets
     if (network.name === 'mainnet' && !network.tags?.tenderly) return
 
-    try {
-      // Calculate hashes for clarity
-      const reverseLabel = labelhash('reverse')
-      const addrLabel = labelhash('addr')
-      const reverseNode = namehash('reverse')
-      const addrReverseNode = namehash('addr.reverse')
+    const root = get<(typeof artifacts.Root)['abi']>('Root')
+    await write(root, {
+      functionName: 'setSubnodeOwner',
+      args: [labelhash('reverse'), owner],
+      account: owner,
+    })
+    console.log(`Set owner of .reverse to owner on root`)
 
-      console.log('Setting up reverse registrar nodes...')
-      console.log('  reverse label hash:', reverseLabel)
-      console.log('  addr label hash:', addrLabel)
-      console.log('  reverse node hash:', reverseNode)
-      console.log('  addr.reverse node hash:', addrReverseNode)
-      console.log('  Setting .reverse owner from', deployer, 'to', owner)
+    await write(registry, {
+      functionName: 'setSubnodeOwner',
+      args: [namehash('reverse'), labelhash('addr'), reverseRegistrar.address],
+      account: owner,
+    })
+    console.log('Set owner of .addr.reverse to ReverseRegistrar on registry')
 
-      // Set owner of .reverse to owner on root
-      const root = get('Root')
-      const tx1 = await tx({
-        to: root.address,
-        data: encodeFunctionData({
-          abi: root.abi,
-          functionName: 'setSubnodeOwner',
-          args: [reverseLabel, owner],
-        }),
-        account: owner,
-      })
-      console.log('Set owner of .reverse to owner on root, tx:', tx1)
-      console.log('Transaction confirmed')
-
-      console.log(
-        '  Setting .addr.reverse owner from',
-        owner,
-        'to',
-        reverseRegistrar.address,
-      )
-
-      // Set owner of .addr.reverse to ReverseRegistrar on registry
-      const tx2 = await tx({
-        to: registry.address,
-        data: encodeFunctionData({
-          abi: registry.abi,
-          functionName: 'setSubnodeOwner',
-          args: [reverseNode, addrLabel, reverseRegistrar.address],
-        }),
-        account: owner,
-      })
-      console.log(
-        'Set owner of .addr.reverse to ReverseRegistrar on registry, tx:',
-        tx2,
-      )
-      console.log('Transaction confirmed')
-
-      console.log('Reverse registrar setup completed successfully')
-    } catch (error) {
-      console.log(
-        'Reverse registrar setup error:',
-        error instanceof Error ? error.message : error,
-      )
-      console.log('Full error:', error)
-      console.log('Reverse registrar setup completed with errors')
-    }
+    return true
   },
   {
     id: 'ReverseRegistrar v1.0.0',

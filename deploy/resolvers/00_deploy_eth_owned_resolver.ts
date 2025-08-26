@@ -1,8 +1,7 @@
-import { execute, artifacts } from '@rocketh'
-import { namehash, encodeFunctionData } from 'viem'
+import { artifacts, execute } from '@rocketh'
 
 export default execute(
-  async ({ deploy, get, tx, namedAccounts }) => {
+  async ({ deploy, get, execute: write, namedAccounts }) => {
     const { deployer, owner } = namedAccounts
 
     // Deploy OwnedResolver
@@ -14,28 +13,25 @@ export default execute(
 
     if (!ethOwnedResolver.newlyDeployed) return
 
-    const registry = get('ENSRegistry')
-    const registrar = get('BaseRegistrarImplementation')
-
-    try {
-      // Set resolver for .eth domain using tx function
-      await tx({
-        to: registrar.address,
-        data: encodeFunctionData({
-          abi: registrar.abi,
-          functionName: 'setResolver',
-          args: [ethOwnedResolver.address],
-        }),
-        account: owner,
+    if (owner !== deployer) {
+      console.log(`Transferring ownership of OwnedResolver to ${owner}...`)
+      await write(ethOwnedResolver, {
+        functionName: 'transferOwnership',
+        args: [owner],
+        account: deployer,
       })
-      console.log(`Set resolver for .eth to ${ethOwnedResolver.address}`)
-    } catch (error) {
-      console.log(
-        'ETH resolver setup error:',
-        error instanceof Error ? error.message : error,
-      )
-      console.log('ETH resolver setup completed with errors')
     }
+
+    const registrar = get<
+      (typeof artifacts.BaseRegistrarImplementation)['abi']
+    >('BaseRegistrarImplementation')
+
+    console.log(`Setting resolver for .eth to ${ethOwnedResolver.address}...`)
+    await write(registrar, {
+      functionName: 'setResolver',
+      args: [ethOwnedResolver.address],
+      account: owner,
+    })
   },
   {
     id: 'EthOwnedResolver v1.0.0',

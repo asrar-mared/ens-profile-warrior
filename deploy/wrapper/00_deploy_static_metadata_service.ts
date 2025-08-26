@@ -1,4 +1,4 @@
-import { execute, artifacts } from '@rocketh'
+import { artifacts, execute } from '@rocketh'
 
 export default execute(
   async ({ deploy, namedAccounts, network }) => {
@@ -18,6 +18,8 @@ export default execute(
       artifact: artifacts.StaticMetadataService,
       args: [metadataUrl],
     })
+
+    return true
   },
   {
     id: 'StaticMetadataService v1.0.0',
