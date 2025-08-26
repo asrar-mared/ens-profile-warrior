@@ -2,12 +2,13 @@ import { execute } from '@rocketh'
 import { labelhash } from 'viem'
 
 export default execute(
-  async ({ get, execute: executeContract, namedAccounts, network }) => {
-    const { deployer, owner } = namedAccounts
-
-    if (!network.tags?.use_root) {
-      return
-    }
+  async ({
+    get,
+    execute: write,
+    namedAccounts: { deployer, owner },
+    network,
+  }) => {
+    if (!network.tags.use_root) return
 
     const root = get('Root')
     const registrar = get('BaseRegistrarImplementation')
@@ -15,7 +16,7 @@ export default execute(
     console.log('Running base registrar setup')
 
     // 1. Transfer ownership of registrar to owner
-    await executeContract(registrar, {
+    await write(registrar, {
       functionName: 'transferOwnership',
       args: [owner],
       account: deployer,
@@ -23,7 +24,7 @@ export default execute(
     console.log(`Transferred ownership of registrar to ${owner}`)
 
     // 2. Set owner of eth node to registrar on root
-    await executeContract(root, {
+    await write(root, {
       functionName: 'setSubnodeOwner',
       args: [labelhash('eth'), registrar.address],
       account: owner,

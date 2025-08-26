@@ -1,10 +1,20 @@
 import { execute, artifacts } from '@rocketh'
-import type { Hash } from 'viem'
 import { dnsEncodeName } from '../../test/fixtures/dnsEncodeName.js'
+
+async function fetchPublicSuffixes() {
+  const res = await fetch(
+    'https://publicsuffix.org/list/public_suffix_list.dat',
+    { headers: { Connection: 'close' } },
+  )
+  if (!res.ok) throw new Error(`expected suffixes: ${res.status}`)
+  return (await res.text())
+    .split('\n')
+    .map((x) => x.trim())
+    .filter((x) => x && !x.startsWith('//'))
+}
 
 export default execute(
   async ({ deploy, execute, namedAccounts: { deployer, owner } }) => {
-
     const psl = await deploy('SimplePublicSuffixList', {
       account: deployer,
       artifact: artifacts.SimplePublicSuffixList,
@@ -28,19 +38,12 @@ export default execute(
     }
 
     // Fetch and set public suffix list
-    const suffixList = await (
-      await fetch('https://publicsuffix.org/list/public_suffix_list.dat', {
-        headers: {
-          Connection: 'close',
-        },
-      })
-    ).text()
+    const suffixes0: string[] = process.env.SUFFIX_LIST
+      ? process.env.SUFFIX_LIST.split(',')
+      : await fetchPublicSuffixes()
 
-    let suffixes = suffixList
-      .split('\n')
-      .filter((suffix) => !suffix.startsWith('//') && suffix.trim() != '')
     // Right now we're only going to support top-level, non-idna suffixes
-    suffixes = suffixes.filter((suffix) => suffix.match(/^[a-z0-9]+$/))
+    const suffixes = suffixes0.filter((suffix) => suffix.match(/^[a-z0-9]+$/))
 
     console.log(`Starting suffix transactions for ${suffixes.length} suffixes`)
     const totalBatches = Math.ceil(suffixes.length / 100)
