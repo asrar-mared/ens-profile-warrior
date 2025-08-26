@@ -90,5 +90,8 @@
   "homepage": "https://github.com/ensdomains/ens-contracts#readme",
   "volta": {
     "node": "24.6.0"
+  },
+  "patchedDependencies": {
+    "rocketh@0.12.1": "patches/rocketh@0.12.1.patch"
   }
 }
