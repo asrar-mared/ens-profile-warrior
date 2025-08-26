@@ -67,6 +67,11 @@ jobs:
         with:
           bun-version: 1.2.3
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
       - run: bun install --frozen-lockfile
 
       - name: Install Foundry
@@ -77,5 +82,3 @@ jobs:
 
       - name: Run deploy
         run: bun run test:deploy
-        env:
-          BATCH_GATEWAY_URLS: '["https://universal-offchain-unwrapper.ens-cf.workers.dev/"]'
