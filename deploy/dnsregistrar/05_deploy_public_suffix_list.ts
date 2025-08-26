@@ -31,16 +31,14 @@ export default execute(
       return
     }
 
-    console.log('SimplePublicSuffixList deployed successfully')
-
     // Transfer ownership to owner if different from deployer
     if (owner !== deployer) {
+      console.log('  - Transferring ownership to owner account')
       await write(psl, {
         functionName: 'transferOwnership',
         args: [owner],
         account: deployer,
       })
-      console.log('Transferred ownership to owner account')
     }
 
     // Fetch and set public suffix list
@@ -66,7 +64,7 @@ export default execute(
 
       const batchIndex = Math.floor(i / batchAmount) + 1
       console.log(
-        `Sending suffixes batch ${batchIndex}/${totalBatches} (${batch.length} suffixes)`,
+        `  - Sending suffixes batch ${batchIndex}/${totalBatches} (${batch.length} suffixes)`,
       )
 
       await write(psl, {
@@ -74,7 +72,6 @@ export default execute(
         args: [batch],
         account: owner,
       })
-      console.log(`Batch ${batchIndex} completed successfully`)
     }
 
     console.log(`Public suffix list configuration completed.`)

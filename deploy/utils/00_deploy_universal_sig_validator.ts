@@ -15,26 +15,27 @@ export default execute(
 
     // Check if already deployed
     if (await publicClient.getCode({ address: usvAddress })) {
-      console.log(`UniversalSigValidator already deployed at ${usvAddress}`)
+      console.warn(
+        `  - UniversalSigValidator already deployed at ${usvAddress}`,
+      )
       return true
     }
 
     // ensure Deterministic Deployment Proxy is deployed
     const ddpAddress = '0x4e59b44847b379578588920ca78fbf26c0b4956c'
     if (!(await publicClient.getCode({ address: ddpAddress }))) {
-      console.log(`Deploying Deterministic Deployment Proxy...`)
+      console.log(`  - Deploying Deterministic Deployment Proxy...`)
       // 100k gas @ 100 gwei
       const minBalance = 10n ** 16n // 0.01 ETH
+      console.log(`  - Transferring balance for DDP deployment`)
       const balanceTransferHash = await tx({
         // signer address for ddp deployment tx
         to: '0x3fab184622dc19b6109349b94811493bf2a45362',
         value: minBalance,
         account: deployer,
       })
-      console.log(
-        `Transferred balance for DDP deployment (tx: ${balanceTransferHash})`,
-      )
 
+      console.log(`  - Deploying DDP`)
       const ddpDeployHash = await publicClient.sendRawTransaction({
         serializedTransaction:
           '0xf8a58085174876e800830186a08080b853604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf31ba02222222222222222222222222222222222222222222222222222222222222222a02222222222222222222222222222222222222222222222222222222222222222',
@@ -45,12 +46,15 @@ export default execute(
         },
         type: 'execution',
       })
-      console.log(`Deterministic Deployment Proxy deployed at ${ddpAddress}`)
+      console.log(
+        `  - Deterministic Deployment Proxy deployed at ${ddpAddress}`,
+      )
     }
 
     const usvArtifact = artifacts.UniversalSigValidator
     const usvBytecode = usvArtifact.bytecode as Hex
 
+    console.log(`  - Deploying UniversalSigValidator`)
     await tx({
       to: ddpAddress,
       // something in config is causing a different deployment with bytecode, i assume metadata related
@@ -65,7 +69,7 @@ export default execute(
     if (!usvDeployedBytecode)
       throw new Error('UniversalSigValidator not deployed')
 
-    console.log(`UniversalSigValidator deployed at ${usvAddress}`)
+    console.log(`  - UniversalSigValidator deployed at ${usvAddress}`)
 
     return true
   },

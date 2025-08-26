@@ -74,26 +74,26 @@ export default execute(
 
     for (const [id, contractName] of Object.entries(algorithms)) {
       const algorithm = get(contractName)
+      console.log(`  - Setting algorithm ${id}: ${contractName}`)
       await write(dnssec, {
         functionName: 'setAlgorithm',
         args: [parseInt(id), algorithm.address],
         account: deployer,
       })
-      console.log(`Set algorithm ${id}: ${contractName}`)
     }
 
     // Set up digests
     for (const [id, contractName] of Object.entries(digests)) {
       const digest = get(contractName)
+      console.log(`  - Setting digest ${id}: ${contractName}`)
       await write(dnssec, {
         functionName: 'setDigest',
         args: [parseInt(id), digest.address],
         account: deployer,
       })
-      console.log(`Set digest ${id}: ${contractName}`)
     }
 
-    console.log('DNSSEC Oracle deployment completed successfully')
+    console.log('  - DNSSEC Oracle deployment completed successfully')
   },
   {
     id: 'DNSSECImpl v1.0.0',

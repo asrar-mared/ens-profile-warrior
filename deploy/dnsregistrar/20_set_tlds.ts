@@ -73,7 +73,7 @@ export default execute(
           args: [node],
         })
         if (owner === dnsRegistrar.address) {
-          console.log(`Skipping .${suffix}; already owned`)
+          console.warn(`  - Skipping .${suffix}; already owned`)
           return null
         }
 
@@ -83,7 +83,7 @@ export default execute(
         })
 
         if (!isPublicSuffix) {
-          console.log(`Skipping .${suffix}; not in the PSL`)
+          console.warn(`  - Skipping .${suffix}; not in the PSL`)
           return null
         }
 
@@ -102,7 +102,7 @@ export default execute(
           suffix !== null,
       ),
     )
-    console.log(`Processing ${suffixes.length} public suffixes...`)
+    console.log(`  - Processing ${suffixes.length} public suffixes`)
 
     // Check if multicall exists, deploy if needed
     const multicallExistingBytecode = await network.provider.request({
@@ -111,6 +111,7 @@ export default execute(
     })
 
     if (!multicallExistingBytecode && !config.saveDeployments) {
+      console.log('  - Deploying Multicall')
       await tx({
         to: '0x05f32B3cC3888453ff71B01135B34FF8e41263F2',
         value: parseEther('1'),
@@ -127,13 +128,13 @@ export default execute(
         method: 'eth_sendRawTransaction',
         params: [multicallDeployTransaction],
       })
-      console.log(`Deploying Multicall (${deployHash})...`)
       await savePendingExecution({
         transaction: {
           hash: deployHash,
         },
         type: 'execution',
       })
+      console.log(`  - Multicall deployed`)
     }
 
     const batchAmount = allowUnsafe ? 1000 : 25
@@ -142,6 +143,7 @@ export default execute(
     for (let i = 0; i < suffixes.length; i += batchAmount) {
       const batch = suffixes.slice(i, i + batchAmount)
 
+      console.log(`  - Enabling ${batch.length} suffixes`)
       await tx({
         to: multicallAddress,
         data: encodeFunctionData({
@@ -152,11 +154,9 @@ export default execute(
         gas: allowUnsafe ? 28000000n : undefined,
         account: deployer,
       })
-
-      console.log(`Enabling ${batch.length} suffixes...`)
     }
 
-    console.log(`Enabled ${suffixes.length} suffixes.`)
+    console.log(`  - Enabled ${suffixes.length} suffixes`)
   },
   {
     id: 'DNSRegistrar:set-tlds v1.0.0',

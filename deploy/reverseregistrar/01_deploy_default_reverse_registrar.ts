@@ -13,14 +13,14 @@ export default execute(
 
     // Transfer ownership to owner
     if (owner !== deployer) {
+      console.log(
+        `  - Transferring ownership of DefaultReverseRegistrar to ${owner}`,
+      )
       await write(defaultReverseRegistrar, {
         functionName: 'transferOwnership',
         args: [owner],
         account: deployer,
       })
-      console.log(
-        `Transferred ownership of DefaultReverseRegistrar to ${owner}`,
-      )
     }
   },
   {

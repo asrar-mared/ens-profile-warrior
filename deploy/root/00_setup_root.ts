@@ -29,29 +29,29 @@ export default execute(
 
     switch (rootOwner) {
       case getAddress(deployer):
+        console.log(`  - Transferring ownership of root node to ${owner}`)
         await write(root, {
           functionName: 'transferOwnership',
           args: [owner],
           account: deployer,
         })
-        console.log('Transferred root node ownership to final owner')
       case getAddress(owner):
         const ownerIsRootController = await read(root, {
           functionName: 'controllers',
           args: [owner],
         })
         if (!ownerIsRootController) {
+          console.log(`  - Setting ${owner} as controller on root contract`)
           await write(root, {
             functionName: 'setController',
             args: [owner, true],
             account: owner,
           })
-          console.log('Set final owner as controller on root contract')
         }
         break
       default:
-        console.log(
-          `WARNING: Root is owned by ${rootOwner}; cannot transfer to owner account`,
+        console.warn(
+          `  - WARN: Root is owned by ${rootOwner}; cannot transfer to owner account`,
         )
         break
     }

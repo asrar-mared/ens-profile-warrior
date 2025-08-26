@@ -37,12 +37,12 @@ export default execute(
     // Only attempt to make controller etc changes directly on testnets
     if (network.name === 'mainnet' && !network.tags?.tenderly) return
 
+    console.log(`  - Adding NameWrapper as controller on registrar`)
     await write(registrar, {
       functionName: 'addController',
       args: [nameWrapper.address],
       account: owner,
     })
-    console.log('Added NameWrapper as controller on registrar')
 
     // Set NameWrapper interface on resolver
     const artifact = artifacts.INameWrapper
@@ -54,8 +54,8 @@ export default execute(
     })
 
     if (resolver === zeroAddress) {
-      console.log(
-        `No resolver set for .eth; not setting interface ${interfaceId} for NameWrapper`,
+      console.warn(
+        `  - WARN: No resolver set for .eth; not setting interface ${interfaceId} for NameWrapper`,
       )
       return
     }
@@ -64,7 +64,7 @@ export default execute(
     const ownedResolver =
       get<(typeof artifacts.OwnedResolver)['abi']>('OwnedResolver')
     console.log(
-      `Setting NameWrapper interface ID ${interfaceId} on .eth resolver...`,
+      `  - Setting NameWrapper interface ID ${interfaceId} on .eth resolver`,
     )
     await tx({
       to: resolver as Address,

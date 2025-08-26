@@ -16,12 +16,12 @@ export default execute(
     })
 
     if (owner && owner !== deployer) {
+      console.log(`  - Transferring ownership to ${owner}`)
       await write(migrationHelper, {
         account: deployer,
         functionName: 'transferOwnership',
         args: [owner],
       })
-      console.log(`Transferred ownership to ${owner}`)
     }
 
     return true

@@ -37,46 +37,48 @@ export default execute(
 
     // Transfer ownership to owner
     if (owner !== deployer) {
+      console.log(
+        `  - Transferring ownership of ETHRegistrarController to ${owner}`,
+      )
       await write(controller, {
         functionName: 'transferOwnership',
         args: [owner],
         account: deployer,
       })
-      console.log(`Transferred ownership of ETHRegistrarController to ${owner}`)
     }
 
     // Only attempt to make controller etc changes directly on testnets
     if (network.name === 'mainnet' && !network.tags?.tenderly) return
 
     // Add controller to BaseRegistrarImplementation
+    console.log(
+      `  - Adding ETHRegistrarController as controller on BaseRegistrarImplementation`,
+    )
     await write(registrar, {
       functionName: 'addController',
       args: [controller.address],
       account: owner,
     })
-    console.log(
-      'Added ETHRegistrarController as controller on BaseRegistrarImplementation',
-    )
 
     // Add controller to ReverseRegistrar
+    console.log(
+      `  - Adding ETHRegistrarController as controller on ReverseRegistrar`,
+    )
     await write(reverseRegistrar, {
       functionName: 'setController',
       args: [controller.address, true],
       account: owner,
     })
-    console.log(
-      'Added ETHRegistrarController as controller on ReverseRegistrar',
-    )
 
     // Add controller to DefaultReverseRegistrar
+    console.log(
+      `  - Adding ETHRegistrarController as controller on DefaultReverseRegistrar`,
+    )
     await write(defaultReverseRegistrar, {
       functionName: 'setController',
       args: [controller.address, true],
       account: owner,
     })
-    console.log(
-      'Added ETHRegistrarController as controller on DefaultReverseRegistrar',
-    )
 
     // Set interface on resolver
     const artifact = artifacts.IETHRegistrarController
@@ -85,14 +87,14 @@ export default execute(
     // For simplicity, assume OwnedResolver was deployed for .eth
     const ethOwnedResolver = get('OwnedResolver')
 
+    console.log(
+      `  - Setting ETHRegistrarController interface ID ${interfaceId} on .eth resolver`,
+    )
     await write(ethOwnedResolver, {
       functionName: 'setInterface',
       args: [namehash('eth'), interfaceId, controller.address],
       account: owner,
     })
-    console.log(
-      `Set ETHRegistrarController interface ID ${interfaceId} on .eth resolver`,
-    )
   },
   {
     id: 'ETHRegistrarController v3.0.0',

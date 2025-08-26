@@ -40,12 +40,14 @@ export default execute(
       (v) => getAddress(v as Address) === getAddress(publicResolver.address),
     )
     if (!isReverseRegistrarDefaultResolver) {
+      console.log(
+        `  - Setting PublicResolver as default resolver on ReverseRegistrar`,
+      )
       await write(reverseRegistrar, {
         functionName: 'setDefaultResolver',
         args: [publicResolver.address],
         account: owner,
       })
-      console.log(`Set PublicResolver as default resolver on ReverseRegistrar`)
     }
 
     const resolverEthOwner = await read(registry, {
@@ -54,22 +56,22 @@ export default execute(
     })
 
     if (resolverEthOwner === owner) {
+      console.log(`  - Setting resolver for resolver.eth to PublicResolver`)
       await write(registry, {
         functionName: 'setResolver',
         args: [namehash('resolver.eth'), publicResolver.address],
         account: owner,
       })
-      console.log(`Set resolver for resolver.eth to PublicResolver`)
 
+      console.log(`  - Setting addr for resolver.eth to PublicResolver`)
       await write(publicResolver, {
         functionName: 'setAddr',
         args: [namehash('resolver.eth'), publicResolver.address],
         account: owner,
       })
-      console.log(`Set address for resolver.eth to PublicResolver`)
     } else {
-      console.log(
-        `resolver.eth is not owned by the owner address, not setting resolver`,
+      console.warn(
+        `  - WARN: resolver.eth is not owned by the owner address, not setting resolver`,
       )
     }
   },

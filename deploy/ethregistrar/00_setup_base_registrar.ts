@@ -15,10 +15,8 @@ export default execute(
       (typeof artifacts.BaseRegistrarImplementation)['abi']
     >('BaseRegistrarImplementation')
 
-    console.log('Running base registrar setup')
-
     // 1. Transfer ownership of registrar to owner
-    console.log(`Transferring ownership of registrar to ${owner}...`)
+    console.log(`  - Transferring ownership of registrar to ${owner}`)
     await write(registrar, {
       functionName: 'transferOwnership',
       args: [owner],
@@ -26,7 +24,7 @@ export default execute(
     })
 
     // 2. Set owner of eth node to registrar on root
-    console.log(`Setting owner of eth node to registrar on root...`)
+    console.log(`  - Setting owner of eth node to registrar on root`)
     await write(root, {
       functionName: 'setSubnodeOwner',
       args: [labelhash('eth'), registrar.address],

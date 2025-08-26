@@ -32,23 +32,21 @@ export default execute(
       return
     }
 
-    console.log('DNSRegistrar deployed successfully')
-
     // Set DNSRegistrar as controller of Root
     const rootOwner = await read(root, {
       functionName: 'owner',
     }).then((v) => getAddress(v as Address))
 
     if (rootOwner === getAddress(owner)) {
+      console.log('  - Setting DNSRegistrar as controller of Root')
       await write(root, {
         functionName: 'setController',
         args: [dnsRegistrar.address, true],
         account: owner,
       })
-      console.log('Set DNSRegistrar as controller of Root')
     } else {
-      console.log(
-        `${owner} is not the owner of the root; you will need to call setController('${dnsRegistrar.address}', true) manually`,
+      console.warn(
+        `  - WARN: ${owner} is not the owner of the root; you will need to call setController('${dnsRegistrar.address}', true) manually`,
       )
     }
   },

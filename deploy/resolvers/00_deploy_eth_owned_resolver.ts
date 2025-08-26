@@ -14,7 +14,7 @@ export default execute(
     if (!ethOwnedResolver.newlyDeployed) return
 
     if (owner !== deployer) {
-      console.log(`Transferring ownership of OwnedResolver to ${owner}...`)
+      console.log(`  - Transferring ownership of OwnedResolver to ${owner}`)
       await write(ethOwnedResolver, {
         functionName: 'transferOwnership',
         args: [owner],
@@ -26,7 +26,7 @@ export default execute(
       (typeof artifacts.BaseRegistrarImplementation)['abi']
     >('BaseRegistrarImplementation')
 
-    console.log(`Setting resolver for .eth to ${ethOwnedResolver.address}...`)
+    console.log(`  - Setting resolver for .eth to ${ethOwnedResolver.address}`)
     await write(registrar, {
       functionName: 'setResolver',
       args: [ethOwnedResolver.address],
