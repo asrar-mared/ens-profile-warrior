@@ -9,7 +9,7 @@
     "test:remote": "FORKING_ENABLED=1 bun run test ./test/**/Test*.remote.ts",
     "test:parallel": "bun run test ./test/**/Test*.ts --sequence.concurrent",
     "test:local": "bun run test --network localhost",
-    "test:deploy": "node ./scripts/deploy-test.ts",
+    "test:deploy": "bun ./scripts/deploy-test.ts",
     "l2:deploy": "bun run hh deploy --tags l2",
     "lint": "bun run hh check",
     "build": "rm -rf ./build/deploy ./build/hardhat.config.js && hardhat compile && tsc",
