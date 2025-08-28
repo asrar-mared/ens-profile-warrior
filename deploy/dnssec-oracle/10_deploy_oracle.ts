@@ -9,6 +9,21 @@ const realAnchors = [
     class: 'IN',
     ttl: 3600,
     data: {
+      keyTag: 19036,
+      algorithm: 8,
+      digestType: 2,
+      digest: Buffer.from(
+        '49AAC11D7B6F6446702E54A1607371607A1A41855200FD2CE1CDDE32F24E8FB5',
+        'hex',
+      ),
+    },
+  },
+  {
+    name: '.',
+    type: 'DS',
+    class: 'IN',
+    ttl: 3600,
+    data: {
       keyTag: 20326,
       algorithm: 8,
       digestType: 2,
