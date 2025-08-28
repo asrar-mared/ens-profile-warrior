@@ -1,10 +1,12 @@
-import { execute, artifacts } from '@rocketh'
+import { artifacts, execute } from '@rocketh'
 
 export default execute(
   async ({ deploy, get, namedAccounts }) => {
     const { deployer } = namedAccounts
 
-    const controller = get('ETHRegistrarController')
+    const controller = get<(typeof artifacts.ETHRegistrarController)['abi']>(
+      'ETHRegistrarController',
+    )
 
     await deploy('StaticBulkRenewal', {
       account: deployer,

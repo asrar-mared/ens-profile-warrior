@@ -145,11 +145,7 @@ Object.entries(sources).forEach(([source, setters], i) => {
 describe('ETHReverseResolver', () => {
   shouldSupportInterfaces({
     contract: () => loadFixture().then((F) => F.reverseResolver),
-    interfaces: [
-      'node_modules/@openzeppelin/contracts/utils/introspection/IERC165.sol:IERC165',
-      'IExtendedResolver',
-      'INameReverser',
-    ],
+    interfaces: ['IERC165', 'IExtendedResolver', 'INameReverser'],
   })
 
   it('coinType()', async () => {

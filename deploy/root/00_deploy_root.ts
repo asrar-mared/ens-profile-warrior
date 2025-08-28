@@ -1,4 +1,4 @@
-import { execute, artifacts } from '@rocketh'
+import { artifacts, execute } from '@rocketh'
 
 export default execute(
   async ({ deploy, get, namedAccounts, network }) => {
@@ -9,7 +9,7 @@ export default execute(
     }
 
     // Get dependencies
-    const registry = get('ENSRegistry')
+    const registry = get<(typeof artifacts.ENSRegistry)['abi']>('ENSRegistry')
 
     // Deploy Root
     await deploy('Root', {

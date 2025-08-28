@@ -1,4 +1,6 @@
-import { configVariable, type HardhatUserConfig } from 'hardhat/config'
+import { configVariable, task, type HardhatUserConfig } from 'hardhat/config'
+
+import dotenv from 'dotenv'
 
 import HardhatChaiMatchersViemPlugin from '@ensdomains/hardhat-chai-matchers-viem'
 import HardhatKeystore from '@nomicfoundation/hardhat-keystore'
@@ -13,13 +15,15 @@ const realAccounts = [
 
 import { arbitrum, optimism } from 'viem/chains'
 
+dotenv.config({ debug: false })
+
 // circular dependency shared with actions
 export const archivedDeploymentPath = './deployments/archive'
 
 const config = {
   networks: {
     hardhat: {
-      type: 'edr',
+      type: 'edr-simulated',
       allowUnlimitedContractSize: false,
       forking: process.env.FORKING_ENABLED
         ? {
@@ -29,6 +33,7 @@ const config = {
     },
     localhost: {
       type: 'http',
+      chainId: 31337,
       url: 'http://127.0.0.1:8545/',
     },
     sepolia: {
@@ -69,8 +74,13 @@ const config = {
         settings: {
           optimizer: {
             enabled: true,
-            runs: 1200,
+            runs: 1_000_000,
           },
+          metadata: {
+            bytecodeHash: 'ipfs',
+            useLiteralContent: true,
+          },
+          evmVersion: 'paris',
         },
       },
       {
@@ -83,20 +93,28 @@ const config = {
         },
       },
     ],
-    remappings: [
-      '@unruggable/gateways/=node_modules/@unruggable/gateways/',
-      '@openzeppelin/contracts-v5/=node_modules/@openzeppelin/contracts-v5/',
-      '@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/',
-      'clones-with-immutable-args/=node_modules/clones-with-immutable-args/',
+    overrides: {
+      'contracts/wrapper/NameWrapper.sol': {
+        version: '0.8.17',
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 1200,
+          },
+        },
+      },
+    },
+    npmFilesToBuild: [
+      '@openzeppelin/contracts/utils/introspection/ERC165.sol',
+      '@openzeppelin/contracts/utils/introspection/IERC165.sol',
+      '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol',
+      '@openzeppelin/contracts/token/ERC1155/IERC1155.sol',
     ],
   },
   paths: {
-    sources: [
-      './contracts',
-      './node_modules/@openzeppelin/contracts/utils/introspection/',
-      './node_modules/@openzeppelin/contracts/token/ERC1155/',
-      './node_modules/@openzeppelin/contracts/token/ERC721/',
-    ],
+    sources: {
+      solidity: ['./contracts'],
+    },
   },
   plugins: [
     HardhatNetworkHelpersPlugin,
@@ -104,6 +122,55 @@ const config = {
     HardhatViem,
     HardhatDeploy,
     HardhatKeystore,
+  ],
+  tasks: [
+    task('accounts', 'Prints the list of accounts')
+      .setAction(() => import('./tasks/accounts.js'))
+      .build(),
+    task('archive-scan', 'Scans the deployments for unarchived deployments')
+      .setAction(() => import('./tasks/archive_scan.js'))
+      .build(),
+    task('create-l2-safe', 'Creates an L2 Safe')
+      .setAction(() => import('./tasks/create_l2_safe.js'))
+      .build(),
+    task('multichain-verify', 'Verify contracts using etherscan v2 api')
+      .addPositionalArgument({
+        name: 'contractName',
+        description: 'The contract name to verify',
+      })
+      .addPositionalArgument({
+        name: 'address',
+        description: 'The contract address to verify',
+      })
+      .addVariadicArgument({
+        name: 'deployArgs',
+        description: 'Constructor arguments',
+      })
+      .setAction(() => import('./tasks/etherscan-multichain.js'))
+      .build(),
+    task('save', 'Saves a specified contract as a deployed contract')
+      .addPositionalArgument({
+        name: 'contract',
+        description: 'The contract to save',
+      })
+      .addPositionalArgument({
+        name: 'block',
+        description: 'The block number the contract was deployed at',
+      })
+      .addPositionalArgument({
+        name: 'fullName',
+        description:
+          '(Optional) The fully qualified name of the contract (e.g. contracts/resolvers/PublicResolver.sol:PublicResolver)',
+      })
+      .setAction(() => import('./tasks/save.js'))
+      .build(),
+    task('seed', 'Creates test subbdomains and wraps them with Namewrapper')
+      .addPositionalArgument({
+        name: 'name',
+        description: 'The ENS label to seed subdomains',
+      })
+      .setAction(() => import('./tasks/seed.js'))
+      .build(),
   ],
 } satisfies HardhatUserConfig
 

@@ -1,6 +1,6 @@
-import { createWalletClient, http } from 'viem'
 import { createAnvil } from '@viem/anvil'
 import { executeDeployScripts, resolveConfig } from 'rocketh'
+import { createWalletClient, http } from 'viem'
 
 const anvil = createAnvil()
 await anvil.start()
@@ -20,22 +20,15 @@ const env = await executeDeployScripts(
   resolveConfig({
     network: {
       name: 'local',
-      tags: ['test', 'legacy', 'use_root'],
+      tags: ['test', 'legacy', 'use_root', 'allow_unsafe'],
       nodeUrl: hostPort,
       fork: false,
     },
     accounts,
     askBeforeProceeding: false,
     saveDeployments: false,
+    logLevel: 1,
   }),
-)
-
-console.log(accounts)
-
-console.log(
-  Object.fromEntries(
-    Object.entries(env.deployments).map(([key, { address }]) => [key, address]),
-  ),
 )
 
 // the execa logic is completely broken and makes no sense

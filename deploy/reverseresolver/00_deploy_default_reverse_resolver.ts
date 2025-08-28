@@ -1,10 +1,12 @@
-import { execute, artifacts } from '@rocketh'
+import { artifacts, execute } from '@rocketh'
 
 export default execute(
   async ({ deploy, get, namedAccounts }) => {
     const { deployer } = namedAccounts
 
-    const defaultReverseRegistrar = get('DefaultReverseRegistrar')
+    const defaultReverseRegistrar = get<
+      (typeof artifacts.DefaultReverseRegistrar)['abi']
+    >('DefaultReverseRegistrar')
 
     await deploy('DefaultReverseResolver', {
       account: deployer,

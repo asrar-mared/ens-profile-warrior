@@ -29,14 +29,14 @@
   "devDependencies": {
     "@ensdomains/address-encoder": "1.1.2",
     "@ensdomains/dnsprovejs": "^0.5.1",
-    "@ensdomains/hardhat-chai-matchers-viem": "^0.1.11",
+    "@ensdomains/hardhat-chai-matchers-viem": "^0.1.14",
     "@namestone/ezccip": "^0.1.0",
-    "@nomicfoundation/hardhat-keystore": "3.0.0-next.18",
-    "@nomicfoundation/hardhat-network-helpers": "3.0.0-next.18",
-    "@nomicfoundation/hardhat-viem": "3.0.0-next.18",
-    "@rocketh/deploy": "^0.11.18",
-    "@rocketh/read-execute": "^0.11.19",
-    "@rocketh/verifier": "^0.11.18",
+    "@nomicfoundation/hardhat-keystore": "^3.0.0",
+    "@nomicfoundation/hardhat-network-helpers": "^3.0.0",
+    "@nomicfoundation/hardhat-viem": "^3.0.0",
+    "@rocketh/deploy": "^0.12.1",
+    "@rocketh/read-execute": "^0.12.0",
+    "@rocketh/verifier": "^0.12.1",
     "@safe-global/api-kit": "^2.5.6",
     "@safe-global/protocol-kit": "5.2.13",
     "@safe-global/safe-core-sdk-types": "^5.1.0",
@@ -47,15 +47,12 @@
     "chai": "^5.1.1",
     "dotenv": "^16.4.5",
     "ethers": "^6.14.0",
-    "hardhat": "3.0.0-next.18",
-    "hardhat-abi-exporter": "^2.9.0",
-    "hardhat-contract-sizer": "^2.6.1",
-    "hardhat-deploy": "^2.0.0-next.25",
-    "hardhat-gas-reporter": "^1.0.4",
+    "hardhat": "3.0.1",
+    "hardhat-deploy": "^2.0.0-next.35",
     "husky": "^9.1.7",
     "prettier": "^2.6.2",
     "prettier-plugin-solidity": "^1.0.0-beta.24",
-    "rocketh": "0.11.20",
+    "rocketh": "0.12.1",
     "ts-node": "^10.9.2",
     "typescript": "5.9.2",
     "viem": "2.33.3",
@@ -67,7 +64,7 @@
     "@nomicfoundation/hardhat-verify": "^2.0.4",
     "@openzeppelin/contracts": "4.9.3",
     "@openzeppelin/contracts-v5": "npm:@openzeppelin/contracts@5.1.0",
-    "@rocketh/proxy": "^0.11.25",
+    "@rocketh/proxy": "^0.12.1",
     "@rollup/rollup-darwin-arm64": "^4.44.2",
     "@rollup/rollup-darwin-x64": "^4.44.2",
     "@unruggable/gateways": "^1.2.2",
@@ -75,11 +72,8 @@
     "dns-packet": "^5.3.0",
     "glob": "^11.0.3"
   },
-  "patchedDependencies": {
-    "rocketh@0.11.20": "patches/rocketh@0.11.20.patch"
-  },
   "resolutions": {
-    "hardhat": "3.0.0-next.18"
+    "hardhat": "3.0.1"
   },
   "directories": {
     "test": "test"
@@ -95,6 +89,9 @@
   },
   "homepage": "https://github.com/ensdomains/ens-contracts#readme",
   "volta": {
-    "node": "22.17.0"
+    "node": "24.6.0"
+  },
+  "patchedDependencies": {
+    "rocketh@0.12.1": "patches/rocketh@0.12.1.patch"
   }
 }

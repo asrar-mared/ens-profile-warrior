@@ -1,74 +1,48 @@
-import { execute, artifacts } from '@rocketh'
-import { namehash, zeroAddress, encodeFunctionData } from 'viem'
+import { artifacts, execute } from '@rocketh'
+import { encodeFunctionData, namehash, zeroAddress, type Address } from 'viem'
 import { createInterfaceId } from '../../test/fixtures/createInterfaceId.js'
 
 export default execute(
-  async ({ deploy, get, read, tx, namedAccounts, network }) => {
+  async ({ deploy, get, read, execute: write, tx, namedAccounts, network }) => {
     const { deployer, owner } = namedAccounts
 
     // Get dependencies
-    const registry = await get('ENSRegistry')
-    const registrar = await get('BaseRegistrarImplementation')
-    const metadata = await get('StaticMetadataService')
-    const reverseRegistrar = await get('ReverseRegistrar')
-
-    // NameWrapper extends ReverseClaimer which requires proper reverse registrar setup
-    console.log('Deploying NameWrapper...')
-    console.log(`Using ReverseRegistrar at: ${reverseRegistrar.address}`)
+    const registry = get<(typeof artifacts.ENSRegistry)['abi']>('ENSRegistry')
+    const registrar = get<
+      (typeof artifacts.BaseRegistrarImplementation)['abi']
+    >('BaseRegistrarImplementation')
+    const metadata = get<(typeof artifacts.StaticMetadataService)['abi']>(
+      'StaticMetadataService',
+    )
 
     // Deploy NameWrapper
-    const nameWrapperDeployment = await deploy('NameWrapper', {
+    const nameWrapper = await deploy('NameWrapper', {
       account: deployer,
       artifact: artifacts.NameWrapper,
       args: [registry.address, registrar.address, metadata.address],
     })
 
-    if (!nameWrapperDeployment.newlyDeployed) return
-
-    const nameWrapper = await get('NameWrapper')
+    if (!nameWrapper.newlyDeployed) return
 
     // Transfer ownership to owner
     if (owner !== deployer) {
-      try {
-        await tx({
-          to: nameWrapper.address,
-          data: encodeFunctionData({
-            abi: nameWrapper.abi,
-            functionName: 'transferOwnership',
-            args: [owner],
-          }),
-          account: deployer,
-        })
-        console.log(`Transferred ownership of NameWrapper to ${owner}`)
-      } catch (error) {
-        console.log(
-          'NameWrapper ownership transfer error:',
-          error instanceof Error ? error.message : error,
-        )
-      }
+      await write(nameWrapper, {
+        functionName: 'transferOwnership',
+        args: [owner],
+        account: deployer,
+      })
+      console.log(`Transferred ownership of NameWrapper to ${owner}`)
     }
 
     // Only attempt to make controller etc changes directly on testnets
     if (network.name === 'mainnet' && !network.tags?.tenderly) return
 
-    try {
-      // Add NameWrapper as controller on registrar
-      await tx({
-        to: registrar.address,
-        data: encodeFunctionData({
-          abi: registrar.abi,
-          functionName: 'addController',
-          args: [nameWrapper.address],
-        }),
-        account: owner,
-      })
-      console.log('Added NameWrapper as controller on registrar')
-    } catch (error) {
-      console.log(
-        'NameWrapper controller setup error:',
-        error instanceof Error ? error.message : error,
-      )
-    }
+    console.log(`  - Adding NameWrapper as controller on registrar`)
+    await write(registrar, {
+      functionName: 'addController',
+      args: [nameWrapper.address],
+      account: owner,
+    })
 
     // Set NameWrapper interface on resolver
     const artifact = artifacts.INameWrapper
@@ -80,16 +54,20 @@ export default execute(
     })
 
     if (resolver === zeroAddress) {
-      console.log(
-        `No resolver set for .eth; not setting interface ${interfaceId} for NameWrapper`,
+      console.warn(
+        `  - WARN: No resolver set for .eth; not setting interface ${interfaceId} for NameWrapper`,
       )
       return
     }
 
     // Set interface on the resolver configured for .eth
-    const ownedResolver = await get('OwnedResolver')
-    const setInterfaceHash = await tx({
-      to: resolver as `0x${string}`,
+    const ownedResolver =
+      get<(typeof artifacts.OwnedResolver)['abi']>('OwnedResolver')
+    console.log(
+      `  - Setting NameWrapper interface ID ${interfaceId} on .eth resolver`,
+    )
+    await tx({
+      to: resolver as Address,
       data: encodeFunctionData({
         abi: ownedResolver.abi,
         functionName: 'setInterface',
@@ -97,9 +75,6 @@ export default execute(
       }),
       account: owner,
     })
-    console.log(
-      `Setting NameWrapper interface ID ${interfaceId} on .eth resolver (tx: ${setInterfaceHash})...`,
-    )
 
     return true
   },

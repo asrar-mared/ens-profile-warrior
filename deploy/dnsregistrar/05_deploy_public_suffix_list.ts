@@ -1,7 +1,7 @@
-import { execute, artifacts } from '@rocketh'
+import { artifacts, execute } from '@rocketh'
 import { dnsEncodeName } from '../../test/fixtures/dnsEncodeName.js'
 
-async function fetchPublicSuffixes() {
+export async function fetchPublicSuffixes() {
   const res = await fetch(
     'https://publicsuffix.org/list/public_suffix_list.dat',
     { headers: { Connection: 'close' } },
@@ -14,7 +14,13 @@ async function fetchPublicSuffixes() {
 }
 
 export default execute(
-  async ({ deploy, execute, namedAccounts: { deployer, owner } }) => {
+  async ({
+    deploy,
+    execute: write,
+    namedAccounts: { deployer, owner },
+    network,
+    config,
+  }) => {
     const psl = await deploy('SimplePublicSuffixList', {
       account: deployer,
       artifact: artifacts.SimplePublicSuffixList,
@@ -25,63 +31,50 @@ export default execute(
       return
     }
 
-    console.log('SimplePublicSuffixList deployed successfully')
-
     // Transfer ownership to owner if different from deployer
     if (owner !== deployer) {
-      await execute(psl, {
+      console.log('  - Transferring ownership to owner account')
+      await write(psl, {
         functionName: 'transferOwnership',
         args: [owner],
         account: deployer,
       })
-      console.log('Transferred ownership to owner account')
     }
 
     // Fetch and set public suffix list
-    const suffixes0: string[] = process.env.SUFFIX_LIST
-      ? process.env.SUFFIX_LIST.split(',')
-      : await fetchPublicSuffixes()
+    const fetchedSuffixes = await fetchPublicSuffixes()
+    const allowUnsafe =
+      network.tags?.allow_unsafe ||
+      (network.tags?.test && !config.saveDeployments)
 
     // Right now we're only going to support top-level, non-idna suffixes
-    const suffixes = suffixes0.filter((suffix) => suffix.match(/^[a-z0-9]+$/))
+    const suffixes = fetchedSuffixes.filter((suffix) =>
+      suffix.match(/^[a-z0-9]+$/),
+    )
+    const batchAmount = allowUnsafe ? 1000 : 100
 
     console.log(`Starting suffix transactions for ${suffixes.length} suffixes`)
-    const totalBatches = Math.ceil(suffixes.length / 100)
-    let successfulBatches = 0
-    let failedBatches = 0
+    const totalBatches = Math.ceil(suffixes.length / batchAmount)
 
     // Send transactions sequentially to avoid nonce conflicts
-    for (let i = 0; i < suffixes.length; i += 100) {
+    for (let i = 0; i < suffixes.length; i += batchAmount) {
       const batch = suffixes
-        .slice(i, i + 100)
+        .slice(i, i + batchAmount)
         .map((suffix) => dnsEncodeName(suffix))
 
-      const batchIndex = Math.floor(i / 100) + 1
+      const batchIndex = Math.floor(i / batchAmount) + 1
       console.log(
-        `Sending suffixes batch ${batchIndex}/${totalBatches} (${batch.length} suffixes)`,
+        `  - Sending suffixes batch ${batchIndex}/${totalBatches} (${batch.length} suffixes)`,
       )
 
-      try {
-        await execute(psl, {
-          functionName: 'addPublicSuffixes',
-          args: [batch],
-          account: owner,
-        })
-        successfulBatches++
-        console.log(`Batch ${batchIndex} completed successfully`)
-      } catch (error) {
-        failedBatches++
-        console.error(
-          `Batch ${batchIndex} failed:`,
-          error instanceof Error ? error.message : error,
-        )
-        // Continue with next batch
-      }
+      await write(psl, {
+        functionName: 'addPublicSuffixes',
+        args: [batch],
+        account: owner,
+      })
     }
 
-    console.log(
-      `Public suffix list configuration completed: ${successfulBatches} successful, ${failedBatches} failed`,
-    )
+    console.log(`Public suffix list configuration completed.`)
   },
   {
     id: 'SimplePublicSuffixList v1.0.0',

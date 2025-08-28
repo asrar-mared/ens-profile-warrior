@@ -74,7 +74,7 @@ describe('DefaultReverseRegistrar', () => {
       ),
     interfaces: [
       'IDefaultReverseRegistrar',
-      'node_modules/@openzeppelin/contracts/utils/introspection/IERC165.sol:IERC165',
+      'IERC165',
       'IStandaloneReverseRegistrar',
     ],
   })

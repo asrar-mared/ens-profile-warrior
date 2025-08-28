@@ -1,8 +1,7 @@
-import { execute, artifacts } from '@rocketh'
-import { encodeFunctionData } from 'viem'
+import { artifacts, execute } from '@rocketh'
 
 export default execute(
-  async ({ deploy, get, tx, namedAccounts }) => {
+  async ({ deploy, get, execute: write, namedAccounts }) => {
     const { deployer, owner } = namedAccounts
 
     await deploy('DefaultReverseRegistrar', {
@@ -14,25 +13,14 @@ export default execute(
 
     // Transfer ownership to owner
     if (owner !== deployer) {
-      try {
-        const transferTx = await tx({
-          to: defaultReverseRegistrar.address,
-          data: encodeFunctionData({
-            abi: defaultReverseRegistrar.abi,
-            functionName: 'transferOwnership',
-            args: [owner],
-          }),
-          account: deployer,
-        })
-        console.log(
-          `Transferred ownership of DefaultReverseRegistrar to ${owner}`,
-        )
-      } catch (error) {
-        console.log(
-          'DefaultReverseRegistrar ownership transfer error:',
-          error instanceof Error ? error.message : error,
-        )
-      }
+      console.log(
+        `  - Transferring ownership of DefaultReverseRegistrar to ${owner}`,
+      )
+      await write(defaultReverseRegistrar, {
+        functionName: 'transferOwnership',
+        args: [owner],
+        account: deployer,
+      })
     }
   },
   {

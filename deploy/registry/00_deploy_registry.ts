@@ -1,4 +1,4 @@
-import { execute, artifacts } from '@rocketh'
+import { artifacts, execute } from '@rocketh'
 
 export default execute(
   async ({ deploy, namedAccounts: { deployer }, network }) => {
@@ -8,7 +8,6 @@ export default execute(
         account: deployer,
         artifact: artifacts.ENSRegistry,
       })
-      console.log(`Legacy ENS Registry deployed at: ${contract.address}`)
 
       console.log('Deploying ENS Registry with Fallback...')
       await deploy('ENSRegistry', {

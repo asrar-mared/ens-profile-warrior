@@ -1,4 +1,4 @@
-import { execute } from '@rocketh'
+import { artifacts, execute } from '@rocketh'
 import type { Abi } from 'viem'
 import legacyArtifactRaw from '../../deployments/archive/ETHRegistrarController_mainnet_9380471.sol/ETHRegistrarController_mainnet_9380471.json'
 
@@ -12,9 +12,12 @@ export default execute(
   async ({ deploy, get, namedAccounts }) => {
     const { deployer } = namedAccounts
 
-    const registrar = get('BaseRegistrarImplementation')
-    const priceOracle = get('ExponentialPremiumPriceOracle')
-    const reverseRegistrar = get('ReverseRegistrar')
+    const registrar = get<
+      (typeof artifacts.BaseRegistrarImplementation)['abi']
+    >('BaseRegistrarImplementation')
+    const priceOracle = get<
+      (typeof artifacts.ExponentialPremiumPriceOracle)['abi']
+    >('ExponentialPremiumPriceOracle')
 
     await deploy('LegacyETHRegistrarController', {
       account: deployer,
@@ -28,7 +31,6 @@ export default execute(
     dependencies: [
       'BaseRegistrarImplementation',
       'ExponentialPremiumPriceOracle',
-      'ReverseRegistrar',
     ],
   },
 )

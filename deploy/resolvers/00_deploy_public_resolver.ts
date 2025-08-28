@@ -1,15 +1,19 @@
-import { execute, artifacts } from '@rocketh'
-import { getAddress, encodeFunctionData } from 'viem'
+import { artifacts, execute } from '@rocketh'
+import { getAddress, namehash, type Address } from 'viem'
 
 export default execute(
-  async ({ deploy, get, namedAccounts, tx, network }) => {
+  async ({ deploy, get, execute: write, read, namedAccounts, network }) => {
     const { deployer, owner } = namedAccounts
 
     // Get dependencies
-    const registry = get('ENSRegistry')
-    const nameWrapper = get('NameWrapper')
-    const controller = get('ETHRegistrarController')
-    const reverseRegistrar = get('ReverseRegistrar')
+    const registry = get<(typeof artifacts.ENSRegistry)['abi']>('ENSRegistry')
+    const nameWrapper =
+      get<(typeof artifacts.NameWrapper)['abi']>('NameWrapper')
+    const controller = get<(typeof artifacts.ETHRegistrarController)['abi']>(
+      'ETHRegistrarController',
+    )
+    const reverseRegistrar =
+      get<(typeof artifacts.ReverseRegistrar)['abi']>('ReverseRegistrar')
 
     // Deploy PublicResolver
     const publicResolver = await deploy('PublicResolver', {
@@ -29,45 +33,45 @@ export default execute(
     if (network.name === 'mainnet' && !network.tags?.tenderly) return
 
     // Check if PublicResolver is already the default resolver on ReverseRegistrar
-    try {
-      const currentDefaultResolver = await tx({
-        to: reverseRegistrar.address,
-        data: encodeFunctionData({
-          abi: reverseRegistrar.abi,
-          functionName: 'defaultResolver',
-          args: [],
-        }),
+    const isReverseRegistrarDefaultResolver = await read(reverseRegistrar, {
+      functionName: 'defaultResolver',
+      args: [],
+    }).then(
+      (v) => getAddress(v as Address) === getAddress(publicResolver.address),
+    )
+    if (!isReverseRegistrarDefaultResolver) {
+      console.log(
+        `  - Setting PublicResolver as default resolver on ReverseRegistrar`,
+      )
+      await write(reverseRegistrar, {
+        functionName: 'setDefaultResolver',
+        args: [publicResolver.address],
+        account: owner,
+      })
+    }
+
+    const resolverEthOwner = await read(registry, {
+      functionName: 'owner',
+      args: [namehash('resolver.eth')],
+    })
+
+    if (resolverEthOwner === owner) {
+      console.log(`  - Setting resolver for resolver.eth to PublicResolver`)
+      await write(registry, {
+        functionName: 'setResolver',
+        args: [namehash('resolver.eth'), publicResolver.address],
         account: owner,
       })
 
-      const isAlreadyDefault =
-        currentDefaultResolver.data &&
-        getAddress(currentDefaultResolver.data) ===
-          getAddress(publicResolver.address)
-
-      if (!isAlreadyDefault) {
-        // Set PublicResolver as default resolver on ReverseRegistrar
-        await tx({
-          to: reverseRegistrar.address,
-          data: encodeFunctionData({
-            abi: reverseRegistrar.abi,
-            functionName: 'setDefaultResolver',
-            args: [publicResolver.address],
-          }),
-          account: owner,
-        })
-        console.log(
-          `Set PublicResolver as default resolver on ReverseRegistrar`,
-        )
-      } else {
-        console.log(
-          `PublicResolver is already the default resolver on ReverseRegistrar`,
-        )
-      }
-    } catch (error) {
-      console.log(
-        'PublicResolver default resolver setup error:',
-        error instanceof Error ? error.message : error,
+      console.log(`  - Setting addr for resolver.eth to PublicResolver`)
+      await write(publicResolver, {
+        functionName: 'setAddr',
+        args: [namehash('resolver.eth'), publicResolver.address],
+        account: owner,
+      })
+    } else {
+      console.warn(
+        `  - WARN: resolver.eth is not owned by the owner address, not setting resolver`,
       )
     }
   },

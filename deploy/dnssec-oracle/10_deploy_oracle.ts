@@ -1,7 +1,6 @@
+import { artifacts, execute } from '@rocketh'
 import packet from 'dns-packet'
-import { execute, artifacts } from '@rocketh'
-import { encodeFunctionData } from 'viem'
-import type { Address, Hash, Hex } from 'viem'
+import type { Hex } from 'viem'
 
 const realAnchors = [
   {
@@ -43,7 +42,7 @@ function encodeAnchors(anchors: any[]): Hex {
 }
 
 export default execute(
-  async ({ deploy, get, tx, namedAccounts, network }) => {
+  async ({ deploy, get, execute: write, namedAccounts, network }) => {
     const { deployer } = namedAccounts
 
     const anchors = realAnchors.slice()
@@ -73,45 +72,28 @@ export default execute(
 
     const dnssec = get('DNSSECImpl')
 
-    try {
-      // Set up algorithms
-      for (const [id, contractName] of Object.entries(algorithms)) {
-        const algorithm = get(contractName)
-        await tx({
-          to: dnssec.address,
-          data: encodeFunctionData({
-            abi: dnssec.abi,
-            functionName: 'setAlgorithm',
-            args: [parseInt(id), algorithm.address],
-          }),
-          account: deployer,
-        })
-        console.log(`Set algorithm ${id}: ${contractName}`)
-      }
-
-      // Set up digests
-      for (const [id, contractName] of Object.entries(digests)) {
-        const digest = get(contractName)
-        await tx({
-          to: dnssec.address,
-          data: encodeFunctionData({
-            abi: dnssec.abi,
-            functionName: 'setDigest',
-            args: [parseInt(id), digest.address],
-          }),
-          account: deployer,
-        })
-        console.log(`Set digest ${id}: ${contractName}`)
-      }
-
-      console.log('DNSSEC Oracle deployment completed successfully')
-    } catch (error) {
-      console.log(
-        'DNSSEC setup error:',
-        error instanceof Error ? error.message : error,
-      )
-      console.log('DNSSEC Oracle deployment completed with errors')
+    for (const [id, contractName] of Object.entries(algorithms)) {
+      const algorithm = get(contractName)
+      console.log(`  - Setting algorithm ${id}: ${contractName}`)
+      await write(dnssec, {
+        functionName: 'setAlgorithm',
+        args: [parseInt(id), algorithm.address],
+        account: deployer,
+      })
     }
+
+    // Set up digests
+    for (const [id, contractName] of Object.entries(digests)) {
+      const digest = get(contractName)
+      console.log(`  - Setting digest ${id}: ${contractName}`)
+      await write(dnssec, {
+        functionName: 'setDigest',
+        args: [parseInt(id), digest.address],
+        account: deployer,
+      })
+    }
+
+    console.log('  - DNSSEC Oracle deployment completed successfully')
   },
   {
     id: 'DNSSECImpl v1.0.0',

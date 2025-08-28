@@ -1,11 +1,11 @@
-import { execute, artifacts } from '@rocketh'
+import { artifacts, execute } from '@rocketh'
 
 export default execute(
   async ({ deploy, get, namedAccounts }) => {
     const { deployer } = namedAccounts
 
-    const registry = get('ENSRegistry')
-    const dnssec = get('DNSSECImpl')
+    const registry = get<(typeof artifacts.ENSRegistry)['abi']>('ENSRegistry')
+    const dnssec = get<(typeof artifacts.DNSSECImpl)['abi']>('DNSSECImpl')
 
     await deploy('OffchainDNSResolver', {
       account: deployer,
