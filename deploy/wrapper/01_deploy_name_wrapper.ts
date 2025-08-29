@@ -26,12 +26,12 @@ export default execute(
 
     // Transfer ownership to owner
     if (owner !== deployer) {
+      console.log(`  - Transferring ownership of NameWrapper to ${owner}`)
       await write(nameWrapper, {
         functionName: 'transferOwnership',
         args: [owner],
         account: deployer,
       })
-      console.log(`Transferred ownership of NameWrapper to ${owner}`)
     }
 
     // Only attempt to make controller etc changes directly on testnets

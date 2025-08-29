@@ -6,21 +6,21 @@ export default execute(
     const { deployer, owner } = namedAccounts
 
     if (!network.tags.use_root) {
-      console.log('Skipping root setup (use_root not enabled)')
+      console.warn('  - WARN: Skipping root setup (use_root not enabled)')
       return
     }
 
-    console.log('Running root setup')
+    console.log('  - Running root setup')
 
     const registry = get<(typeof artifacts.ENSRegistry)['abi']>('ENSRegistry')
     const root = get<(typeof artifacts.Root)['abi']>('Root')
 
+    console.log(`  - Setting owner of root node to root contract`)
     await write(registry, {
       functionName: 'setOwner',
       args: [zeroHash, root.address],
       account: deployer,
     })
-    console.log('Set owner of root node to root contract')
 
     const rootOwner = await read(root, {
       functionName: 'owner',
