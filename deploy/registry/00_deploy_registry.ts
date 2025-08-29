@@ -1,19 +1,48 @@
 import { artifacts, execute } from '@rocketh'
+import { zeroAddress, zeroHash } from 'viem'
 
 export default execute(
-  async ({ deploy, namedAccounts: { deployer }, network }) => {
+  async ({
+    get,
+    deploy,
+    namedAccounts: { deployer, owner },
+    execute: write,
+    read,
+    network,
+    createLegacyRegistryNames,
+  }) => {
     if (network.tags.legacy) {
       console.log('Deploying Legacy ENS Registry...')
-      const contract = await deploy('LegacyENSRegistry', {
+      const legacyRegistry = await deploy('LegacyENSRegistry', {
         account: deployer,
         artifact: artifacts.ENSRegistry,
       })
+
+      if (createLegacyRegistryNames) {
+        console.log('  - createLegacyRegistryNames hook exists, running setup')
+        console.log('  - Setting owner of root node to owner')
+        await write(legacyRegistry, {
+          functionName: 'setOwner',
+          args: [zeroHash, owner],
+          account: deployer,
+        })
+
+        console.log(`  - Running createLegacyRegistryNames hook`)
+        await createLegacyRegistryNames()
+
+        console.log('  - Unsetting owner of root node')
+        await write(legacyRegistry, {
+          functionName: 'setOwner',
+          args: [zeroHash, zeroAddress],
+          account: deployer,
+        })
+      }
 
       console.log('Deploying ENS Registry with Fallback...')
       await deploy('ENSRegistry', {
         account: deployer,
         artifact: artifacts.ENSRegistryWithFallback,
-        args: [contract.address],
+        args: [legacyRegistry.address],
       })
     } else {
       console.log('Deploying standard ENS Registry...')
@@ -23,7 +52,25 @@ export default execute(
       })
     }
 
-    console.log('Registry deployment completed')
+    if (!network.tags.use_root) {
+      const registry = get<(typeof artifacts.ENSRegistry)['abi']>('ENSRegistry')
+      const rootOwner = await read(registry, {
+        functionName: 'owner',
+        args: [zeroHash],
+      })
+      if (rootOwner === deployer) {
+        console.log('  - Setting final owner of root node on registry')
+        await write(registry, {
+          functionName: 'setOwner',
+          args: [zeroHash, owner],
+          account: deployer,
+        })
+      } else if (rootOwner !== owner) {
+        console.warn(
+          `  - WARN: Registry is owned by ${rootOwner}; cannot transfer to owner`,
+        )
+      }
+    }
   },
   {
     id: 'ENSRegistry v1.0.0',

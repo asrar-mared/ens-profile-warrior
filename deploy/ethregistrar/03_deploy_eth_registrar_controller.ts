@@ -3,7 +3,15 @@ import { namehash, zeroAddress } from 'viem'
 import { createInterfaceId } from '../../test/fixtures/createInterfaceId.js'
 
 export default execute(
-  async ({ deploy, get, execute: write, read, namedAccounts, network }) => {
+  async ({
+    deploy,
+    get,
+    execute: write,
+    read,
+    namedAccounts,
+    network,
+    registerUnwrappedNames,
+  }) => {
     const { deployer, owner } = namedAccounts
 
     const registry = get<(typeof artifacts.ENSRegistry)['abi']>('ENSRegistry')
@@ -106,6 +114,11 @@ export default execute(
         account: owner,
       },
     )
+
+    if (registerUnwrappedNames) {
+      console.log('  - Running registerUnwrappedNames hook')
+      await registerUnwrappedNames()
+    }
   },
   {
     id: 'ETHRegistrarController v3.0.0',

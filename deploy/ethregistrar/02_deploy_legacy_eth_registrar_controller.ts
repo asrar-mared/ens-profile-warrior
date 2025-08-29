@@ -9,7 +9,13 @@ const legacyArtifact = {
 }
 
 export default execute(
-  async ({ deploy, get, execute: write, namedAccounts }) => {
+  async ({
+    deploy,
+    get,
+    execute: write,
+    namedAccounts,
+    registerLegacyNames,
+  }) => {
     const { deployer, owner } = namedAccounts
 
     const registrar = get<
@@ -33,6 +39,11 @@ export default execute(
       args: [controller.address],
       account: owner,
     })
+
+    if (registerLegacyNames) {
+      console.log('  - Running registerLegacyNames hook')
+      await registerLegacyNames()
+    }
   },
   {
     id: 'LegacyETHRegistrarController v1.0.0',

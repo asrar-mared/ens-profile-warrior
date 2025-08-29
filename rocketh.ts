@@ -52,14 +52,23 @@ export { artifacts }
 import {
   loadAndExecuteDeployments,
   setup,
+  type CurriedFunctions,
   type Environment as Environment_,
 } from 'rocketh'
-import { createPublicClient, custom, type PublicClient } from 'viem'
+import { createPublicClient, custom } from 'viem'
+
+// TODO: USE
+type HookFunctions = {
+  createLegacyRegistryNames?: (env: Environment_) => () => Promise<void>
+  registerLegacyNames?: (env: Environment_) => () => Promise<void>
+  registerWrappedNames?: (env: Environment_) => () => Promise<void>
+  registerUnwrappedNames?: (env: Environment_) => () => Promise<void>
+}
 
 const functions = {
   ...deployFunctions,
   ...readExecuteFunctions,
-  getPublicClient: (env: Environment_) => {
+  getPublicClient: (env: Environment_) => () => {
     return createPublicClient({
       chain: env.network.chain,
       transport: custom(env.network.provider),
@@ -67,9 +76,10 @@ const functions = {
   },
 }
 
-type Environment = Environment_<typeof config.accounts> & {
-  getPublicClient: () => PublicClient
-}
+type Environment = Environment_<typeof config.accounts> &
+  CurriedFunctions<typeof functions>
 
-const execute = setup<typeof functions, typeof config.accounts>(functions)
+const execute = setup<typeof functions & HookFunctions, typeof config.accounts>(
+  functions,
+)
 export { execute, loadAndExecuteDeployments, type Environment }
