@@ -46,7 +46,7 @@ export default execute(
     }
   },
   {
-    id: 'LegacyETHRegistrarController v1.0.0',
+    id: 'ETHRegistrarController v1.0.0',
     tags: ['category:ethregistrar', 'LegacyETHRegistrarController'],
     dependencies: [
       'BaseRegistrarImplementation',
