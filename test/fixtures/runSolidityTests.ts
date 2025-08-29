@@ -1,6 +1,6 @@
-import hre from 'hardhat'
 import type { Abi, AbiFunction } from 'abitype'
-import type { Artifact, ArtifactMap } from 'hardhat/types/artifacts.js'
+import hre from 'hardhat'
+import type { Artifact, ArtifactMap } from 'hardhat/types/artifacts'
 
 const connection = await hre.network.connect()
 

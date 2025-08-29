@@ -4,7 +4,7 @@
   "description": "ENS contracts",
   "type": "module",
   "scripts": {
-    "compile": "hardhat compile && bun scripts/generate-artifacts.ts",
+    "compile": "hardhat compile",
     "test": "NODE_OPTIONS=\"--disable-warning=ExperimentalWarning\" vitest run",
     "test:remote": "FORKING_ENABLED=1 bun run test ./test/**/Test*.remote.ts",
     "test:parallel": "bun run test ./test/**/Test*.ts --sequence.concurrent",
@@ -16,7 +16,6 @@
     "format": "prettier --write .",
     "prepublishOnly": "bun run build",
     "pub": "npm publish --access public",
-    "generate-artifacts": "bun scripts/generate-artifacts.ts",
     "wiki": "bun ./scripts/wiki.ts"
   },
   "files": [
@@ -64,9 +63,6 @@
     "@nomicfoundation/hardhat-verify": "^2.0.4",
     "@openzeppelin/contracts": "4.9.3",
     "@openzeppelin/contracts-v5": "npm:@openzeppelin/contracts@5.1.0",
-    "@rocketh/proxy": "^0.12.1",
-    "@rollup/rollup-darwin-arm64": "^4.44.2",
-    "@rollup/rollup-darwin-x64": "^4.44.2",
     "@unruggable/gateways": "^1.2.2",
     "clones-with-immutable-args": "Arachnid/clones-with-immutable-args#feature/create2",
     "dns-packet": "^5.3.0",
@@ -92,7 +88,6 @@
     "node": "24.6.0"
   },
   "patchedDependencies": {
-    "rocketh@0.12.1": "patches/rocketh@0.12.1.patch",
     "rocketh@0.13.0": "patches/rocketh@0.13.0.patch"
   }
 }

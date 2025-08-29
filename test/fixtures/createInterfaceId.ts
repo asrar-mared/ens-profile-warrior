@@ -1,5 +1,5 @@
 import hre from 'hardhat'
-import type { ArtifactMap } from 'hardhat/types/artifacts.js'
+import type { ArtifactMap } from 'hardhat/types/artifacts'
 import {
   bytesToHex,
   hexToBytes,
