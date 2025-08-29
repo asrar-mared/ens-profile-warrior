@@ -9,8 +9,8 @@ const legacyArtifact = {
 }
 
 export default execute(
-  async ({ deploy, get, namedAccounts }) => {
-    const { deployer } = namedAccounts
+  async ({ deploy, get, execute: write, namedAccounts }) => {
+    const { deployer, owner } = namedAccounts
 
     const registrar = get<
       (typeof artifacts.BaseRegistrarImplementation)['abi']
@@ -19,10 +19,19 @@ export default execute(
       (typeof artifacts.ExponentialPremiumPriceOracle)['abi']
     >('ExponentialPremiumPriceOracle')
 
-    await deploy('LegacyETHRegistrarController', {
+    const controller = await deploy('LegacyETHRegistrarController', {
       account: deployer,
       artifact: legacyArtifact,
       args: [registrar.address, priceOracle.address, 60n, 86400n],
+    })
+
+    console.log(
+      `  - Adding LegacyETHRegistrarController as controller on BaseRegistrarImplementation`,
+    )
+    await write(registrar, {
+      functionName: 'addController',
+      args: [controller.address],
+      account: owner,
     })
   },
   {

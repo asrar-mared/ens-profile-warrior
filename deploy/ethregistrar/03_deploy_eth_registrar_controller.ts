@@ -1,9 +1,9 @@
 import { artifacts, execute } from '@rocketh'
-import { namehash } from 'viem'
+import { namehash, zeroAddress } from 'viem'
 import { createInterfaceId } from '../../test/fixtures/createInterfaceId.js'
 
 export default execute(
-  async ({ deploy, get, execute: write, namedAccounts, network }) => {
+  async ({ deploy, get, execute: write, read, namedAccounts, network }) => {
     const { deployer, owner } = namedAccounts
 
     const registry = get<(typeof artifacts.ENSRegistry)['abi']>('ENSRegistry')
@@ -84,17 +84,28 @@ export default execute(
     const artifact = artifacts.IETHRegistrarController
     const interfaceId = createInterfaceId(artifact.abi)
 
-    // For simplicity, assume OwnedResolver was deployed for .eth
-    const ethOwnedResolver = get('OwnedResolver')
+    const resolver = await read(registry, {
+      functionName: 'resolver',
+      args: [namehash('eth')],
+    })
+    if (resolver === zeroAddress) {
+      console.warn(
+        `  - WARN: No resolver set for .eth; not setting interface ${interfaceId} for ETHRegistrarController`,
+      )
+      return
+    }
 
     console.log(
       `  - Setting ETHRegistrarController interface ID ${interfaceId} on .eth resolver`,
     )
-    await write(ethOwnedResolver, {
-      functionName: 'setInterface',
-      args: [namehash('eth'), interfaceId, controller.address],
-      account: owner,
-    })
+    await write(
+      { ...artifacts.OwnedResolver, address: resolver },
+      {
+        functionName: 'setInterface',
+        args: [namehash('eth'), interfaceId, controller.address],
+        account: owner,
+      },
+    )
   },
   {
     id: 'ETHRegistrarController v3.0.0',
