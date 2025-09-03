@@ -24,7 +24,7 @@
         "@nomicfoundation/hardhat-viem": "^3.0.0",
         "@rocketh/deploy": "^0.14.0",
         "@rocketh/read-execute": "^0.14.0",
-        "@rocketh/verifier": "^0.14.4",
+        "@rocketh/verifier": "^0.14.5",
         "@rocketh/viem": "^0.14.0",
         "@safe-global/api-kit": "^2.5.6",
         "@safe-global/protocol-kit": "5.2.13",
@@ -41,7 +41,7 @@
         "husky": "^9.1.7",
         "prettier": "^2.6.2",
         "prettier-plugin-solidity": "^1.0.0-beta.24",
-        "rocketh": "0.14.4",
+        "rocketh": "0.14.5",
         "ts-node": "^10.9.2",
         "typescript": "5.9.2",
         "viem": "2.33.3",
@@ -235,7 +235,7 @@
 
     "@rocketh/read-execute": ["@rocketh/read-execute@0.14.0", "", { "dependencies": { "named-logs": "^0.3.2", "viem": "^2.23.12" } }, "sha512-+QhG2I34kg36FklCVotZdKp5UuNlq+AfnKka75wVJigdAn3+RSheYf9yhofT8tIGa4dv6p4LE5eett2HOmfENQ=="],
 
-    "@rocketh/verifier": ["@rocketh/verifier@0.14.4", "", { "dependencies": { "@types/fs-extra": "^11.0.4", "@types/qs": "^6.9.18", "chalk": "5.4.1", "commander": "^13.1.0", "fs-extra": "^11.3.0", "ldenv": "^0.3.12", "neoqs": "^6.13.0" }, "peerDependencies": { "rocketh": "0.14.4" }, "bin": { "rocketh-verify": "dist/cli.js" } }, "sha512-nfxigIPC3zXZ6ajJhxEYJ7zkm0nn3kNHRryY1HPOlhnAjwTwzELLzDP2YFutvhwRcaEGcQz5vIeQJEVAaFG4zw=="],
+    "@rocketh/verifier": ["@rocketh/verifier@0.14.5", "", { "dependencies": { "@types/fs-extra": "^11.0.4", "@types/qs": "^6.9.18", "chalk": "5.4.1", "commander": "^13.1.0", "fs-extra": "^11.3.0", "ldenv": "^0.3.12", "neoqs": "^6.13.0" }, "peerDependencies": { "rocketh": "0.14.5" }, "bin": { "rocketh-verify": "dist/cli.js" } }, "sha512-fuXEcPModA8ydzQfbYMBs7mY6APleVtI2Fhpd8aSDJn9BdRwxbfWHwNO6x31K2RiCjoj33OPGkvo+t35+wwYpg=="],
 
     "@rocketh/viem": ["@rocketh/viem@0.14.0", "", { "dependencies": { "named-logs": "^0.3.2" }, "peerDependencies": { "viem": "^2.23.12" } }, "sha512-1RRVpCgPJrPQEIs9OUyVBzCzXNbhIME+HFJBLdYI4y4ol94otqcaTnoXC91bRLmTPb60fvfssKV4p8gK9pyUQw=="],
 
@@ -609,7 +609,7 @@
 
     "rfdc": ["rfdc@1.4.1", "", {}, "sha512-q1b3N5QkRUWUl7iyylaaj3kOpIT0N2i9MqIEQXP73GVsN9cw3fdx8X63cEmWhJGi2PPCF23Ijp7ktmd39rawIA=="],
 
-    "rocketh": ["rocketh@0.14.4", "", { "dependencies": { "@types/figlet": "^1.7.0", "@types/prompts": "^2.4.9", "commander": "^13.1.0", "eip-1193-jsonrpc-provider": "^0.4.3", "ethers": "^6.13.5", "figlet": "^1.8.0", "ldenv": "^0.3.12", "named-logs": "^0.3.2", "named-logs-console": "^0.3.1", "prompts": "^2.4.2", "tsx": "^4.19.3", "viem": "^2.23.12" }, "bin": { "rocketh": "dist/cli.js" } }, "sha512-nnLt74glSuEVqdiNL8DR0dPeHluWqK5GqmlKQ89TBsUyo3r8Iq04y+eEsZ6QAtsY4KZKdRoFLWQ8q4xFwj16oQ=="],
+    "rocketh": ["rocketh@0.14.5", "", { "dependencies": { "@types/figlet": "^1.7.0", "@types/prompts": "^2.4.9", "commander": "^13.1.0", "eip-1193-jsonrpc-provider": "^0.4.3", "ethers": "^6.13.5", "figlet": "^1.8.0", "ldenv": "^0.3.12", "named-logs": "^0.3.2", "named-logs-console": "^0.3.1", "prompts": "^2.4.2", "tsx": "^4.19.3", "viem": "^2.23.12" }, "bin": { "rocketh": "dist/cli.js" } }, "sha512-gSdIFtGKXwkFOyya+uoh9TJuy1dzJ4svV4VyQ4OIbwI5nOH7adiio4gG6LDA0FNOozl/AZE8NnxO8vWqcSr6Zw=="],
 
     "rollup": ["rollup@4.46.2", "", { "dependencies": { "@types/estree": "1.0.8" }, "optionalDependencies": { "@rollup/rollup-android-arm-eabi": "4.46.2", "@rollup/rollup-android-arm64": "4.46.2", "@rollup/rollup-darwin-arm64": "4.46.2", "@rollup/rollup-darwin-x64": "4.46.2", "@rollup/rollup-freebsd-arm64": "4.46.2", "@rollup/rollup-freebsd-x64": "4.46.2", "@rollup/rollup-linux-arm-gnueabihf": "4.46.2", "@rollup/rollup-linux-arm-musleabihf": "4.46.2", "@rollup/rollup-linux-arm64-gnu": "4.46.2", "@rollup/rollup-linux-arm64-musl": "4.46.2", "@rollup/rollup-linux-loongarch64-gnu": "4.46.2", "@rollup/rollup-linux-ppc64-gnu": "4.46.2", "@rollup/rollup-linux-riscv64-gnu": "4.46.2", "@rollup/rollup-linux-riscv64-musl": "4.46.2", "@rollup/rollup-linux-s390x-gnu": "4.46.2", "@rollup/rollup-linux-x64-gnu": "4.46.2", "@rollup/rollup-linux-x64-musl": "4.46.2", "@rollup/rollup-win32-arm64-msvc": "4.46.2", "@rollup/rollup-win32-ia32-msvc": "4.46.2", "@rollup/rollup-win32-x64-msvc": "4.46.2", "fsevents": "~2.3.2" }, "bin": { "rollup": "dist/bin/rollup" } }, "sha512-WMmLFI+Boh6xbop+OAGo9cQ3OgX9MIg7xOQjn+pTCwOkk+FNDAeAemXkJ3HzDJrVXleLOFVa1ipuc1AmEx1Dwg=="],
 

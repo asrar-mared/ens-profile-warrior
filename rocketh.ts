@@ -1,7 +1,7 @@
 // ------------------------------------------------------------------------------------------------
 // Typed Config
 // ------------------------------------------------------------------------------------------------
-import { type UserConfig } from 'rocketh'
+import type { UserConfig } from 'rocketh'
 
 export const config = {
   accounts: {
@@ -67,39 +67,12 @@ const functions = {
   ...deployFunctions,
   ...readExecuteFunctions,
   ...viemFunctions,
-  __patchProvider(env: Environment_) {
-    // replacement for TransactionHashTracker
-    // https://github.com/wighawag/rocketh/blob/main/packages/rocketh/src/environment/providers/TransactionHashTracker.ts
-    // still not fixed: https://github.com/wighawag/rocketh/issues/24
-    const parent = env.network.provider
-    if (parent.__patched) return;
-    parent.__patched = true;
-    parent.request = async function (args: any) {
-      if (args.method === 'eth_getTransactionReceipt') {
-        const timeout = Date.now() + 2000
-        for (;;) {
-          await new Promise((f) => setTimeout(f, 0))
-          const receipt = await parent.provider.request(args).catch(() => {})
-          if (receipt) return receipt
-          if (Date.now() > timeout)
-            throw new Error(`timeout for receipt: ${args.params[0]}`)
-        }
-      } else {
-        const res = await parent.provider.request(args)
-        if (/^eth_send(Raw|)Transaction$/.test(args.method)) {
-          parent.transactionHashes?.push(res)
-        }
-        return res
-      }
-    }
-  },
 }
 
-type Environment = Environment_<typeof config.accounts> &
+export type Environment = Environment_<typeof config.accounts> &
   CurriedFunctions<typeof functions>
 
-const { deployScript: execute, loadAndExecuteDeployments } = setup<
+export const { deployScript: execute, loadAndExecuteDeployments } = setup<
   typeof functions & HookFunctions,
   typeof config.accounts
 >(functions)
-export { execute, loadAndExecuteDeployments, type Environment }

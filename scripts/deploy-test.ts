@@ -2,13 +2,18 @@ import { createAnvil } from '@viem/anvil'
 import { executeDeployScripts, resolveConfig } from 'rocketh'
 import { createWalletClient, http } from 'viem'
 
+const t0 = Date.now()
+
 const anvil = createAnvil()
 await anvil.start()
 
 const hostPort = `http://${anvil.host}:${anvil.port}`
 
+const pollingInterval = 1
+
 const client = createWalletClient({
   transport: http(hostPort),
+  pollingInterval,
 })
 
 const [deployer, owner] = await client.requestAddresses()
@@ -23,6 +28,7 @@ const env = await executeDeployScripts(
       tags: ['test', 'legacy', 'use_root', 'allow_unsafe'],
       nodeUrl: hostPort,
       fork: false,
+      pollingInterval: Math.max(1, pollingInterval) / 1000, // can't be 0
     },
     accounts,
     askBeforeProceeding: false,
@@ -30,6 +36,15 @@ const env = await executeDeployScripts(
     logLevel: 1,
   }),
 )
+
+console.table(
+  Object.entries(env.deployments).map(([name, { address }]) => ({
+    name,
+    address,
+  })),
+)
+
+console.log(`\nReady <${Date.now() - t0}ms>`)
 
 // the execa logic is completely broken and makes no sense
 // await anvil.stop();
