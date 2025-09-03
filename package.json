@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "compile": "hardhat compile",
-    "test": "NODE_OPTIONS=\"--disable-warning=ExperimentalWarning\" vitest run",
+    "test": "bun run compile && NODE_OPTIONS=\"--disable-warning=ExperimentalWarning\" vitest run",
     "test:remote": "FORKING_ENABLED=1 bun run test ./test/**/Test*.remote.ts",
     "test:parallel": "bun run test ./test/**/Test*.ts --sequence.concurrent",
     "test:local": "bun run test --network localhost",

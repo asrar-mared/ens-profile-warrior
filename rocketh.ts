@@ -72,6 +72,8 @@ const functions = {
     // https://github.com/wighawag/rocketh/blob/main/packages/rocketh/src/environment/providers/TransactionHashTracker.ts
     // still not fixed: https://github.com/wighawag/rocketh/issues/24
     const parent = env.network.provider
+    if (parent.__patched) return;
+    parent.__patched = true;
     parent.request = async function (args: any) {
       if (args.method === 'eth_getTransactionReceipt') {
         const timeout = Date.now() + 2000
