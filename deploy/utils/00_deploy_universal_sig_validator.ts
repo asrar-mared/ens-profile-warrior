@@ -8,10 +8,10 @@ export default execute(
     tx,
     namedAccounts: { deployer },
     network,
-    getPublicClient,
+    viem,
     savePendingExecution,
   }) => {
-    const publicClient = getPublicClient()
+    const publicClient = viem.publicClient
 
     // Check if already deployed
     if (await publicClient.getCode({ address: usvAddress })) {

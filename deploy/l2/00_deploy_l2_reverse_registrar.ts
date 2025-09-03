@@ -49,7 +49,7 @@ const oldReverseResolvers = {
 // It can be used as an alternative to the standard deploy() function for L2 chains
 // that require Safe multisig approval for deployments
 const safeDeploy = async (
-  env: Pick<Environment, 'network' | 'getPublicClient' | 'save'>,
+  env: Pick<Environment, 'network' | 'viem' | 'save'>,
   {
     reverseNode,
     coinType,
@@ -97,7 +97,7 @@ const safeDeploy = async (
     deployment: Deployment<Abi>
     receipt: TransactionReceipt
   }) => {
-    const publicClient = env.getPublicClient()
+    const publicClient = env.viem.publicClient
     const currentBytecode = await publicClient.getCode({
       address: expectedDeploymentAddress,
     })
@@ -132,7 +132,7 @@ const safeDeploy = async (
     (m) => m.default,
   )
 
-  const publicClient = env.getPublicClient()
+  const publicClient = env.viem.publicClient
   const privateKey = process.env.SAFE_PROPOSER_KEY!
 
   if (networkType === 'mainnet') {
@@ -296,7 +296,7 @@ const safeDeploy = async (
 }
 
 export default execute(
-  async ({ deploy, namedAccounts, network, save, getPublicClient, config }) => {
+  async ({ deploy, namedAccounts, network, save, viem, config }) => {
     const { deployer } = namedAccounts
     const chainId = network.chain.id
     const coinType = evmChainIdToCoinType(chainId) as bigint
@@ -307,7 +307,7 @@ export default execute(
 
     if (process.env.SAFE_PROPOSER_KEY && config.saveDeployments) {
       return await safeDeploy(
-        { network, save, getPublicClient },
+        { network, save, viem },
         {
           reverseNode: REVERSENODE,
           coinType,
