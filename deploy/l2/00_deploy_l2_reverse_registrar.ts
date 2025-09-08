@@ -1,5 +1,5 @@
 import { evmChainIdToCoinType } from '@ensdomains/address-encoder/utils'
-import { artifacts, execute, type Environment } from '@rocketh'
+import { artifacts, deployScript, type Environment } from '@rocketh'
 import fs from 'node:fs'
 import path from 'node:path'
 import type { Abi, Deployment } from 'rocketh'
@@ -295,7 +295,7 @@ const safeDeploy = async (
   }
 }
 
-export default execute(
+export default deployScript(
   async ({ deploy, namedAccounts, network, save, viem, config }) => {
     const { deployer } = namedAccounts
     const chainId = network.chain.id

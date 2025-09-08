@@ -1,7 +1,7 @@
-import { artifacts, execute } from '@rocketh'
+import { artifacts, deployScript } from '@rocketh'
 import { zeroAddress, zeroHash } from 'viem'
 
-export default execute(
+export default deployScript(
   async ({
     get,
     deploy,

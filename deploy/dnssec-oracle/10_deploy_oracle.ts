@@ -1,4 +1,4 @@
-import { artifacts, execute } from '@rocketh'
+import { artifacts, deployScript } from '@rocketh'
 import packet from 'dns-packet'
 import type { Hex } from 'viem'
 
@@ -56,7 +56,7 @@ function encodeAnchors(anchors: any[]): Hex {
     .join('')}`
 }
 
-export default execute(
+export default deployScript(
   async ({ deploy, get, execute: write, namedAccounts, network }) => {
     const { deployer } = namedAccounts
 

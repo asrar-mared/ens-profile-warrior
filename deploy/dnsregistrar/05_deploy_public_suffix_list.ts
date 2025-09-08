@@ -1,4 +1,4 @@
-import { artifacts, execute } from '@rocketh'
+import { artifacts, deployScript } from '@rocketh'
 import { dnsEncodeName } from '../../test/fixtures/dnsEncodeName.js'
 
 export async function fetchPublicSuffixes() {
@@ -13,7 +13,7 @@ export async function fetchPublicSuffixes() {
     .filter((x) => x && !x.startsWith('//'))
 }
 
-export default execute(
+export default deployScript(
   async ({
     deploy,
     execute: write,

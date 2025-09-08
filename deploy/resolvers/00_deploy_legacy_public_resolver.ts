@@ -1,8 +1,8 @@
-import { artifacts, execute } from '@rocketh'
+import { artifacts, deployScript } from '@rocketh'
 import type { Artifact } from 'rocketh'
 import LegacyPublicResolverArtifact from '../../deployments/archive/PublicResolver_mainnet_9412610.sol/PublicResolver_mainnet_9412610.json'
 
-export default execute(
+export default deployScript(
   async ({ deploy, get, namedAccounts, network }) => {
     const { deployer } = namedAccounts
 

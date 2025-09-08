@@ -1,4 +1,4 @@
-import { artifacts, execute } from '@rocketh'
+import { artifacts, deployScript } from '@rocketh'
 import type { Artifact } from 'rocketh'
 import { namehash, zeroAddress, type Abi } from 'viem'
 import wrappedEthRegistrarArtifactRaw from '../../deployments/mainnet/WrappedETHRegistrarController.json'
@@ -6,7 +6,7 @@ import wrappedEthRegistrarArtifactRaw from '../../deployments/mainnet/WrappedETH
 const wrappedEthRegistrarArtifact =
   wrappedEthRegistrarArtifactRaw as unknown as Artifact<Abi>
 
-export default execute(
+export default deployScript(
   async ({
     deploy,
     get,

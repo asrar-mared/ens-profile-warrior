@@ -1,7 +1,7 @@
-import { artifacts, execute } from '@rocketh'
+import { artifacts, deployScript } from '@rocketh'
 import { namehash } from 'viem'
 
-export default execute(
+export default deployScript(
   async ({ deploy, get, read, execute: write, namedAccounts, network }) => {
     const { deployer, owner } = namedAccounts
 
