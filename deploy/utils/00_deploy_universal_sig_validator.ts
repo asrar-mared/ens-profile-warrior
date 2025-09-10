@@ -1,9 +1,9 @@
-import { artifacts, execute } from '@rocketh'
+import { artifacts, deployScript } from '@rocketh'
 import { type Hex } from 'viem'
 
 const usvAddress = '0x164af34fAF9879394370C7f09064127C043A35E9'
 
-export default execute(
+export default deployScript(
   async ({
     tx,
     namedAccounts: { deployer },

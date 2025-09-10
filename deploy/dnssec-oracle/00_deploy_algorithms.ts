@@ -1,6 +1,6 @@
-import { execute, artifacts } from '@rocketh'
+import { artifacts, deployScript } from '@rocketh'
 
-export default execute(
+export default deployScript(
   async ({ deploy, namedAccounts, network }) => {
     const { deployer } = namedAccounts
 

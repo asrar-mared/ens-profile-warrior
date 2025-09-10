@@ -1,4 +1,4 @@
-import { artifacts, execute } from '@rocketh'
+import { artifacts, deployScript } from '@rocketh'
 import type { Abi } from 'viem'
 import legacyArtifactRaw from '../../deployments/archive/ETHRegistrarController_mainnet_9380471.sol/ETHRegistrarController_mainnet_9380471.json'
 
@@ -8,7 +8,7 @@ const legacyArtifact = {
   abi: legacyArtifactRaw.abi as Abi,
 }
 
-export default execute(
+export default deployScript(
   async ({
     deploy,
     get,

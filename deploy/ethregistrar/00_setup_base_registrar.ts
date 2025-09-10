@@ -1,7 +1,7 @@
-import { execute, type artifacts } from '@rocketh'
+import { type artifacts, deployScript } from '@rocketh'
 import { labelhash } from 'viem'
 
-export default execute(
+export default deployScript(
   async ({
     get,
     execute: write,

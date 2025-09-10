@@ -1,4 +1,4 @@
-import { artifacts, execute } from '@rocketh'
+import { artifacts, deployScript } from '@rocketh'
 import {
   encodeFunctionData,
   namehash,
@@ -27,7 +27,7 @@ const multicallAbi = parseAbi([
   'function aggregate(Call[] calldata calls) public payable returns (uint256 blockNumber, bytes[] memory returnData)',
 ])
 
-export default execute(
+export default deployScript(
   async ({
     get,
     read,

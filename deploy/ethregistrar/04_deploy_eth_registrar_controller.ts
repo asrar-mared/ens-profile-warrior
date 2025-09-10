@@ -1,8 +1,8 @@
-import { artifacts, execute } from '@rocketh'
+import { artifacts, deployScript } from '@rocketh'
 import { namehash, zeroAddress } from 'viem'
 import { createInterfaceId } from '../../test/fixtures/createInterfaceId.js'
 
-export default execute(
+export default deployScript(
   async ({
     deploy,
     get,

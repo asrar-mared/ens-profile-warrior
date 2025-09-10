@@ -72,7 +72,9 @@ const functions = {
 export type Environment = Environment_<typeof config.accounts> &
   CurriedFunctions<typeof functions>
 
-export const { deployScript: execute, loadAndExecuteDeployments } = setup<
-  typeof functions & HookFunctions,
-  typeof config.accounts
->(functions)
+export const { deployScript, loadAndExecuteDeployments, loadEnvironment } =
+  process.env.ROCKETH_CONFIG_FILE
+    ? ((await import(process.env.ROCKETH_CONFIG_FILE)) as ReturnType<
+        typeof setup<typeof functions & HookFunctions, typeof config.accounts>
+      >)
+    : setup<typeof functions & HookFunctions, typeof config.accounts>(functions)

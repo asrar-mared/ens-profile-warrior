@@ -1,4 +1,4 @@
-import { execute, artifacts } from '@rocketh'
+import { artifacts, deployScript } from '@rocketh'
 import { mainnet, sepolia } from 'viem/chains'
 import { coinTypeFromChain } from './ensip19.js'
 
@@ -15,7 +15,7 @@ export function createChainReverseResolverDeployer({
   chainName: string
   targets: Record<number, any>
 }) {
-  const func = execute(
+  const func = deployScript(
     async ({ deploy, get, namedAccounts, network }) => {
       const { deployer } = namedAccounts
 
