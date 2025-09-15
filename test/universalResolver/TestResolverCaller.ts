@@ -1,6 +1,5 @@
 import hre from 'hardhat'
-import { loadFixture } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers.js'
-
+import { describe, afterAll, it } from 'vitest'
 import { serveBatchGateway } from '../fixtures/localBatchGateway.js'
 import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
 import { COIN_TYPE_ETH } from '../fixtures/ensip19.js'
@@ -11,19 +10,23 @@ import {
   makeResolutions,
 } from '../utils/resolutions.js'
 
+const connection = await hre.network.connect()
+
 async function fixture() {
   const bg = await serveBatchGateway()
-  after(bg.shutdown)
-  const resolverCaller = await hre.viem.deployContract(
+  afterAll(bg.shutdown)
+  const resolverCaller = await connection.viem.deployContract(
     'MockResolverCaller',
     [],
     {
       client: {
-        public: await hre.viem.getPublicClient({ ccipRead: undefined }),
+        public: await connection.viem.getPublicClient({ ccipRead: undefined }),
       },
     },
   )
-  const ssResolver = await hre.viem.deployContract('DummyShapeshiftResolver')
+  const ssResolver = await connection.viem.deployContract(
+    'DummyShapeshiftResolver',
+  )
   return {
     bg,
     resolverCaller,
@@ -31,7 +34,7 @@ async function fixture() {
   }
 }
 
-describe('TestResolverCaller', () => {
+describe('ResolverCaller', () => {
   for (const multi of [false, true]) {
     for (const offchain of [false, true]) {
       for (const extended of [false, true]) {
@@ -42,7 +45,7 @@ describe('TestResolverCaller', () => {
           if (multi) title += ' w/multicall'
           if (feature) title += ' w/feature'
           it(title, async () => {
-            const F = await loadFixture(fixture)
+            const F = await connection.networkHelpers.loadFixture(fixture)
             const kp: KnownProfile = {
               name: 'test.eth',
               addresses: [
