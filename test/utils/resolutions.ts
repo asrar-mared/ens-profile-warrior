@@ -70,7 +70,7 @@ export type KnownReverse = {
   title?: string
   address: Hex
   coinType: bigint
-  primary?: string;
+  primary?: string
 }
 
 type Expected = {
