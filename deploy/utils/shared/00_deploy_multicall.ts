@@ -35,16 +35,8 @@ export default deployScript(
     namedAccounts: { deployer },
     network,
     viem,
-    config,
     savePendingDeployment,
   }) => {
-    if (
-      !network.tags?.allow_unsafe &&
-      (!network.tags?.test || config.saveDeployments)
-    ) {
-      console.log(`  - Skipping Multicall3 deploy, not on test network.`)
-    }
-
     const multicallExistingBytecode = await viem.publicClient.getCode({
       address: multicallAddress,
     })
