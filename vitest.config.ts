@@ -9,7 +9,7 @@ export default defineConfig({
       ...(process.env.TEST_REMOTE ? ['test/**/*.remote.ts'] : []),
     ],
     exclude: ['test/**/*.behaviour.ts'],
-    reporters: ["verbose"],
+    reporters: ['verbose'],
     environment: 'node',
     globals: true,
     setupFiles: ['./test/setup.ts'],
