@@ -1,5 +1,5 @@
 import hre from 'hardhat'
-import { namehash, toHex, size, keccak256, stringToBytes } from 'viem'
+import { namehash, stringToHex, size, keccak256, stringToBytes } from 'viem'
 import { dnsDecodeName } from '../fixtures/dnsDecodeName.js'
 import { dnsEncodeName } from '../fixtures/dnsEncodeName.js'
 import { getParentName } from '../utils/resolutions.js'
@@ -15,21 +15,36 @@ function forceHashedLabel(label: string) {
   return `[${keccak256(stringToBytes(label)).slice(2)}]`
 }
 
-function fmt(name: string) {
+function fmt(name: string, short = false) {
+  const max = short ? 36 : 72
+  if (name.length > max) {
+    const half = max >> 1
+    name = `${name.slice(0, half)}…${name.slice(-half)}<${name
+      .split('.')
+      .map((x) => x.length)}>`
+  }
   return name || '<root>'
 }
 
+function splitName(name: string): string[] {
+  return name ? name.split('.') : []
+}
+
+const MIN_LABEL = '1'
+const MAX_LABEL = '2'.repeat(255)
+const LONG_LABEL = '3'.repeat(256)
+
 describe('NameCoder', () => {
   describe('valid', () => {
-    for (const [title, ens = title] of [
-      [''],
-      ['a.bb.ccc.dddd.eeeee'],
-      ['1x255', '1'.repeat(255)],
-      ['1x300', '1'.repeat(300)],
-      ['hashed("eth")', forceHashedLabel('eth')],
-      ['mixed', `${'1'.repeat(300)}.${forceHashedLabel('test')}.eth`],
+    for (const ens of [
+      '',
+      'test.eth',
+      MIN_LABEL,
+      MAX_LABEL,
+      `${MAX_LABEL}.${MAX_LABEL}`,
+      'a.bb.ccc.dddd.eeeee',
     ]) {
-      it(fmt(title), async () => {
+      it(fmt(ens), async () => {
         const F = await loadFixture()
         const dns = dnsEncodeName(ens)
         await expect(F.read.encode([ens]), 'encode').resolves.toStrictEqual(dns)
@@ -40,6 +55,13 @@ describe('NameCoder', () => {
           F.read.namehash([dns, 0n]),
           'namehash',
         ).resolves.toStrictEqual(namehash(ens))
+        await expect(
+          F.read.countLabels([dns, 0n]),
+          'count',
+        ).resolves.toStrictEqual(BigInt(splitName(ens).length))
+        await expect(F.read.namehash([dns, 0n])).resolves.toStrictEqual(
+          namehash(ens),
+        )
         for (let offset = 0n; offset < size(dns); ) {
           ;[, offset] = await F.read.nextLabel([dns, offset])
         }
@@ -50,14 +72,7 @@ describe('NameCoder', () => {
     }
   })
 
-  it('no next label', async () => {
-    const F = await loadFixture()
-    await expect(
-      F.read.nextLabel([dnsEncodeName(''), 1n]),
-    ).toBeRevertedWithCustomError('DNSDecodingFailed')
-  })
-
-  describe('prevLabel()', () => {
+  describe('prevLabel() and nextLabel()', () => {
     it('0 reverts', async () => {
       const F = await loadFixture()
       await expect(
@@ -101,38 +116,22 @@ describe('NameCoder', () => {
       ).resolves.toStrictEqual(prev)
       const v = stringToBytes(tld)
       await expect(
-        F.read.readLabel([dns, prev, true]),
+        F.read.readLabel([dns, prev]),
         'readLabel',
-      ).resolves.toStrictEqual([keccak256(v), offset, v.length, false])
+      ).resolves.toStrictEqual([keccak256(v), offset])
+    })
+
+    it('no next label', async () => {
+      const F = await loadFixture()
+      await expect(
+        F.read.nextLabel([dnsEncodeName(''), 1n]),
+      ).toBeRevertedWithCustomError('DNSDecodingFailed')
     })
   })
 
-  it('null hashed label', async () => {
-    const F = await loadFixture()
-    await expect(
-      F.read.readLabel([dnsEncodeName(`[${'0'.repeat(64)}]`), 0n, true]),
-    ).toBeRevertedWithCustomError('DNSDecodingFailed')
-  })
-
-  it('disable hashed label support', async () => {
-    const F = await loadFixture()
-    const label = `[${'0'.repeat(64)}]`
-    const v = stringToBytes(label)
-    await expect(
-      F.read.readLabel([dnsEncodeName(label), 0n, false]),
-    ).resolves.toStrictEqual([keccak256(v), 67n, v.length, false])
-  })
-
-  it('invalid hashed label', async () => {
-    const F = await loadFixture()
-    await expect(
-      F.read.namehash([dnsEncodeName(`[${'z'.repeat(64)}]`), 0n]),
-    ).toBeRevertedWithCustomError('DNSDecodingFailed')
-  })
-
   describe('encode() failure', () => {
-    for (const ens of ['.', '..', '.a', 'a.', 'a..b']) {
-      it(ens, async () => {
+    for (const ens of ['.', '..', '.a', 'a.', 'a..b', LONG_LABEL]) {
+      it(fmt(ens), async () => {
         const F = await loadFixture()
         await expect(F.read.encode([ens])).toBeRevertedWithCustomError(
           'DNSEncodingFailed',
@@ -157,14 +156,83 @@ describe('NameCoder', () => {
     it('malicious label', async () => {
       const F = await loadFixture()
       await expect(
-        F.read.decode([toHex('\x03a.b\x00')]),
+        F.read.decode([stringToHex('\x03a.b\x00')]),
       ).toBeRevertedWithCustomError('DNSDecodingFailed')
+    })
+  })
+
+  describe('nextLabel() failure', async () => {
+    for (const dns of ['0x', '0x02', '0x0000'] as const) {
+      it(dns, async () => {
+        const F = await loadFixture()
+        await expect(F.read.nextLabel([dns, 0n])).toBeRevertedWithCustomError(
+          'DNSDecodingFailed',
+        )
+      })
+    }
+  })
+
+  describe('extractLabel()', () => {
+    for (const [name] of [
+      ['', 'test.eth', 'a.bb.ccc.dddd.eeeee', forceHashedLabel('abc')],
+    ]) {
+      it(fmt(name), async () => {
+        const F = await loadFixture()
+        const dns = dnsEncodeName(name)
+        let offset = 0n
+        for (const x of splitName(name)) {
+          const [label, next] = await F.read.extractLabel([dns, offset])
+          expect(label).toStrictEqual(x)
+          offset = next
+        }
+        await expect(F.read.extractLabel([dns, offset])).resolves.toStrictEqual(
+          ['', BigInt(size(dns))],
+        )
+      })
+    }
+
+    it('permits malicious labels', async () => {
+      const F = await loadFixture()
+      await expect(
+        F.read.extractLabel([stringToHex('\x03a.b\x00'), 0n]),
+      ).resolves.toStrictEqual(['a.b', 4n])
+    })
+
+    it('permits hashed labels', async () => {
+      const F = await loadFixture()
+      const hashed = forceHashedLabel('abc')
+      await expect(
+        F.read.extractLabel([dnsEncodeName(hashed), 0n]),
+      ).resolves.toStrictEqual([hashed, 67n])
+    })
+  })
+
+  describe('firstLabel()', () => {
+    for (const label of [MIN_LABEL, MAX_LABEL]) {
+      it(fmt(label), async () => {
+        const F = await loadFixture()
+        await expect(
+          F.read.firstLabel([dnsEncodeName(`${label}.eth`)]),
+        ).resolves.toStrictEqual(label)
+      })
+    }
+
+    it(`${fmt('')} reverts`, async () => {
+      const F = await loadFixture()
+      await expect(
+        F.read.firstLabel([dnsEncodeName('')]),
+      ).toBeRevertedWithCustomError('LabelIsEmpty')
+    })
+
+    it(`invalid encoding does not revert`, async () => {
+      const F = await loadFixture()
+      await expect(F.read.firstLabel(['0x0161'])).resolves.toEqual('a')
     })
   })
 
   describe('matchSuffix()', () => {
     function testNoMatch(name: string, suffix: string) {
-      it(`no match: ${fmt(name)} / ${fmt(suffix)}`, async () => {
+      it(`no match: ${fmt(name, true)} / ${fmt(suffix, true)}`, async () => {
         const F = await loadFixture()
         await expect(
           F.read.matchSuffix([dnsEncodeName(name), 0n, namehash(suffix)]),
@@ -172,13 +240,8 @@ describe('NameCoder', () => {
       })
     }
 
-    function testMatch(
-      name: string,
-      suffix = name,
-      nameTitle = name,
-      suffixTitle = suffix,
-    ) {
-      it(`match: ${fmt(nameTitle)} / ${fmt(suffixTitle)}`, async () => {
+    function testMatch(name: string, suffix = name) {
+      it(`match: ${fmt(name, true)} / ${fmt(suffix, true)}`, async () => {
         const F = await loadFixture()
         const nodeSuffix = namehash(suffix)
         let prev = name
@@ -217,12 +280,6 @@ describe('NameCoder', () => {
     testMatch('a.b.c.d', 'd')
     testMatch('a.b.c.d', '')
 
-    testMatch('1'.repeat(300), undefined, '1^300', '1^300')
-    testMatch('2'.repeat(300), forceHashedLabel('2'.repeat(300)), '2^300')
-    testMatch('3.eth', forceHashedLabel('eth'))
-    testMatch(`4.${forceHashedLabel('eth')}`, 'eth')
-    testMatch(`5.${forceHashedLabel('test')}.eth`, 'test.eth')
-
     describe('nonzero offset', () => {
       it('no match', async () => {
         const F = await loadFixture()
@@ -244,6 +301,66 @@ describe('NameCoder', () => {
           F.read.matchSuffix([dnsEncodeName('a.b.c.eth'), 2n, namehash('eth')]),
         ).resolves.toStrictEqual([true, namehash('b.c.eth'), 4n, 6n])
       })
+    })
+  })
+
+  describe('addLabel()', () => {
+    it('min label', async () => {
+      const F = await loadFixture()
+      await expect(
+        F.read.addLabel([dnsEncodeName('eth'), MIN_LABEL]),
+      ).resolves.toStrictEqual(dnsEncodeName(`${MIN_LABEL}.eth`))
+    })
+
+    it('max label', async () => {
+      const F = await loadFixture()
+      await expect(
+        F.read.addLabel([dnsEncodeName('eth'), MAX_LABEL]),
+      ).resolves.toStrictEqual(dnsEncodeName(`${MAX_LABEL}.eth`))
+    })
+
+    it('empty label reverts', async () => {
+      const F = await loadFixture()
+      await expect(
+        F.read.addLabel([dnsEncodeName('eth'), '']),
+      ).toBeRevertedWithCustomError('LabelIsEmpty')
+    })
+
+    it('long label reverts', async () => {
+      const F = await loadFixture()
+      await expect(F.read.addLabel([dnsEncodeName('eth'), LONG_LABEL]))
+        .toBeRevertedWithCustomError('LabelIsTooLong')
+        .withArgs([LONG_LABEL])
+    })
+  })
+
+  describe('ethName()', () => {
+    it('min label', async () => {
+      const F = await loadFixture()
+      await expect(F.read.ethName([MIN_LABEL])).resolves.toStrictEqual(
+        dnsEncodeName(`${MIN_LABEL}.eth`),
+      )
+    })
+
+    it('max label', async () => {
+      const F = await loadFixture()
+      await expect(F.read.ethName([MAX_LABEL])).resolves.toStrictEqual(
+        dnsEncodeName(`${MAX_LABEL}.eth`),
+      )
+    })
+
+    it('empty label reverts', async () => {
+      const F = await loadFixture()
+      await expect(F.read.ethName([''])).toBeRevertedWithCustomError(
+        'LabelIsEmpty',
+      )
+    })
+
+    it('long label reverts', async () => {
+      const F = await loadFixture()
+      await expect(F.read.ethName([LONG_LABEL]))
+        .toBeRevertedWithCustomError('LabelIsTooLong')
+        .withArgs([LONG_LABEL])
     })
   })
 })

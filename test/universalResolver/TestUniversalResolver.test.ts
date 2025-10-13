@@ -108,39 +108,6 @@ describe('UniversalResolver', () => {
         BigInt(1 + toBytes(testName.split('.')[0]).length),
       )
     })
-
-    it('auto-encrypted', async () => {
-      const F = await loadFixture()
-      const name = `${'1'.repeat(300)}.${testName}`
-      await F.takeControl(name)
-      await F.ENSRegistry.write.setResolver([
-        namehash(name),
-        F.Shapeshift1.address,
-      ])
-      const [resolver, node, offset] =
-        await F.UniversalResolver.read.findResolver([dnsEncodeName(name)])
-      expectVar({ resolver }).toEqualAddress(F.Shapeshift1.address)
-      expectVar({ node }).toStrictEqual(namehash(name))
-      expectVar({ offset }).toStrictEqual(0n)
-    })
-
-    it('self-encrypted', async () => {
-      const F = await loadFixture()
-      const name = testName
-        .split('.')
-        .map((x) => `[${keccak256(toHex(x)).slice(2)}]`)
-        .join('.')
-      await F.takeControl(name)
-      await F.ENSRegistry.write.setResolver([
-        namehash(name),
-        F.Shapeshift1.address,
-      ])
-      const [resolver, node, offset] =
-        await F.UniversalResolver.read.findResolver([dnsEncodeName(name)])
-      expectVar({ resolver }).toEqualAddress(F.Shapeshift1.address)
-      expectVar({ node }).toStrictEqual(namehash(name))
-      expectVar({ offset }).toStrictEqual(0n)
-    })
   })
 
   describe('resolve()', () => {

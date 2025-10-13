@@ -7,7 +7,7 @@ contract TestNameCoder {
     function nextLabel(
         bytes memory name,
         uint256 offset
-    ) external pure returns (uint8 size, uint256 nextOffset) {
+    ) external pure returns (uint8, uint256) {
         return NameCoder.nextLabel(name, offset);
     }
 
@@ -18,25 +18,31 @@ contract TestNameCoder {
         return NameCoder.prevLabel(name, offset);
     }
 
+    function countLabels(
+        bytes memory name,
+        uint256 offset
+    ) external pure returns (uint256) {
+        return NameCoder.countLabels(name, offset);
+    }
+
     function readLabel(
         bytes memory name,
-        uint256 offset,
-        bool parseHashed
-    )
-        external
-        pure
-        returns (
-            bytes32 labelHash,
-            uint256 nextOffset,
-            uint8 size,
-            bool wasHashed
-        )
-    {
-        (labelHash, nextOffset, size, wasHashed) = NameCoder.readLabel(
-            name,
-            offset,
-            parseHashed
-        );
+        uint256 offset
+    ) external pure returns (bytes32, uint256) {
+        return NameCoder.readLabel(name, offset);
+    }
+
+    function extractLabel(
+        bytes memory name,
+        uint256 offset
+    ) external pure returns (string memory, uint256) {
+        return NameCoder.extractLabel(name, offset);
+    }
+
+    function firstLabel(
+        bytes memory name
+    ) external pure returns (string memory) {
+        return NameCoder.firstLabel(name);
     }
 
     function namehash(
@@ -62,16 +68,18 @@ contract TestNameCoder {
         bytes memory name,
         uint256 offset,
         bytes32 nodeSuffix
-    )
-        external
-        pure
-        returns (
-            bool matched,
-            bytes32 node,
-            uint256 prevOffset,
-            uint256 matchOffset
-        )
-    {
+    ) external pure returns (bool, bytes32, uint256, uint256) {
         return NameCoder.matchSuffix(name, offset, nodeSuffix);
+    }
+
+    function ethName(string memory label) external pure returns (bytes memory) {
+        return NameCoder.ethName(label);
+    }
+
+    function addLabel(
+        bytes memory name,
+        string memory label
+    ) external pure returns (bytes memory) {
+        return NameCoder.addLabel(name, label);
     }
 }

@@ -1,6 +1,8 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
+import {LibMem} from "./LibMem/LibMem.sol";
+
 library BytesUtils {
     /// @dev `offset` was beyond `length`.
     ///       Error selector: `0x8a3c1cfb`
@@ -24,7 +26,7 @@ library BytesUtils {
         uint256 len
     ) internal pure returns (bytes32 ret) {
         _checkBound(v, off + len);
-        assembly {
+        assembly ("memory-safe") {
             ret := keccak256(add(add(v, 32), off), len)
         }
     }
@@ -58,33 +60,25 @@ library BytesUtils {
     ) internal pure returns (int256) {
         _checkBound(vA, offA + lenA);
         _checkBound(vB, offB + lenB);
-        uint256 ptrA;
-        uint256 ptrB;
-        assembly {
-            ptrA := add(vA, offA)
-            ptrB := add(vB, offB)
-        }
-        uint256 shortest = lenA < lenB ? lenA : lenB;
-        for (uint256 i; i < shortest; i += 32) {
-            uint256 a;
-            uint256 b;
-            assembly {
-                ptrA := add(ptrA, 32)
-                ptrB := add(ptrB, 32)
-                a := mload(ptrA)
-                b := mload(ptrB)
-            }
-            if (a != b) {
-                uint256 rest = shortest - i;
-                if (rest < 32) {
-                    rest = (32 - rest) << 3; // bits to drop
-                    a >>= rest; // shift out the
-                    b >>= rest; // irrelevant bits
-                }
-                if (a < b) {
-                    return -1;
-                } else if (a > b) {
-                    return 1;
+        unchecked {
+            uint256 ptrA = LibMem.ptr(vA) + offA;
+            uint256 ptrB = LibMem.ptr(vB) + offB;
+            uint256 shortest = lenA < lenB ? lenA : lenB;
+            for (uint256 i; i < shortest; i += 32) {
+                uint256 a = LibMem.load(ptrA + i);
+                uint256 b = LibMem.load(ptrB + i);
+                if (a != b) {
+                    uint256 rest = shortest - i;
+                    if (rest < 32) {
+                        rest = (32 - rest) << 3; // bits to drop
+                        a >>= rest; // shift out the
+                        b >>= rest; // irrelevant bits
+                    }
+                    if (a < b) {
+                        return -1;
+                    } else if (a > b) {
+                        return 1;
+                    }
                 }
             }
         }
@@ -122,9 +116,11 @@ library BytesUtils {
     ) internal pure returns (bool) {
         _checkBound(vA, offA);
         _checkBound(vB, offB);
-        return
-            keccak(vA, offA, vA.length - offA) ==
-            keccak(vB, offB, vB.length - offB);
+        unchecked {
+            return
+                keccak(vA, offA, vA.length - offA) ==
+                keccak(vB, offB, vB.length - offB);
+        }
     }
 
     /// @dev Determine if `a[offA:] == b`.
@@ -162,7 +158,9 @@ library BytesUtils {
         uint256 off
     ) internal pure returns (uint8) {
         _checkBound(v, off + 1);
-        return uint8(v[off]);
+        unchecked {
+            return uint8(v[off]);
+        }
     }
 
     /// @dev Returns `uint16(bytes2(v[off:off+2]))`.
@@ -174,7 +172,7 @@ library BytesUtils {
         uint256 off
     ) internal pure returns (uint16 ret) {
         _checkBound(v, off + 2);
-        assembly {
+        assembly ("memory-safe") {
             ret := shr(240, mload(add(add(v, 32), off)))
         }
     }
@@ -188,7 +186,7 @@ library BytesUtils {
         uint256 off
     ) internal pure returns (uint32 ret) {
         _checkBound(v, off + 4);
-        assembly {
+        assembly ("memory-safe") {
             ret := shr(224, mload(add(add(v, 32), off)))
         }
     }
@@ -202,7 +200,7 @@ library BytesUtils {
         uint256 off
     ) internal pure returns (bytes20 ret) {
         _checkBound(v, off + 20);
-        assembly {
+        assembly ("memory-safe") {
             ret := shl(96, mload(add(add(v, 20), off)))
         }
     }
@@ -216,7 +214,7 @@ library BytesUtils {
         uint256 off
     ) internal pure returns (bytes32 ret) {
         _checkBound(v, off + 32);
-        assembly {
+        assembly ("memory-safe") {
             ret := mload(add(add(v, 32), off))
         }
     }
@@ -234,33 +232,9 @@ library BytesUtils {
     ) internal pure returns (bytes32 ret) {
         assert(len <= 32);
         _checkBound(v, off + len);
-        assembly {
+        assembly ("memory-safe") {
             let mask := sub(shl(shl(3, sub(32, len)), 1), 1) // <(32-N)x00><NxFF>
             ret := and(mload(add(add(v, 32), off)), not(mask))
-        }
-    }
-
-    /// @dev Copy `mem[src:src+len]` to `mem[dst:dst+len]`.
-    /// @param src The source memory offset.
-    /// @param dst The destination memory offset.
-    /// @param len The number of bytes to copy.
-    function unsafeMemcpy(uint256 dst, uint256 src, uint256 len) internal pure {
-        assembly {
-            // Copy word-length chunks while offsible
-            // prettier-ignore
-            for {} gt(len, 31) {} {
-                mstore(dst, mload(src))
-                dst := add(dst, 32)
-                src := add(src, 32)
-                len := sub(len, 32)
-            }
-            // Copy remaining bytes
-            if len {
-                let mask := sub(shl(shl(3, sub(32, len)), 1), 1) // see above
-                let wSrc := and(mload(src), not(mask))
-                let wDst := and(mload(dst), mask)
-                mstore(dst, or(wSrc, wDst))
-            }
         }
     }
 
@@ -279,13 +253,13 @@ library BytesUtils {
     ) internal pure {
         _checkBound(vSrc, offSrc + len);
         _checkBound(vDst, offDst + len);
-        uint256 src;
-        uint256 dst;
-        assembly {
-            src := add(add(vSrc, 32), offSrc)
-            dst := add(add(vDst, 32), offDst)
+        unchecked {
+            LibMem.copy(
+                LibMem.ptr(vDst) + offDst,
+                LibMem.ptr(vSrc) + offSrc,
+                len
+            );
         }
-        unsafeMemcpy(dst, src, len);
     }
 
     /// @dev Copies a substring into a new byte string.
@@ -320,5 +294,53 @@ library BytesUtils {
             }
         }
         return type(uint256).max;
+    }
+
+    /// @dev Returns `true` if word contains a zero byte.
+    function hasZeroByte(uint256 word) internal pure returns (bool) {
+        unchecked {
+            return
+                ((~word &
+                    (word -
+                        0x0101010101010101010101010101010101010101010101010101010101010101)) &
+                    0x8080808080808080808080808080808080808080808080808080808080808080) !=
+                0;
+        }
+    }
+
+    /// @dev Efficiently check if `v[off:off+len]` contains `needle` byte.
+    /// @param v The source bytes.
+    /// @param off The offset into the source.
+    /// @param len The number of bytes to search.
+    /// @param needle The byte to search for.
+    /// @return found `true` if `needle` was found.
+    function includes(
+        bytes memory v,
+        uint256 off,
+        uint256 len,
+        bytes1 needle
+    ) internal pure returns (bool found) {
+        _checkBound(v, off + len);
+        unchecked {
+            uint256 wide = uint8(needle);
+            wide |= wide << 8;
+            wide |= wide << 16;
+            wide |= wide << 32;
+            wide |= wide << 64;
+            wide |= wide << 128; // broadcast byte across word
+            off += LibMem.ptr(v);
+            len += off;
+            while (off < len) {
+                uint256 word = LibMem.load(off) ^ wide; // zero needle byte
+                off += 32;
+                if (hasZeroByte(word)) {
+                    return
+                        off <= len ||
+                        hasZeroByte(
+                            word | ((1 << ((off - len) << 3)) - 1) // recheck overflow by making it nonzero
+                        );
+                }
+            }
+        }
     }
 }
