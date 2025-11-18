@@ -47,8 +47,7 @@ const config = {
       accounts: realAccounts,
     },
     holesky: {
-      type: 'http',
-      url: `https://holesky.gateway.tenderly.co`,
+      type: 'http',      url: `https://holesky.gateway.tenderly.co`,
       chainId: 17000,
       accounts: realAccounts,
     },
