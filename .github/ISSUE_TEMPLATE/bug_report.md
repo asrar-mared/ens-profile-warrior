@@ -7,52 +7,50 @@ assignees: ''
 ---
 
 ## 🧾 وصف الخطأ | Bug Description
-وصف واضح وموجز لما هو الخطأ.  
-A clear and concise description of what the bug is.
+اكتب وصفًا واضحًا وموجزًا للخطأ الذي واجهته.  
+Provide a clear and concise description of the bug.
 
 ---
 
 ## 🔁 خطوات إعادة الإنتاج | Steps to Reproduce
-1. اذهب إلى '...'
-2. انقر فوق '....'
-3. انتقل إلى الأسفل إلى '....'
-4. انظر الخطأ  
+**اقرأ التعليمات أعلاه ثم اكتب خطواتك هنا:**  
+Write the exact steps you followed that caused the bug.
 
-Steps:
-1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See the error
+مثال:
+1. افتح الصفحة الرئيسية
+2. اضغط على زر "تسجيل الدخول"
+3. أدخل بياناتك
+4. يظهر الخطأ
 
 ---
 
 ## ✅ السلوك المتوقع | Expected Behavior
-وصف واضح وموجز لما كنت تتوقع حدوثه.  
-A clear and concise description of what you expected to happen.
+ما الذي كنت تتوقع حدوثه بدلًا من الخطأ؟  
+What did you expect to happen instead?
 
 ---
 
 ## 🖼️ لقطات الشاشة | Screenshots
-إذا كان ذلك ممكنًا، أضف لقطات شاشة للمساعدة في شرح مشكلتك.  
+إذا كان ذلك ممكنًا، أضف لقطات شاشة لتوضيح المشكلة.  
 If applicable, add screenshots to help explain your problem.
 
 ---
 
 ## 💻 بيئة سطح المكتب | Desktop Environment
-- نظام التشغيل (OS): [مثال: Windows 11 / macOS / Linux]  
-- المتصفح (Browser): [مثال: Chrome, Safari]  
+- نظام التشغيل (OS): [Windows / macOS / Linux]  
+- المتصفح (Browser): [Chrome / Safari / Firefox]  
 - الإصدار (Version): [مثال: 119]
 
 ---
 
 ## 📱 بيئة الهاتف | Mobile Environment
 - الجهاز (Device): [مثال: iPhone 14 / Samsung Galaxy]  
-- نظام التشغيل (OS): [مثال: iOS 17 / Android 14]  
-- المتصفح (Browser): [مثال: Safari, Chrome]  
+- نظام التشغيل (OS): [iOS 17 / Android 14]  
+- المتصفح (Browser): [Safari / Chrome]  
 - الإصدار (Version): [مثال: 22]
 
 ---
 
 ## 🧩 سياق إضافي | Additional Context
-أضف أي سياق آخر حول المشكلة هنا.  
+أضف أي معلومات أو ملاحظات أخرى تساعد في فهم المشكلة.  
 Add any other context about the problem here.
