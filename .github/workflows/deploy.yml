@@ -1,0 +1,39 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+      - ens-main
+
+jobs:
+  deploy:
+    name: Production Deployment
+    runs-on: ubuntu-latest
+
+    environment:
+      name: production
+      url: https://your-production-url.com
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Deploy to production
+        run: |
+          echo "🔐 Deploying to production..."
+          # ضع أوامر النشر الفعلية هنا (scp/rsync/vercel/netlify/etc)
+
+      - name: Mark deployment as successful
+        run: echo "✅ Deployment completed"
